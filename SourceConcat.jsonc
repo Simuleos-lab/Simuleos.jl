@@ -1,0 +1,30 @@
+{
+    "root.paths": [
+        ".", 
+        // "~/.julia/dev/SimuleosBase", 
+        // "~/.julia/dev/SimuleosCore"
+        "~/.julia/dev/LiteBlobs",
+        "~/.julia/dev/LiteTapes"
+    ],  
+
+    "output.path": "~/Documents/context.md",
+
+    "output.mode": "clipboard-file",
+    
+    "include.files": [
+        "*.jl", 
+        "*.md",
+        "*Project.toml", 
+        "*SourceConcat.json" 
+    ], 
+    "exclude.files": [
+        "_DEPRECATED/**",
+        ".git/**",
+        "dev/**"
+    ], 
+    "include.content": [
+        ""
+    ], 
+
+    "use.gtignore": true
+}

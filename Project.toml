@@ -2,3 +2,7 @@ name = "Simuleos"
 uuid = "583fa42a-a17c-4ad2-8932-70aab3cc9651"
 authors = ["josePereiro <jose.pereiro.personal@gmail.com>"]
 version = "0.1.0"
+
+[deps]
+SimuleosBase = "9a9a10ab-e5da-438a-ba22-cca078bd07ee"
+SimuleosCore = "633885db-e807-476e-acf8-efb31ca237b9"
