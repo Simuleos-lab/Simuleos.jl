@@ -1,8 +1,8 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.11.6"
+julia_version = "1.12.1"
 manifest_format = "2.0"
-project_hash = "f7b769fbfa68301de0cc0424c56d580bebb0f66c"
+project_hash = "29e0b7be6f52e60191d0faf98de905443d3cb225"
 
 [[deps.Dates]]
 deps = ["Printf"]
@@ -72,6 +72,12 @@ version = "1.11.0"
 [[deps.SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 version = "0.7.0"
+
+[[deps.Simuleos]]
+deps = ["SimuleosBase", "SimuleosCore"]
+path = "."
+uuid = "583fa42a-a17c-4ad2-8932-70aab3cc9651"
+version = "0.1.0"
 
 [[deps.SimuleosBase]]
 deps = ["Dates", "JSON", "JSON3", "MassExport", "Random", "SHA", "UUIDs"]
