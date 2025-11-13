@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    tags: ['*']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # Skip intermediate builds: always.
+  # Cancel intermediate builds: only if it is a pull request build.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+jobs:
+  test:
+    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+
+    # Needed so julia-actions/cache can delete its old caches
+    permissions:
+      actions: write
+      contents: read
+
+    env:
+      # Actually use the matrix thread count
+      JULIA_NUM_THREADS: ${{ matrix.nthreads }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - '1.10'  # LTS
+        os:
+          - ubuntu-latest
+          # - macOS-latest
+          # - windows-latest
+        arch:
+          - x64
+        nthreads:
+          - 3
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: julia-actions/setup-julia@v1
+        with:
+          version: ${{ matrix.version }}
+          arch: ${{ matrix.arch }}
+
+      - name: Install custom registry
+        run: |
+          julia -e 'import Pkg; Pkg.Registry.add(Pkg.RegistrySpec(url="https://github.com/josePereiro/Pereiro_Registry.jl"))'
+
+      - uses: julia-actions/cache@v1
+
+      - uses: julia-actions/julia-buildpkg@v1
+
+      - uses: julia-actions/julia-runtest@v1
+        # If you add nightly above and want it non-fatal, uncomment:
+        # continue-on-error: ${{ matrix.version == 'nightly' }}
+
+      - uses: julia-actions/julia-processcoverage@v1
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        # Only upload once (avoid duplicates when matrix grows)
+        if: matrix.os == 'ubuntu-latest' && matrix.version == '1.10'
+        with:
+          files: lcov.info
+          # Public repo: no token needed
+          fail_ci_if_error: true
