@@ -1,8 +1,6 @@
 module Simuleos
 
-import SimuleosBase
-import SimuleosBase: MassExport
-import SimuleosCore
+import MassExport
 
 #! include .
 include("0.types.jl")
