@@ -26,18 +26,15 @@ jobs:
       contents: read
 
     env:
-      # Actually use the matrix thread count
       JULIA_NUM_THREADS: ${{ matrix.nthreads }}
 
     strategy:
       fail-fast: false
       matrix:
         version:
-          - '1.10'  # LTS
+          - '1.12.1'  
         os:
           - ubuntu-latest
-          # - macOS-latest
-          # - windows-latest
         arch:
           - x64
         nthreads:
@@ -60,16 +57,13 @@ jobs:
       - uses: julia-actions/julia-buildpkg@v1
 
       - uses: julia-actions/julia-runtest@v1
-        # If you add nightly above and want it non-fatal, uncomment:
-        # continue-on-error: ${{ matrix.version == 'nightly' }}
 
       - uses: julia-actions/julia-processcoverage@v1
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
-        # Only upload once (avoid duplicates when matrix grows)
         if: matrix.os == 'ubuntu-latest' && matrix.version == '1.10'
         with:
           files: lcov.info
-          # Public repo: no token needed
-          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }} # set this in repo secrets
+          fail_ci_if_error: false
