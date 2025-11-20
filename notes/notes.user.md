@@ -1,5 +1,29 @@
 > This is a user design note
 
+***
+# NOTE
+- extracted from disscusing `git` development phylosophy
+- > being wrong is worse than being inconvenient
+- > Git deliberately exposes its plumbing. If you touch the plumbing, you must be responsible for consequences.
+    - we need to clearly define the plumming
+    - and sepearated from the applications on top
+    - also, the plumming must be usable by itself
+- #TODO
+- Disscuss with chatGPT about applaying `git` phylosophy on `Simuleaos` design
+
+- How this applies to your own project
+- Good insight from you:
+- “Where should I, as a developer, stop implementing auto-recoveries?”
+- Git’s philosophy suggests the answer:
+    - Don’t guess user intent.
+    - Don’t hide failures.
+    - Make the rules explicit.
+    - Document the contract and trust users to follow it.
+- You can offer helper commands:
+- `fix-worktree path/to/wt`
+- But avoid silently fixing in the background.
+- This mirrors Git’s approach:
+- tools may help, but the core stays strict.
 
 ***
 # NOTE
@@ -57,12 +81,6 @@
         - All apps/companies must use this platform 
         - All tweets, email, etc.
             - You first publish the text in your shit, ad then tweeter can take it. 
-
-- #NOTE
-- 
-
-
-
 
 ***
 #### NOTE
