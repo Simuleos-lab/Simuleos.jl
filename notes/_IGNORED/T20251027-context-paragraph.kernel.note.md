@@ -1,6 +1,5 @@
 - #IDEA
-    - This is a label, or a tag, but it is 
-
+- This is a label, or a tag
 
 - #DESIGN
 - Everything default to root
