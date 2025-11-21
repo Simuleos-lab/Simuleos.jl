@@ -86,7 +86,7 @@ Implicit graph where Issues (nodes) are connected through contextual references,
 Non-lite data associated with an Issue (e.g., heavy arrays, binary files). Referenced by ContextRecords but not embedded.
 
 
-## **15. LiteBlob**
+## **15. LiteRecord**
 
 Tier-0 JSON-like key–value container (strings, numbers, small arrays, lite dicts). Foundation for ContextRecord encoding.
 
@@ -99,9 +99,9 @@ Two blob flavors:
 * **DynamicBlob** — mutable, identified by an ID, can be committed to produce a StaticBlob.
 
 
-## **17. LiteBlobArray**
+## **17. LiteRecordArray**
 
-Array of LiteBlobs stored in batch files (.jsonl).
+Array of LiteRecords stored in batch files (.jsonl).
 Used inside TapeSegment structures.
 
 
@@ -120,7 +120,7 @@ Append-only, identified by a timestamp and batch metadata.
 ## **20. TapeRecord**
 
 A wrapper representing a single blob inside a batch.
-Holds the LiteBlob plus metadata like object keys.
+Holds the LiteRecord plus metadata like object keys.
 
 
 ## **21. Content Hash**
