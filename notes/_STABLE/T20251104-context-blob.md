@@ -1,13 +1,22 @@
 %% Note Body --------------------------------------------------- %%
 
-%% Write here %%
+#TODO/UPDATE
+- BinData is sinonimus of Artifact
+- Artifact is #PREFERED
+- BinData is #DEPRECATED
+
+- ContextNode is sinonimus of ContextRecord
+- ContextRecord is #PREFERED
 
 #NOTE 
 - Good contexnt https://adactio.com/articles/1522/
 
 #NOTE
 - Use 'modeling' in the name of the ContextNode
-    - In some ways describing so precisly something is in fact modeling
+    - In some ways describing so precisly something is in fact modeling `#LIKED`
+    - ContextRecord as a Model (Representation) of the Issue
+    - A ContextRecord aim to answer any question about the Issue
+        - It can even have a `purpose` field describing which questions it want to answer. #EXPLORATION
     - So, this objects are just a modeling units.
         - MetaModel
         - ModelBlob

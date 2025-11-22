@@ -3,7 +3,7 @@
         ".", 
         // "~/.julia/dev/SimuleosBase", 
         // "~/.julia/dev/SimuleosCore"
-        "~/.julia/dev/LiteBlobs",
+        "~/.julia/dev/LiteRecords",
         "~/.julia/dev/LiteTapes"
     ],  
 
@@ -19,6 +19,7 @@
     ], 
     "exclude.files": [
         "_DEPRECATED/**",
+        "_IGNORED/**",
         ".git/**",
         "dev/**"
     ], 

@@ -10,6 +10,7 @@ uuid = "bdad8087-1bf2-41e1-917c-1d9e34c2a82c"
 version = "1.0.3"
 
 [[deps.Simuleos]]
+deps = ["MassExport"]
 path = "."
 uuid = "583fa42a-a17c-4ad2-8932-70aab3cc9651"
 version = "0.1.0"
