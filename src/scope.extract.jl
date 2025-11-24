@@ -56,6 +56,8 @@ macro sim_scope(lb = "")
     quote
         let
             # create label
+            # TODO/ Migrate from Scoperias (or not) 
+            # #IGNORE
             # isempty($(lb)) || Scoperias.@sim_label $(lb)
             # local rsc = Scoperias.@sim_rawscope()
             # Scoperias.sc_check_for_local_label(rsc)

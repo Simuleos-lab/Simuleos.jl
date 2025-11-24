@@ -102,22 +102,22 @@ Two blob flavors:
 ## **17. LiteRecordArray**
 
 Array of LiteRecords stored in batch files (.jsonl).
-Used inside TapeSegment structures.
+Used inside LiteTapeSegment structures.
 
 
-## **18. TapeLib**
+## **18. LiteTapeLib**
 
 The root object pointing to the directory storing batches.
 Entry point of storage.
 
 
-## **19. TapeSegment**
+## **19. LiteTapeSegment**
 
 A batch file storing multiple blobs (ContextRecords).
 Append-only, identified by a timestamp and batch metadata.
 
 
-## **20. TapeRecord**
+## **20. LiteTapeRecord**
 
 A wrapper representing a single blob inside a batch.
 Holds the LiteRecord plus metadata like object keys.
@@ -159,10 +159,10 @@ Priority-driven mechanism for persistently encoding semantics inside kernel note
 
 ## **27. BinNode / Binary Data Descriptor**
 
-ContextNode describing how to load or reference heavy binary data. Uses keys like `"__type__": "BinNode"` and `"load.path"`.
+ContextRecord describing how to load or reference heavy binary data. Uses keys like `"__type__": "BinNode"` and `"load.path"`.
 
 
-## **28. ContextNode**
+## **28. ContextRecord**
 
 Generalized Dict-like object extended with custom value-resolution and indexing; used for internal context tree representation.
 
