@@ -12,7 +12,7 @@
     "output.mode": "clipboard-file",
     
     "include.files": [
-        "*.jl", 
+        // "*.jl", 
         "*.md",
         "*Project.toml", 
         "*SourceConcat.json" 
@@ -20,6 +20,7 @@
     "exclude.files": [
         "_DEPRECATED/**",
         "_IGNORED/**",
+        "notes/_IGNORED/**",
         ".git/**",
         "dev/**"
     ], 
