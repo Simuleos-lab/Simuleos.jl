@@ -92,12 +92,15 @@ The simulation runs, producing:
 **What happens:**
 - Retrieves current session via `_get_session()`
 - Adds symbols `:X`, `:Y`, `:ts` to `session.blob_set`
+    - `#FEEDBACK` the `blob_set` must be linked to the current scope, not to the session...
 - These variables are now marked for blob storage instead of inline JSON
 
 #### 4. `@sim_capture "simulate_lv"`
 
 **What happens:**
 - Calls `Base.@locals()` to get Dict{Symbol, Any} of all local variables
+    - `#FEEDBACK` globals must also be captured
+        - check Scoperias for examples of how to do so...
 - For each variable, `_process_scope()` decides storage:
 
 | Variable | Type | Storage Decision |
@@ -115,6 +118,9 @@ The simulation runs, producing:
 - For blob storage:
   - `_blob_hash(value)`: serialize to bytes, compute SHA1
   - `_write_blob(session, value)`: write to `.simuleos/blobs/<sha1>.jls`
+    - `#FEEDBACK`
+        - `.simuleos/blobs` is perfect like this
+        - a contect hash addressing system...
 - Creates `Scope` with label "simulate_lv", timestamp, and all `ScopeVariable`s
 - Pushes scope to `session.stage.scopes`
 - Clears `blob_set` for next capture
@@ -137,7 +143,24 @@ The simulation runs, producing:
   - Creates `.simuleos/tapes/` directory
   - Sanitizes label for filename: "Lotka-Volterra_Simulation.jsonl"
   - Appends JSON record as single line
+  - `#FEEDBACK`
+        - we will have one subfolder per session
+            - for instance `simuleos/session/Lotka-Volterra_Simulation/tapes/context.tape.jsonl`
+            - this will set the statge for further session data
+            - note, blobs are global to all sessions
 - Resets `stage` to empty for next commit cycle
+
+
+- `#FEEDBACK`
+- lets talk about the labels
+- the labels can be local or global
+- global labels are attached to the current session
+    - and include it on all commits
+- local labels are attached to an scope only
+- for instance
+    - `@sim_session` label is global
+    - `@sim_capture` label is local
+    - `@sim_commit` label is global
 
 ### Final Output
 
@@ -215,6 +238,8 @@ Values of these types are stored inline in JSON:
 - `String`
 - `Nothing`
 - `Missing` (stored as string "missing")
+    - `#FEEDBACK`
+        - use "__missing__"
 - `Symbol` (stored as string)
 
 All other types either require explicit `@sim_store` for blob storage, or are recorded as type-only references.

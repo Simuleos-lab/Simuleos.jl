@@ -26,7 +26,7 @@ function _liteify(::Nothing)
 end
 
 function _liteify(::Missing)
-    return "missing"
+    return "__missing__"
 end
 
 function _liteify(value::Symbol)
