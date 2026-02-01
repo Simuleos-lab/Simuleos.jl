@@ -72,11 +72,9 @@ macro sim_session(label)
         Simuleos._reset_session!()
         root = joinpath($(src_dir), ".simuleos")
 
-        # Create session-specific directory
+        # Compute session directory path (created on-demand at write time)
         safe_label = replace($(esc(label)), r"[^\w\-]" => "_")
         session_dir = joinpath(root, "sessions", safe_label)
-        mkpath(joinpath(session_dir, "tapes"))
-        mkpath(joinpath(root, "blobs"))  # Global blobs
 
         meta = Simuleos._capture_metadata($(src_file))
         global Simuleos.__SIM_SESSION__ = Simuleos.Session(
