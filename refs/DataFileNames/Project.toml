@@ -1,0 +1,18 @@
+name = "DataFileNames"
+uuid = "82dba31a-8ab6-430f-a22d-9cbb81344561"
+authors = ["josePereiro <jose.pereiro.lab@gmail.com> and contributors"]
+version = "0.5.0"
+
+[deps]
+RegexTools = "3cb95532-3c78-4535-bbc5-067405b402f6"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+
+[compat]
+julia = "1.5"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+
+[targets]
+test = ["Test", "Random"]

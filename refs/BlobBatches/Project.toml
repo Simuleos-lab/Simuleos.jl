@@ -1,0 +1,19 @@
+name = "BlobBatches"
+uuid = "bd179519-4129-4665-89c4-735097de082f"
+authors = ["josePereiro <jose.pereiro.personal@gmail.com> and contributors"]
+version = "1.0.0-DEV"
+
+[deps]
+FileWatching = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
+OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
+Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
+SimpleLockFiles = "0c975e61-21d9-4454-8de5-ff08fd2c478f"
+
+[compat]
+julia = "1.6"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

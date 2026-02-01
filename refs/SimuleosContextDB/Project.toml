@@ -1,0 +1,19 @@
+name = "SimuleosContextDB"
+uuid = "51b5d945-be7a-41ae-bbeb-daec4a70c96a"
+authors = ["tohme <tarektohme1@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+MassExport = "bdad8087-1bf2-41e1-917c-1d9e34c2a82c"
+OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
+
+[compat]
+MassExport = "1.0"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

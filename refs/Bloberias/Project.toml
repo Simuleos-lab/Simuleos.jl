@@ -1,0 +1,25 @@
+name = "Bloberias"
+uuid = "c7313018-426c-4109-b567-6f433e2229c2"
+authors = ["josePereiro <jose.pereiro.personal@gmail.com> and contributors"]
+version = "0.5.3"
+
+[deps]
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
+SimpleLockFiles = "0c975e61-21d9-4454-8de5-ff08fd2c478f"
+OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+MassExport = "bdad8087-1bf2-41e1-917c-1d9e34c2a82c"
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
+
+[compat]
+julia = "1.6"
+Random = "1.11.0"
+Aqua = "0.8.9"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

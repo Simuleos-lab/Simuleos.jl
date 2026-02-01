@@ -1,0 +1,49 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ctx: <http://contextdb.jl/kg#> .
+
+ctx:file_1 rdf:type ctx:File .
+ctx:file_1 ctx:name "<unknown>" .
+ctx:file_1 ctx:start_line "1" .
+ctx:file_1 ctx:end_line "3" .
+
+ctx:ref_7 rdf:type ctx:Reference .
+ctx:ref_7 ctx:name "mod" .
+ctx:ref_7 ctx:start_line "0" .
+ctx:ref_7 ctx:end_line "0" .
+
+ctx:func_2 rdf:type ctx:Function .
+ctx:func_2 ctx:name "foo" .
+ctx:func_2 ctx:signature "foo(x::Int32, n::Int32)" .
+ctx:func_2 ctx:start_line "0" .
+ctx:func_2 ctx:end_line "0" .
+
+ctx:param_4 rdf:type ctx:Parameter .
+ctx:param_4 ctx:name "n" .
+ctx:param_4 ctx:type "Int32" .
+ctx:param_4 ctx:start_line "0" .
+ctx:param_4 ctx:end_line "0" .
+
+ctx:call_6 rdf:type ctx:CallSite .
+ctx:call_6 ctx:signature "mod(x, n)" .
+ctx:call_6 ctx:start_line "0" .
+ctx:call_6 ctx:end_line "0" .
+
+ctx:param_3 rdf:type ctx:Parameter .
+ctx:param_3 ctx:name "x" .
+ctx:param_3 ctx:type "Int32" .
+ctx:param_3 ctx:start_line "0" .
+ctx:param_3 ctx:end_line "0" .
+
+ctx:ret_5 rdf:type ctx:Return .
+ctx:ret_5 ctx:signature "return mod(x, n)" .
+ctx:ret_5 ctx:start_line "0" .
+ctx:ret_5 ctx:end_line "0" .
+
+ctx:file_1 ctx:defines ctx:func_2 .
+ctx:func_2 ctx:has_param ctx:param_3 .
+ctx:func_2 ctx:has_param ctx:param_4 .
+ctx:func_2 ctx:contains ctx:ret_5 .
+ctx:ret_5 ctx:contains ctx:call_6 .
+ctx:call_6 ctx:calls ctx:ref_7 .
+ctx:ret_5 ctx:returns ctx:call_6 .

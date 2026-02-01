@@ -1,0 +1,22 @@
+name = "SimuleosBase"
+uuid = "9a9a10ab-e5da-438a-ba22-cca078bd07ee"
+authors = ["josePereiro <jose.pereiro.personal@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+MassExport = "bdad8087-1bf2-41e1-917c-1d9e34c2a82c"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
+
+[compat]
+Dates = "1.11.0"
+JSON = "0.21.4"
+JSON3 = "1.14.3"
+MassExport = "1.0.3"
+Random = "1.11.0"
+SHA = "0.7.0"
+UUIDs = "1.11.0"

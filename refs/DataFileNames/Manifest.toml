@@ -1,0 +1,16 @@
+# This file is machine-generated - editing it directly is not advised
+
+julia_version = "1.7.0"
+manifest_format = "2.0"
+
+[[deps.Printf]]
+deps = ["Unicode"]
+uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+
+[[deps.RegexTools]]
+git-tree-sha1 = "3dc00229a24f2cef9dcd9ec3d09151a0d464c365"
+uuid = "3cb95532-3c78-4535-bbc5-067405b402f6"
+version = "0.2.0"
+
+[[deps.Unicode]]
+uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"

@@ -1,0 +1,35 @@
+name = "Scoperias"
+uuid = "32d335d2-e89e-4d1b-81c8-75e23c0ebddc"
+authors = ["josePereiro <jose.pereiro.lab@gmail.com> and contributors"]
+version = "0.0.1"
+
+[deps]
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+ExtractMacro = "f86d3d12-fd5b-522c-99e9-61577282a1e9"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+MassExport = "bdad8087-1bf2-41e1-917c-1d9e34c2a82c"
+OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
+SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
+SimpleLockFiles = "0c975e61-21d9-4454-8de5-ff08fd2c478f"
+StyledStrings = "f489334b-da3d-4c2e-b8f0-e476e12c162b"
+
+[compat]
+Dates = "1.11.0"
+ExtractMacro = "1.0.0"
+JLD2 = "0.4.53"
+JSON = "0.21.4"
+MassExport = "1.0.3"
+OrderedCollections = "1.7.0"
+SHA = "0.7.0"
+Serialization = "1.11.0"
+SimpleLockFiles = "0.8.0"
+StyledStrings = "1.11.0"
+julia = "1.10"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

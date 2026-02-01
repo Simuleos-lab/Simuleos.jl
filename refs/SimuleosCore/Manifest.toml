@@ -1,0 +1,21 @@
+# This file is machine-generated - editing it directly is not advised
+
+julia_version = "1.11.6"
+manifest_format = "2.0"
+project_hash = "4b4f93a8027a5743ee06d9a79bbf23bf97d890e7"
+
+[[deps.MassExport]]
+git-tree-sha1 = "5984e7744efc52f69088103eb196aa8fa4c4da9e"
+uuid = "bdad8087-1bf2-41e1-917c-1d9e34c2a82c"
+version = "1.0.3"
+
+[[deps.OrderedCollections]]
+git-tree-sha1 = "05868e21324cede2207c6f0f466b4bfef6d5e7ee"
+uuid = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
+version = "1.8.1"
+
+[[deps.SimuleosBase]]
+deps = ["MassExport"]
+path = "/Users/pereiro/.julia/dev/SimuleosBase"
+uuid = "9a9a10ab-e5da-438a-ba22-cca078bd07ee"
+version = "0.1.0"

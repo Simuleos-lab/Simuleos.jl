@@ -1,0 +1,26 @@
+name = "LiteTapes"
+uuid = "821de944-c3ff-4e25-b699-d1a5d793fb2b"
+version = "1.0.0-DEV"
+authors = ["josePereiro <jose.pereiro.personal@gmail.com> and contributors"]
+
+[deps]
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+LiteRecords = "31287b19-3d5c-43dc-9222-db6719520049"
+MassExport = "bdad8087-1bf2-41e1-917c-1d9e34c2a82c"
+OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
+
+[compat]
+JSON3 = "1.14.3"
+MassExport = "1.0.3"
+OrderedCollections = "1.8.1"
+Random = "1.11.0"
+UUIDs = "1.11.0"
+julia = "1.10"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

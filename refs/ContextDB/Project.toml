@@ -1,0 +1,22 @@
+name = "ContextDB"
+uuid = "0f9fe3f4-657c-4490-9d0c-4ec2ef452980"
+authors = ["tohme <tarektohme1@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+MassExport = "bdad8087-1bf2-41e1-917c-1d9e34c2a82c"
+OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
+
+[compat]
+Distributions = "0.25.120"
+JSON = "0.21.4"
+MassExport = "1.0.3"
+OrderedCollections = "1.8.1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

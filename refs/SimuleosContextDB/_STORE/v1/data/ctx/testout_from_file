@@ -1,0 +1,100 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ctx: <http://contextdb.jl/kg#> .
+
+ctx:ref_9 rdf:type ctx:Reference .
+ctx:ref_9 ctx:name "Uniform" .
+ctx:ref_9 ctx:start_line "0" .
+ctx:ref_9 ctx:end_line "0" .
+
+ctx:assign_6 rdf:type ctx:Assignment .
+ctx:assign_6 ctx:signature "D = Uniform(-1, 1)" .
+ctx:assign_6 ctx:start_line "0" .
+ctx:assign_6 ctx:end_line "0" .
+
+ctx:var_7 rdf:type ctx:Variable .
+ctx:var_7 ctx:name "D" .
+ctx:var_7 ctx:start_line "0" .
+ctx:var_7 ctx:end_line "0" .
+
+ctx:var_5 rdf:type ctx:Variable .
+ctx:var_5 ctx:name "successes" .
+ctx:var_5 ctx:start_line "0" .
+ctx:var_5 ctx:end_line "0" .
+
+ctx:ret_16 rdf:type ctx:Return .
+ctx:ret_16 ctx:signature "return pi_" .
+ctx:ret_16 ctx:start_line "0" .
+ctx:ret_16 ctx:end_line "0" .
+
+ctx:file_1 rdf:type ctx:File .
+ctx:file_1 ctx:name "<unknown>" .
+ctx:file_1 ctx:start_line "1" .
+ctx:file_1 ctx:end_line "20" .
+
+ctx:call_12 rdf:type ctx:CallSite .
+ctx:call_12 ctx:signature "(4successes) / nsamples" .
+ctx:call_12 ctx:start_line "0" .
+ctx:call_12 ctx:end_line "0" .
+
+ctx:assign_10 rdf:type ctx:Assignment .
+ctx:assign_10 ctx:signature "pi_ = (4successes) / nsamples" .
+ctx:assign_10 ctx:start_line "0" .
+ctx:assign_10 ctx:end_line "0" .
+
+ctx:assign_4 rdf:type ctx:Assignment .
+ctx:assign_4 ctx:signature "successes = 0" .
+ctx:assign_4 ctx:start_line "0" .
+ctx:assign_4 ctx:end_line "0" .
+
+ctx:call_8 rdf:type ctx:CallSite .
+ctx:call_8 ctx:signature "Uniform(-1, 1)" .
+ctx:call_8 ctx:start_line "0" .
+ctx:call_8 ctx:end_line "0" .
+
+ctx:var_11 rdf:type ctx:Variable .
+ctx:var_11 ctx:name "pi_" .
+ctx:var_11 ctx:start_line "0" .
+ctx:var_11 ctx:end_line "0" .
+
+ctx:func_2 rdf:type ctx:Function .
+ctx:func_2 ctx:name "approximatePi" .
+ctx:func_2 ctx:signature "approximatePi(nsamples)" .
+ctx:func_2 ctx:start_line "0" .
+ctx:func_2 ctx:end_line "0" .
+
+ctx:ref_15 rdf:type ctx:Reference .
+ctx:ref_15 ctx:name "*" .
+ctx:ref_15 ctx:start_line "0" .
+ctx:ref_15 ctx:end_line "0" .
+
+ctx:param_3 rdf:type ctx:Parameter .
+ctx:param_3 ctx:name "nsamples" .
+ctx:param_3 ctx:start_line "0" .
+ctx:param_3 ctx:end_line "0" .
+
+ctx:call_14 rdf:type ctx:CallSite .
+ctx:call_14 ctx:signature "4successes" .
+ctx:call_14 ctx:start_line "0" .
+ctx:call_14 ctx:end_line "0" .
+
+ctx:ref_13 rdf:type ctx:Reference .
+ctx:ref_13 ctx:name "/" .
+ctx:ref_13 ctx:start_line "0" .
+ctx:ref_13 ctx:end_line "0" .
+
+ctx:file_1 ctx:defines ctx:func_2 .
+ctx:func_2 ctx:has_param ctx:param_3 .
+ctx:func_2 ctx:contains ctx:assign_4 .
+ctx:assign_4 ctx:assigns ctx:var_5 .
+ctx:func_2 ctx:contains ctx:assign_6 .
+ctx:assign_6 ctx:assigns ctx:var_7 .
+ctx:assign_6 ctx:contains ctx:call_8 .
+ctx:call_8 ctx:calls ctx:ref_9 .
+ctx:func_2 ctx:contains ctx:assign_10 .
+ctx:assign_10 ctx:assigns ctx:var_11 .
+ctx:assign_10 ctx:contains ctx:call_12 .
+ctx:call_12 ctx:calls ctx:ref_13 .
+ctx:call_12 ctx:contains ctx:call_14 .
+ctx:call_14 ctx:calls ctx:ref_15 .
+ctx:func_2 ctx:contains ctx:ret_16 .

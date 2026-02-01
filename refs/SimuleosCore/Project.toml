@@ -1,0 +1,18 @@
+name = "SimuleosCore"
+uuid = "633885db-e807-476e-acf8-efb31ca237b9"
+authors = ["josePereiro <jose.pereiro.personal@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
+SimuleosBase = "9a9a10ab-e5da-438a-ba22-cca078bd07ee"
+
+[compat]
+OrderedCollections = "1.8.1"
+
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
