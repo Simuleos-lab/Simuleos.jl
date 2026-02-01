@@ -8,6 +8,8 @@ log.txt
 *log.txt
 .vscode
 _DEPRECATED
+ContextBundler.jsonc
+.simuleos/
 
 # Created by https://www.toptal.com/developers/gitignore/api/linux,windows,macos,visualstudiocode,julia,python,git
 # Edit at https://www.toptal.com/developers/gitignore?templates=linux,windows,macos,visualstudiocode,julia,python,git

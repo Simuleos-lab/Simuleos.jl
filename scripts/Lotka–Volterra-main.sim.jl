@@ -3,6 +3,7 @@
     using Random
     using Dates
     using Serialization
+    using Simuleos
 end
 
 ## ...- .- .-- -- ..- .--. --. - .--.-..-...
