@@ -23,19 +23,13 @@ function _capture_metadata(script_path)::Dict{String, Any}
         script_dir = pwd()
     end
 
-    # Try to get git commit
+    # Try to get git information using GitHandler
     try
-        git_commit = strip(read(`git -C $script_dir rev-parse HEAD`, String))
-        meta["git_commit"] = git_commit
+        gh = GitHandler(script_dir)
+        meta["git_commit"] = hash(gh)
+        meta["git_dirty"] = dirty(gh)
     catch
         meta["git_commit"] = nothing
-    end
-
-    # Check if git is dirty
-    try
-        git_status = strip(read(`git -C $script_dir status --porcelain`, String))
-        meta["git_dirty"] = !isempty(git_status)
-    catch
         meta["git_dirty"] = nothing
     end
 
