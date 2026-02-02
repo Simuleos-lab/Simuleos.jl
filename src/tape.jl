@@ -6,7 +6,7 @@ using Dates
 function _scope_variable_to_dict(sv::ScopeVariable)::Dict{String, Any}
     d = Dict{String, Any}(
         "name" => sv.name,
-        "type" => sv.type,
+        "type_str" => sv.type_str,
         "src" => string(sv.src)  # :local or :global
     )
     if !isnothing(sv.value)
@@ -22,6 +22,7 @@ function _scope_to_dict(scope::Scope)::Dict{String, Any}
     d = Dict{String, Any}(
         "label" => scope.label,
         "timestamp" => string(scope.timestamp),
+        "isopen" => scope.isopen,
         "variables" => Dict(
             name => _scope_variable_to_dict(sv)
             for (name, sv) in scope.variables
@@ -29,16 +30,30 @@ function _scope_to_dict(scope::Scope)::Dict{String, Any}
     )
 
     # Add context labels if any
-    if !isempty(scope.context_labels)
-        d["context_labels"] = scope.context_labels
+    if !isempty(scope.labels)
+        d["labels"] = scope.labels
     end
 
-    # Add context data if any
-    if !isempty(scope.context_data)
-        d["context_data"] = Dict(string(k) => v for (k, v) in scope.context_data)
+    # Add context data if any (filter out internal metadata for cleaner output)
+    user_data = Dict(string(k) => v for (k, v) in scope.data)
+    if !isempty(user_data)
+        d["data"] = user_data
     end
 
     return d
+end
+
+# Derive blob_refs from all scopes' variables
+function _collect_blob_refs(scopes::Vector{Scope})::Vector{String}
+    refs = Set{String}()
+    for scope in scopes
+        for (_, sv) in scope.variables
+            if !isnothing(sv.blob_ref)
+                push!(refs, sv.blob_ref)
+            end
+        end
+    end
+    return collect(refs)
 end
 
 function _create_commit_record(session::Session, commit_label::String="")::Dict{String, Any}
@@ -47,7 +62,7 @@ function _create_commit_record(session::Session, commit_label::String="")::Dict{
         "session_label" => session.label,
         "metadata" => session.meta,
         "scopes" => [_scope_to_dict(s) for s in session.stage.scopes],
-        "blob_refs" => collect(session.stage.blob_refs)
+        "blob_refs" => _collect_blob_refs(session.stage.scopes)
     )
 
     # Add commit label if provided

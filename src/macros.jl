@@ -14,35 +14,35 @@ function _extract_symbols(expr)
 end
 
 # Helper function to process scope from locals and globals
-function _process_scope(
+# Mutates scope in-place, populating variables
+function _process_scope!(
+    scope::Scope,
     session::Session,
     locals::Dict{Symbol, Any},
     globals::Dict{Symbol, Any},
-    label::String
-)::Scope
-    variables = Dict{String, ScopeVariable}()
-    ctx = session.current_context
-
+    label::String,
+    src_file::String,
+    src_line::Int
+)
     # Helper to process a single variable
     function process_var!(sym::Symbol, val::Any, src::Symbol)
         name = string(sym)
-        type_str = string(typeof(val))
+        type_str = first(string(typeof(val)), 25)  # truncate to 25 chars
 
-        if sym in ctx.blob_set
+        if sym in scope.blob_set
             hash = _write_blob(session, val)
-            push!(session.stage.blob_refs, hash)
-            variables[name] = ScopeVariable(
-                name = name, type = type_str,
+            scope.variables[name] = ScopeVariable(
+                name = name, type_str = type_str,
                 value = nothing, blob_ref = hash, src = src
             )
         elseif _is_lite(val)
-            variables[name] = ScopeVariable(
-                name = name, type = type_str,
+            scope.variables[name] = ScopeVariable(
+                name = name, type_str = type_str,
                 value = _liteify(val), blob_ref = nothing, src = src
             )
         else
-            variables[name] = ScopeVariable(
-                name = name, type = type_str,
+            scope.variables[name] = ScopeVariable(
+                name = name, type_str = type_str,
                 value = nothing, blob_ref = nothing, src = src
             )
         end
@@ -58,8 +58,15 @@ function _process_scope(
         process_var!(sym, val, :local)
     end
 
-    # Create scope with context
-    return Scope(label, now(), variables, copy(ctx.labels), copy(ctx.data))
+    # Set scope metadata
+    scope.label = label
+    scope.timestamp = now()
+    scope.isopen = false
+    scope.data[:src_file] = src_file
+    scope.data[:src_line] = src_line
+    scope.data[:threadid] = Threads.threadid()
+
+    return scope
 end
 
 # ============================================================================
@@ -80,9 +87,8 @@ macro sim_session(label)
         global Simuleos.__SIM_SESSION__ = Simuleos.Session(
             label = $(esc(label)),
             root_dir = root,
-            stage = Simuleos.Stage(Simuleos.Scope[], Set{String}()),
-            meta = meta,
-            current_context = Simuleos.ScopeContext()
+            stage = Simuleos.Stage(),
+            meta = meta
         )
     end
 end
@@ -95,7 +101,7 @@ macro sim_store(vars...)
     for v in vars
         append!(symbols, _extract_symbols(v))
     end
-    exprs = [:(push!(s.current_context.blob_set, $(QuoteNode(sym)))) for sym in symbols]
+    exprs = [:(push!(s.stage.current_scope.blob_set, $(QuoteNode(sym)))) for sym in symbols]
     quote
         s = Simuleos._get_session()
         $(exprs...)
@@ -114,15 +120,15 @@ macro sim_context(args...)
     for arg in args
         if arg isa String
             # String literal label
-            push!(exprs, :(push!(s.current_context.labels, $arg)))
+            push!(exprs, :(push!(s.stage.current_scope.labels, $arg)))
         elseif arg isa Expr && arg.head == :string
             # Interpolated string label
-            push!(exprs, :(push!(s.current_context.labels, $(esc(arg)))))
+            push!(exprs, :(push!(s.stage.current_scope.labels, $(esc(arg)))))
         elseif arg isa Expr && arg.head == :call && arg.args[1] == :(=>)
             # Key => value pair
             key = arg.args[2]
             val = arg.args[3]
-            push!(exprs, :(s.current_context.data[$(QuoteNode(key))] = $(esc(val))))
+            push!(exprs, :(s.stage.current_scope.data[$(QuoteNode(key))] = $(esc(val))))
         end
     end
     quote
@@ -136,6 +142,8 @@ end
 # @sim_capture - Snapshot local scope + globals
 # ============================================================================
 macro sim_capture(label)
+    src_file = string(__source__.file)
+    src_line = __source__.line
     quote
         s = Simuleos._get_session()
 
@@ -157,13 +165,19 @@ macro sim_capture(label)
             end
         end
 
-        # Process scope with locals, globals, and current context
-        scope = Simuleos._process_scope(s, _locals, _globals, $(esc(label)))
-        push!(s.stage.scopes, scope)
+        # Finalize current_scope with captured variables
+        Simuleos._process_scope!(
+            s.stage.current_scope, s, _locals, _globals,
+            $(esc(label)), $(src_file), $(src_line)
+        )
 
-        # Reset context for next scope
-        s.current_context = Simuleos.ScopeContext()
-        scope
+        # Push finalized scope to stage.scopes
+        push!(s.stage.scopes, s.stage.current_scope)
+
+        # Create new current_scope for next capture
+        s.stage.current_scope = Simuleos.Scope()
+
+        s.stage.scopes[end]
     end
 end
 
@@ -173,11 +187,19 @@ end
 macro sim_commit(label="")
     quote
         s = Simuleos._get_session()
+
+        # Check for pending context in current_scope
+        cs = s.stage.current_scope
+        if !isempty(cs.labels) || !isempty(cs.data) || !isempty(cs.blob_set)
+            error("Cannot commit: current_scope has pending context (labels, data, or blob_set). " *
+                  "Use @sim_capture first to finalize the scope.")
+        end
+
         if !isempty(s.stage.scopes)
             commit_label = $(esc(label))
             record = Simuleos._create_commit_record(s, commit_label)
             Simuleos._append_to_tape(s, record)
-            s.stage = Simuleos.Stage(Simuleos.Scope[], Set{String}())
+            s.stage = Simuleos.Stage()
         end
         nothing
     end

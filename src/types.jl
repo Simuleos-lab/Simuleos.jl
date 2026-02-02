@@ -4,30 +4,25 @@ using Dates
 
 @kwdef struct ScopeVariable
     name::String
-    type::String                              # string repr for JSON
+    type_str::String                          # string repr for JSON, truncated to 25 chars
     value::Union{Nothing, Any} = nothing      # only if lite
     blob_ref::Union{Nothing, String} = nothing # SHA1 hash if stored
     src::Symbol = :local                      # :local or :global
 end
 
-# Per-scope context (reset after each @sim_capture)
-@kwdef mutable struct ScopeContext
-    labels::Vector{String} = String[]
-    data::Dict{Symbol, Any} = Dict{Symbol, Any}()
+@kwdef mutable struct Scope
+    label::String = ""
+    timestamp::DateTime = now()
+    isopen::Bool = true                       # lifecycle tracking
+    variables::Dict{String, ScopeVariable} = Dict{String, ScopeVariable}()
+    labels::Vector{String} = String[]         # context labels from @sim_context
+    data::Dict{Symbol, Any} = Dict{Symbol, Any}()  # context data from @sim_context
     blob_set::Set{Symbol} = Set{Symbol}()     # per-scope blob requests
 end
 
-struct Scope
-    label::String
-    timestamp::DateTime
-    variables::Dict{String, ScopeVariable}
-    context_labels::Vector{String}            # from @sim_context
-    context_data::Dict{Symbol, Any}           # from @sim_context
-end
-
-mutable struct Stage
-    scopes::Vector{Scope}
-    blob_refs::Set{String}
+@kwdef mutable struct Stage
+    scopes::Vector{Scope} = Scope[]
+    current_scope::Scope = Scope()            # explicit open scope
 end
 
 @kwdef mutable struct Session
@@ -35,5 +30,4 @@ end
     root_dir::String           # .simuleos/ path
     stage::Stage
     meta::Dict{String, Any}    # git, julia version, etc.
-    current_context::ScopeContext  # per-scope context (reset after capture)
 end
