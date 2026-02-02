@@ -1,3 +1,7 @@
+## DOING: Check variable masking
+- what if a global and local variable have the same name?
+- propused-solution: append local after global at scope capturing time
+
 ## DOING: Garbage Collection 
 
 Because blobs are written eagerly:
