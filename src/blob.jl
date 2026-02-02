@@ -4,10 +4,19 @@ using SHA
 using Serialization
 
 function _blob_hash(value)::String
+    ctx = SHA.SHA1_CTX()
     io = IOBuffer()
     serialize(io, value)
-    bytes = take!(io)
-    return bytes2hex(sha1(bytes))
+    seekstart(io)
+    
+    # Read and hash in chunks to reduce memory usage
+    chunk_size = 8192
+    while !eof(io)
+        chunk = read(io, chunk_size)
+        SHA.update!(ctx, chunk)
+    end
+    
+    return bytes2hex(SHA.digest!(ctx))
 end
 
 function _write_blob(session::Session, value)::String
