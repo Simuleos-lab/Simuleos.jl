@@ -4,7 +4,7 @@ using Dates
 
 @kwdef struct ScopeVariable
     name::String
-    type_str::String                          # string repr for JSON, truncated to 25 chars
+    src_type::String                          # string repr for JSON, truncated to 25 chars
     value::Union{Nothing, Any} = nothing      # only if lite
     blob_ref::Union{Nothing, String} = nothing # SHA1 hash if stored
     src::Symbol = :local                      # :local or :global

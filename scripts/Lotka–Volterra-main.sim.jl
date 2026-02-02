@@ -65,7 +65,7 @@ let
     # - tag the scope with label
     @sim_session "Lotka-Volterra Simulation"
 
-    simulate_lv(seed=42, intervention=:predator_death, strength=0.55)
+    simulate_lv(seed=42, intervention=:predator_death, strength=rand()*0.5+0.5)
 
     # - store the current stage
     # - run hooks

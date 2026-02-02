@@ -27,22 +27,22 @@ function _process_scope!(
     # Helper to process a single variable
     function process_var!(sym::Symbol, val::Any, src::Symbol)
         name = string(sym)
-        type_str = first(string(typeof(val)), 25)  # truncate to 25 chars
+        src_type = first(string(typeof(val)), 25)  # truncate to 25 chars
 
         if sym in scope.blob_set
             hash = _write_blob(session, val)
             scope.variables[name] = ScopeVariable(
-                name = name, type_str = type_str,
+                name = name, src_type = src_type,
                 value = nothing, blob_ref = hash, src = src
             )
         elseif _is_lite(val)
             scope.variables[name] = ScopeVariable(
-                name = name, type_str = type_str,
+                name = name, src_type = src_type,
                 value = _liteify(val), blob_ref = nothing, src = src
             )
         else
             scope.variables[name] = ScopeVariable(
-                name = name, type_str = type_str,
+                name = name, src_type = src_type,
                 value = nothing, blob_ref = nothing, src = src
             )
         end
@@ -196,9 +196,7 @@ macro sim_commit(label="")
         end
 
         if !isempty(s.stage.scopes)
-            commit_label = $(esc(label))
-            record = Simuleos._create_commit_record(s, commit_label)
-            Simuleos._append_to_tape(s, record)
+            Simuleos._append_to_tape(s, $(esc(label)))
             s.stage = Simuleos.Stage()
         end
         nothing
