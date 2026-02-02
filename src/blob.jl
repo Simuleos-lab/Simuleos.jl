@@ -11,9 +11,10 @@ function _blob_hash(value)::String
     
     # Read and hash in chunks to reduce memory usage
     chunk_size = 8192
+    buffer = Vector{UInt8}(undef, chunk_size)
     while !eof(io)
-        chunk = read(io, chunk_size)
-        SHA.update!(ctx, chunk)
+        n = readbytes!(io, buffer, chunk_size)
+        SHA.update!(ctx, view(buffer, 1:n))
     end
     
     return bytes2hex(SHA.digest!(ctx))
