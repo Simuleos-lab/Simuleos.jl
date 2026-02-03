@@ -50,11 +50,13 @@ function _process_scope!(
 
     # Process globals first (can be overridden by locals)
     for (sym, val) in globals
+        _should_ignore(session, sym, val, label) && continue
         process_var!(sym, val, :global)
     end
 
     # Process locals (override globals if same name)
     for (sym, val) in locals
+        _should_ignore(session, sym, val, label) && continue
         process_var!(sym, val, :local)
     end
 
@@ -150,18 +152,12 @@ macro sim_capture(label)
         # Capture locals
         _locals = Base.@locals()
 
-        # Capture globals from Main (filter modules/functions)
+        # Capture globals from Main (filtering done in _process_scope!)
         _global_names = names(Main; imported = false)
         _globals = Dict{Symbol, Any}()
         for name in _global_names
             if isdefined(Main, name)
-                val = getfield(Main, name)
-                # Filter out modules and functions - capture only data
-                if !(val isa Module || val isa Function)
-                    # Check simignore patterns (stub for now)
-                    Simuleos._should_ignore(s, name, val) && continue
-                    _globals[name] = val
-                end
+                _globals[name] = getfield(Main, name)
             end
         end
 

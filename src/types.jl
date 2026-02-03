@@ -30,4 +30,5 @@ end
     root_dir::String           # .simuleos/ path
     stage::Stage
     meta::Dict{String, Any}    # git, julia version, etc.
+    simignore_rules::Vector{Dict{Symbol, Any}} = Dict{Symbol, Any}[]
 end

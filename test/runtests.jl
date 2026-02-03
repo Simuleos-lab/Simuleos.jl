@@ -6,3 +6,5 @@ using Test
 end
 
 include("git_tests.jl")
+include("simignore_tests.jl")
+include("query_tests.jl")
