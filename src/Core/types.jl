@@ -22,6 +22,9 @@ to all subsystems. Access via `Simuleos.OS`.
     # These are Union{Nothing, T} - check and initialize on first access
     _project::Any = nothing  # Will be Project once loaded
     _home::Any = nothing     # Will be SimuleosHome once loaded
+
+    # UXLayers integration (lazy init on first settings() call)
+    _ux_root::Any = nothing  # Will be UXLayerView once loaded
 end
 
 # =============================================================================
@@ -93,6 +96,10 @@ A recording session with metadata and staged scopes.
     stage::Stage
     meta::Dict{String, Any}    # git, julia version, etc.
     simignore_rules::Vector{Dict{Symbol, Any}} = Dict{Symbol, Any}[]
+
+    # Settings cache (reset at @sim_session start, populated lazily)
+    # Uses :__MISSING__ sentinel for UXLayers misses to avoid repeated calls
+    _settings_cache::Dict{String, Any} = Dict{String, Any}()
 end
 
 # =============================================================================

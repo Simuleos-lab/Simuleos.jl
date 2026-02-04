@@ -2,7 +2,7 @@
 
 julia_version = "1.12.4"
 manifest_format = "2.0"
-project_hash = "96c9fe904d7586454cb3c0f3e195e784fa82f132"
+project_hash = "62704552185e5a8b1622adcc98f6ca4606cac093"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
@@ -94,7 +94,7 @@ uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 version = "1.11.0"
 
 [[deps.Simuleos]]
-deps = ["Dates", "JSON3", "SHA", "Serialization"]
+deps = ["Dates", "JSON3", "LibGit2", "SHA", "Serialization"]
 path = "."
 uuid = "583fa42a-a17c-4ad2-8932-70aab3cc9651"
 version = "0.1.0"
@@ -114,6 +114,11 @@ version = "1.0.3"
 deps = ["Random", "SHA"]
 uuid = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 version = "1.11.0"
+
+[[deps.UXLayers]]
+path = "/Users/pereiro/.julia/dev/UXLayers"
+uuid = "1a1fd5e4-9e4d-4911-8946-66050ff0ef51"
+version = "1.0.0-DEV"
 
 [[deps.Unicode]]
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"

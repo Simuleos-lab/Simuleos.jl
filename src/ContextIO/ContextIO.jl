@@ -7,12 +7,16 @@ using Dates
 using SHA
 using Serialization
 using JSON3
+using UXLayers
 
 # Import Core types and utilities
 using ..Core
 
 # Session management (must be first - other files depend on _get_session)
 include("session.jl")
+
+# Settings (UXLayers integration for Session)
+include("settings.jl")
 
 # Simignore (depends on session.jl for _get_session)
 include("simignore.jl")
@@ -39,6 +43,9 @@ include("macros.jl")
 
 # Export session management
 export _reset_session!, _get_session, _set_session!
+
+# Export settings functions
+export settings, _reset_settings_cache!
 
 # Export simignore functions
 export set_simignore_rules!, simignore!, _should_ignore

@@ -22,6 +22,13 @@ include("Traceability/Traceability.jl")
 using .Core: git_hash, git_dirty, git_describe, git_branch, git_remote, git_init
 using .Core: hash, dirty, describe, branch, remote, init
 
+# Import settings functions
+# Core defines settings() for SimOS, ContextIO extends it for Session
+using .Core: settings, ux_root, __MISSING__
+
+# Import ContextIO macros for re-export
+using .ContextIO: @sim_session, @sim_store, @sim_context, @sim_capture, @sim_commit
+
 # Import ContextIO functions for re-export
 using .ContextIO: simignore!, set_simignore_rules!, _should_ignore
 using .ContextIO: RootHandler, SessionHandler, TapeHandler, BlobHandler
@@ -50,6 +57,7 @@ function set_os!(new_os::Core.SimOS)
     OS.project_root = new_os.project_root
     OS._project = new_os._project
     OS._home = new_os._home
+    OS._ux_root = new_os._ux_root
     return OS
 end
 
@@ -63,6 +71,7 @@ function reset_os!()
     OS.project_root = nothing
     OS._project = nothing
     OS._home = nothing
+    OS._ux_root = nothing  # Reset UXLayers view
     return OS
 end
 
@@ -163,6 +172,9 @@ export iterate_raw_tape, iterate_tape, load_raw_blob, load_blob
 
 # Simignore
 export simignore!, set_simignore_rules!, _should_ignore
+
+# Settings (UXLayers integration)
+export settings, ux_root
 
 # Git functions (backward compatibility)
 export git_hash, git_dirty, git_describe, git_branch, git_remote, git_init

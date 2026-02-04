@@ -6,6 +6,7 @@ module Core
 using Dates
 using SHA
 using Serialization
+using UXLayers
 
 # Types first (no dependencies)
 include("types.jl")
@@ -15,6 +16,9 @@ include("git.jl")
 
 # Utilities
 include("utils.jl")
+
+# Settings (UXLayers integration)
+include("settings.jl")
 
 # Export types
 export SimOS, Project
@@ -29,5 +33,8 @@ export _verify_repo
 # Export utilities
 export LITE_TYPES, _is_lite, _liteify
 export _capture_metadata
+
+# Export settings functions
+export settings, ux_root, __MISSING__
 
 end # module Core
