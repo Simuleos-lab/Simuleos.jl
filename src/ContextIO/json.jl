@@ -3,14 +3,15 @@
 
 using JSON3
 using Dates
+using ..Core: Session, Scope, ScopeVariable
 
 # Fallback - delegates to JSON3 for primitives
 _write_json(io::IO, x) = JSON3.write(io, x)
 
-# Symbol → String
+# Symbol -> String
 _write_json(io::IO, s::Symbol) = JSON3.write(io, string(s))
 
-# DateTime → ISO string
+# DateTime -> ISO string
 _write_json(io::IO, dt::DateTime) = JSON3.write(io, string(dt))
 
 # Dict - iterate keys, call _write_json for values

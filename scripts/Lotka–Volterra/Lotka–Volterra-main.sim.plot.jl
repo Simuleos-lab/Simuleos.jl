@@ -2,20 +2,26 @@
 # Lotka-Volterra Simulation Plotting Script
 # Uses Simuleos query API to load recorded simulation data
 
-using Simuleos
-using CairoMakie
+@time begin
+    import Pkg
+    Pkg.activate(@__DIR__)
+    
+    using Simuleos
+    using CairoMakie
+end
 
+## ..--. --. .- --. .- .- -.. - .--. -. -. 
 # Load data from .simuleos recording
 function load_lv_data(simuleos_path::String)
     root = RootHandler(simuleos_path)
 
     # Get the first (and only) session
-    sess = first(sessions(root))
+    sess = rand(sessions(root))
     t = tape(sess)
 
     # Get the latest commit
-    commit = first(iterate_tape(t))
-    scope = first(scopes(commit))
+    commit = rand(collect(t))
+    scope = rand(collect(scopes(commit)))
 
     # Extract variables
     vars = Dict{String, VariableWrapper}()
@@ -84,10 +90,10 @@ function plot_dashboard(ts, X, Y, params; session_label="")
     fig = Figure(size=(1200, 800))
 
     # Title with session info
-    Label(fig[0, 1:2], session_label, fontsize=20, font=:bold)
+    Label(fig[0, 1:4], session_label, fontsize=20, font=:bold)
 
     # Population dynamics
-    ax1 = Axis(fig[1, 1],
+    ax1 = Axis(fig[1, 1:2],
         xlabel="Time",
         ylabel="Population",
         title="Population Dynamics"
@@ -97,7 +103,7 @@ function plot_dashboard(ts, X, Y, params; session_label="")
     axislegend(ax1, position=:rt)
 
     # Phase space
-    ax2 = Axis(fig[1, 2],
+    ax2 = Axis(fig[1, 3],
         xlabel="Prey (X)",
         ylabel="Predator (Y)",
         title="Phase Space"
@@ -110,12 +116,12 @@ function plot_dashboard(ts, X, Y, params; session_label="")
     # Parameters panel
     param_text = join([
         "Parameters:",
-        "  α = $(get(params, "α", "?"))",
-        "  β = $(get(params, "β", "?"))",
-        "  δ = $(get(params, "δ", "?"))",
-        "  γ = $(get(params, "γ", "?"))",
-        "  σx = $(get(params, "σx", "?"))",
-        "  σy = $(get(params, "σy", "?"))",
+        "  alpha = $(get(params, "alpha", "?"))",
+        "  beta = $(get(params, "beta", "?"))",
+        "  delta = $(get(params, "delta", "?"))",
+        "  gamma = $(get(params, "gamma", "?"))",
+        "  sigmax = $(get(params, "sigmax", "?"))",
+        "  sigmay = $(get(params, "sigmay", "?"))",
         "",
         "Initial conditions:",
         "  X₀ = $(get(params, "X0", "?"))",
@@ -132,14 +138,15 @@ function plot_dashboard(ts, X, Y, params; session_label="")
         "  t_int = $(get(params, "t_int", "?"))",
     ], "\n")
 
-    Label(fig[2, 1:2], param_text, fontsize=12, halign=:left, valign=:top,
+    Label(fig[1, 4], param_text, fontsize=12, halign=:left, valign=:top,
           tellwidth=false, tellheight=true)
 
     return fig
 end
 
+## ..--. -. -.- .- -- - -. -- .- .- .- .-.- .- .-.- - -. -
 # Main execution
-if abspath(PROGRAM_FILE) == @__FILE__
+let
     simuleos_path = joinpath(@__DIR__, ".simuleos")
 
     println("Loading data from: ", simuleos_path)
@@ -151,7 +158,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
 
     # Create plots
     fig = plot_dashboard(lv.ts, lv.X, lv.Y, lv.params,
-                         session_label="Lotka-Volterra Simulation")
+                        session_label="Lotka-Volterra Simulation")
 
     # Save plot
     output_path = joinpath(@__DIR__, "lv_dashboard.png")

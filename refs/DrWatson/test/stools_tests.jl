@@ -114,28 +114,28 @@ struct SolverB end
 
 # Simple example with no chained dependencies
 
-p = Dict(:α => 1,
+p = Dict(:alpha => 1,
          :solver => [SolverA,SolverB],
          :c => @onlyif(:solver == SolverA , [100,200]),
          :d => @onlyif(:solver == SolverB, 1)
         )
 
-@test Set([ Dict(:α => 1, :solver => SolverA, :c => 100),
-           Dict(:α => 1, :solver => SolverA, :c => 200),
-           Dict(:α => 1, :solver => SolverB, :d => 1),
+@test Set([ Dict(:alpha => 1, :solver => SolverA, :c => 100),
+           Dict(:alpha => 1, :solver => SolverA, :c => 200),
+           Dict(:alpha => 1, :solver => SolverB, :d => 1),
           ]) == Set(dict_list(p))
 
 # Advanced example with chained dependency. SolverA => :c => :d
-p = Dict(:α => 1,
+p = Dict(:alpha => 1,
          :solver => [SolverA,SolverB],
          :c => @onlyif(:solver == SolverA , [100,200]),
          :d => @onlyif(:c == 100, 1)
         )
 
 @test Set([
-           Dict(:α => 1, :solver => SolverA, :c => 100, :d => 1),
-           Dict(:α => 1, :solver => SolverA, :c => 200),
-           Dict(:α => 1, :solver => SolverB),
+           Dict(:alpha => 1, :solver => SolverA, :c => 100, :d => 1),
+           Dict(:alpha => 1, :solver => SolverA, :c => 200),
+           Dict(:alpha => 1, :solver => SolverB),
           ]) == Set(dict_list(p))
 
 # Advanced condition definition
@@ -145,17 +145,17 @@ test_param = @onlyif(begin
                 cond1 = :b == :c
                 cond2 = :d == :something
                 cond3 = "d" == :d
-                cond4 = :α^2 == 1
+                cond4 = :alpha^2 == 1
                 return d[:f](cond1, cond2, cond3, cond4)
             end, nothing)
 
-dummy_dict = Dict(:α=>1, :b=>1, :c=>1, :d=>:something, "d"=>:something)
+dummy_dict = Dict(:alpha=>1, :b=>1, :c=>1, :d=>:something, "d"=>:something)
 
-@test test_param.condition(dummy_dict, Dict(:α=>1, :b=>1, :c=>1, :d=>:something, "d"=>:something))
-@test !test_param.condition(dummy_dict, Dict(:α=>2, :b=>1, :c=>1, :d=>:something, "d"=>:something))
-@test !test_param.condition(dummy_dict, Dict(:α=>1, :b=>2, :c=>1, :d=>:something, "d"=>:something))
-@test !test_param.condition(dummy_dict, Dict(:α=>1, :b=>1, :c=>1, :d=>:foo, "d"=>:something))
-@test !test_param.condition(dummy_dict, Dict(:α=>1, :b=>1, :c=>1, :d=>:something, "d"=>:foo))
+@test test_param.condition(dummy_dict, Dict(:alpha=>1, :b=>1, :c=>1, :d=>:something, "d"=>:something))
+@test !test_param.condition(dummy_dict, Dict(:alpha=>2, :b=>1, :c=>1, :d=>:something, "d"=>:something))
+@test !test_param.condition(dummy_dict, Dict(:alpha=>1, :b=>2, :c=>1, :d=>:something, "d"=>:something))
+@test !test_param.condition(dummy_dict, Dict(:alpha=>1, :b=>1, :c=>1, :d=>:foo, "d"=>:something))
+@test !test_param.condition(dummy_dict, Dict(:alpha=>1, :b=>1, :c=>1, :d=>:something, "d"=>:foo))
 @test !test_param.condition(dummy_dict, Dict(:b=>1, :c=>1, :d=>:something, "d"=>:something))
 
 module TestMod

@@ -4,24 +4,6 @@
 import LibGit2
 
 """
-    GitHandler
-
-A struct representing a git repository for safe git operations.
-
-Fields:
-- `path::String`: Repository root path
-- `gitdir::Union{String,Nothing}`: .git directory path (set on first use for identity verification)
-"""
-struct GitHandler
-    path::String
-    gitdir::Union{String,Nothing}
-
-    function GitHandler(path::String, gitdir::Union{String,Nothing}=nothing)
-        new(path, gitdir)
-    end
-end
-
-"""
     _verify_repo(gh::GitHandler)
 
 Internal function to verify repository identity and return a LibGit2.GitRepo object.
@@ -48,7 +30,7 @@ function _verify_repo(gh::GitHandler)
 end
 
 """
-    hash(gh::GitHandler)
+    git_hash(gh::GitHandler)
 
 Get the current commit hash (hex string).
 
@@ -57,7 +39,7 @@ Equivalent to: `git rev-parse HEAD`
 Returns a 40-character SHA-1 hash string.
 Throws LibGit2 exception if operation fails.
 """
-function hash(gh::GitHandler)::String
+function git_hash(gh::GitHandler)::String
     repo = _verify_repo(gh)
     try
         oid = LibGit2.head_oid(repo)
@@ -68,14 +50,14 @@ function hash(gh::GitHandler)::String
 end
 
 """
-    dirty(gh::GitHandler)
+    git_dirty(gh::GitHandler)
 
 Check if repository has uncommitted changes.
 
 Returns `true` if there are uncommitted changes, `false` otherwise.
 Throws LibGit2 exception if operation fails.
 """
-function dirty(gh::GitHandler)::Bool
+function git_dirty(gh::GitHandler)::Bool
     repo = _verify_repo(gh)
     try
         return LibGit2.isdirty(repo)
@@ -85,7 +67,7 @@ function dirty(gh::GitHandler)::Bool
 end
 
 """
-    describe(gh::GitHandler)
+    git_describe(gh::GitHandler)
 
 Get git describe output for the current commit.
 
@@ -94,7 +76,7 @@ Equivalent to: `git describe`
 Returns a description string (e.g., "v1.0-5-gabc1234").
 Throws LibGit2 exception if operation fails.
 """
-function describe(gh::GitHandler)::String
+function git_describe(gh::GitHandler)::String
     repo = _verify_repo(gh)
     try
         result = LibGit2.GitDescribeResult(repo)
@@ -105,7 +87,7 @@ function describe(gh::GitHandler)::String
 end
 
 """
-    branch(gh::GitHandler)
+    git_branch(gh::GitHandler)
 
 Get the current branch name.
 
@@ -114,7 +96,7 @@ Equivalent to: `git branch --show-current`
 Returns the branch name as a string.
 Throws LibGit2 exception if operation fails.
 """
-function branch(gh::GitHandler)::String
+function git_branch(gh::GitHandler)::String
     repo = _verify_repo(gh)
     try
         return LibGit2.headname(repo)
@@ -124,7 +106,7 @@ function branch(gh::GitHandler)::String
 end
 
 """
-    remote(gh::GitHandler)
+    git_remote(gh::GitHandler)
 
 Get the URL of the "origin" remote.
 
@@ -133,7 +115,7 @@ Equivalent to: `git remote get-url origin`
 Returns the remote URL as a string.
 Throws LibGit2 exception if operation fails.
 """
-function remote(gh::GitHandler)::String
+function git_remote(gh::GitHandler)::String
     repo = _verify_repo(gh)
     try
         r = LibGit2.lookup_remote(repo, "origin")
@@ -144,7 +126,7 @@ function remote(gh::GitHandler)::String
 end
 
 """
-    init(gh::GitHandler)
+    git_init(gh::GitHandler)
 
 Initialize a new git repository at the path stored in the GitHandler.
 
@@ -153,8 +135,16 @@ Equivalent to: `git init`
 This is an exception to the repository identity check - it creates a new repository.
 Throws LibGit2 exception if operation fails.
 """
-function init(gh::GitHandler)
+function git_init(gh::GitHandler)
     repo = LibGit2.init(gh.path)
     close(repo)
     return nothing
 end
+
+# Backward compatibility aliases (deprecated, will be removed)
+const hash = git_hash
+const dirty = git_dirty
+const describe = git_describe
+const branch = git_branch
+const remote = git_remote
+const init = git_init

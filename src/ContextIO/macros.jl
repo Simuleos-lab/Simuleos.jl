@@ -1,6 +1,7 @@
-# Macro implementations for Simuleos
+# Macro implementations for Simuleos ContextIO
 
 using Dates
+using ..Core: Session, Stage, Scope, ScopeVariable, _capture_metadata
 
 # Helper to extract symbols from macro arguments
 function _extract_symbols(expr)
@@ -13,91 +14,40 @@ function _extract_symbols(expr)
     end
 end
 
-# Helper function to process scope from locals and globals
-# Mutates scope in-place, populating variables
-function _process_scope!(
-    scope::Scope,
-    session::Session,
-    locals::Dict{Symbol, Any},
-    globals::Dict{Symbol, Any},
-    label::String,
-    src_file::String,
-    src_line::Int
-)
-    # Helper to process a single variable
-    function process_var!(sym::Symbol, val::Any, src::Symbol)
-        name = string(sym)
-        src_type = first(string(typeof(val)), 25)  # truncate to 25 chars
-
-        if sym in scope.blob_set
-            hash = _write_blob(session, val)
-            scope.variables[name] = ScopeVariable(
-                name = name, src_type = src_type,
-                value = nothing, blob_ref = hash, src = src
-            )
-        elseif _is_lite(val)
-            scope.variables[name] = ScopeVariable(
-                name = name, src_type = src_type,
-                value = _liteify(val), blob_ref = nothing, src = src
-            )
-        else
-            scope.variables[name] = ScopeVariable(
-                name = name, src_type = src_type,
-                value = nothing, blob_ref = nothing, src = src
-            )
-        end
-    end
-
-    # Process globals first (can be overridden by locals)
-    for (sym, val) in globals
-        _should_ignore(session, sym, val, label) && continue
-        process_var!(sym, val, :global)
-    end
-
-    # Process locals (override globals if same name)
-    for (sym, val) in locals
-        _should_ignore(session, sym, val, label) && continue
-        process_var!(sym, val, :local)
-    end
-
-    # Set scope metadata
-    scope.label = label
-    scope.timestamp = now()
-    scope.isopen = false
-    scope.data[:src_file] = src_file
-    scope.data[:src_line] = src_line
-    scope.data[:threadid] = Threads.threadid()
-
-    return scope
-end
-
-# ============================================================================
+# =============================================================================
 # @sim_session - Initialize session with metadata and directory structure
-# ============================================================================
+# =============================================================================
 macro sim_session(label)
     src_file = string(__source__.file)
     src_dir = dirname(src_file)
     quote
-        Simuleos._reset_session!()
+        Simuleos.ContextIO._reset_session!()
         root = joinpath($(src_dir), ".simuleos")
 
         # Compute session directory path (created on-demand at write time)
         safe_label = replace($(esc(label)), r"[^\w\-]" => "_")
         session_dir = joinpath(root, "sessions", safe_label)
 
-        meta = Simuleos._capture_metadata($(src_file))
-        global Simuleos.__SIM_SESSION__ = Simuleos.Session(
+        meta = Simuleos.Core._capture_metadata($(src_file))
+
+        # Error if git repo is dirty
+        if get(meta, "git_dirty", false) === true
+            error("Cannot start session: git repository has uncommitted changes. " *
+                  "Please commit or stash your changes before recording.")
+        end
+
+        Simuleos.ContextIO._set_session!(Simuleos.Core.Session(
             label = $(esc(label)),
             root_dir = root,
-            stage = Simuleos.Stage(),
+            stage = Simuleos.Core.Stage(),
             meta = meta
-        )
+        ))
     end
 end
 
-# ============================================================================
+# =============================================================================
 # @sim_store - Mark variables for blob storage (per-scope)
-# ============================================================================
+# =============================================================================
 macro sim_store(vars...)
     symbols = Symbol[]
     for v in vars
@@ -105,18 +55,18 @@ macro sim_store(vars...)
     end
     exprs = [:(push!(s.stage.current_scope.blob_set, $(QuoteNode(sym)))) for sym in symbols]
     quote
-        s = Simuleos._get_session()
+        s = Simuleos.ContextIO._get_session()
         $(exprs...)
         nothing
     end |> esc
 end
 
-# ============================================================================
+# =============================================================================
 # @sim_context - Add context labels and data to current scope
 # Usage: @sim_context "label"
 #        @sim_context :key => value
 #        @sim_context "label" :key1 => val1 :key2 => val2
-# ============================================================================
+# =============================================================================
 macro sim_context(args...)
     exprs = []
     for arg in args
@@ -134,20 +84,20 @@ macro sim_context(args...)
         end
     end
     quote
-        s = Simuleos._get_session()
+        s = Simuleos.ContextIO._get_session()
         $(exprs...)
         nothing
     end |> esc
 end
 
-# ============================================================================
+# =============================================================================
 # @sim_capture - Snapshot local scope + globals
-# ============================================================================
+# =============================================================================
 macro sim_capture(label)
     src_file = string(__source__.file)
     src_line = __source__.line
     quote
-        s = Simuleos._get_session()
+        s = Simuleos.ContextIO._get_session()
 
         # Capture locals
         _locals = Base.@locals()
@@ -162,7 +112,7 @@ macro sim_capture(label)
         end
 
         # Finalize current_scope with captured variables
-        Simuleos._process_scope!(
+        Simuleos.ContextIO._process_scope!(
             s.stage.current_scope, s, _locals, _globals,
             $(esc(label)), $(src_file), $(src_line)
         )
@@ -171,18 +121,18 @@ macro sim_capture(label)
         push!(s.stage.scopes, s.stage.current_scope)
 
         # Create new current_scope for next capture
-        s.stage.current_scope = Simuleos.Scope()
+        s.stage.current_scope = Simuleos.Core.Scope()
 
         s.stage.scopes[end]
     end
 end
 
-# ============================================================================
+# =============================================================================
 # @sim_commit - Persist stage to JSONL tape (optional label)
-# ============================================================================
+# =============================================================================
 macro sim_commit(label="")
     quote
-        s = Simuleos._get_session()
+        s = Simuleos.ContextIO._get_session()
 
         # Check for pending context in current_scope
         cs = s.stage.current_scope
@@ -192,8 +142,8 @@ macro sim_commit(label="")
         end
 
         if !isempty(s.stage.scopes)
-            Simuleos._append_to_tape(s, $(esc(label)))
-            s.stage = Simuleos.Stage()
+            Simuleos.ContextIO._append_to_tape(s, $(esc(label)))
+            s.stage = Simuleos.Core.Stage()
         end
         nothing
     end

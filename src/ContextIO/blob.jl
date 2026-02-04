@@ -2,6 +2,7 @@
 
 using SHA
 using Serialization
+using ..Core: Session
 
 # Chunk size for streaming hash computation
 const HASH_CHUNK_SIZE = 8192
@@ -11,14 +12,14 @@ function _blob_hash(value)::String
     io = IOBuffer()
     serialize(io, value)
     seekstart(io)
-    
+
     # Read and hash in chunks to reduce memory usage
     buffer = Vector{UInt8}(undef, HASH_CHUNK_SIZE)
     while !eof(io)
         n = readbytes!(io, buffer, HASH_CHUNK_SIZE)
         SHA.update!(ctx, view(buffer, 1:n))
     end
-    
+
     return bytes2hex(SHA.digest!(ctx))
 end
 

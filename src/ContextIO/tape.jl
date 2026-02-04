@@ -1,5 +1,7 @@
 # JSONL tape I/O for recording simulation sessions
 
+using ..Core: Session
+
 function _append_to_tape(session::Session, commit_label::String="")
     # Use session-specific directory
     safe_label = replace(session.label, r"[^\w\-]" => "_")

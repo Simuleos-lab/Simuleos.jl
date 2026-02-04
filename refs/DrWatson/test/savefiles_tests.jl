@@ -2,11 +2,11 @@ using DrWatson, Test
 cd(@__DIR__)
 T = 1000
 N = 50 # spatial extent
-Δt = 0.05 # resolution of integration
+deltat = 0.05 # resolution of integration
 every = 10
 seed = 1111
 
-simulation = @ntuple T N Δt every seed
+simulation = @ntuple T N deltat every seed
 
 function f(simulation)
     @test typeof(simulation.T) <: Real

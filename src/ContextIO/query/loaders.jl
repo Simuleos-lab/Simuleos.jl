@@ -34,7 +34,6 @@ function Base.iterate(::_TapeIterator, state)
     while !eof(io)
         line = readline(io)
         isempty(strip(line)) && continue
-        # #NOTE: I like this, use JSON3 for smaller overhead
         parsed = JSON3.read(line, Dict{String, Any})
         return (parsed, state)
     end
