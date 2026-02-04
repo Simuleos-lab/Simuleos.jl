@@ -5,7 +5,9 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(julia --project:*)",
-      "Bash(julia --project=..:*)"
+      "Bash(julia --project=..:*)",
+      "Bash(julia:*)",
+      "Bash(wc:*)"
     ]
   }
 }
