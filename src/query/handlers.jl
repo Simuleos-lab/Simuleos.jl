@@ -70,9 +70,11 @@ function sessions(root::RootHandler)
     sessions_path = _sessions_dir(root)
     isdir(sessions_path) || return SessionHandler[]
 
-    (SessionHandler(root, name)
-     for name in readdir(sessions_path)
-     if isdir(joinpath(sessions_path, name)))
+[
+        SessionHandler(root, name)
+        for name in readdir(sessions_path)
+        if isdir(joinpath(sessions_path, name))
+    ]
 end
 
 """

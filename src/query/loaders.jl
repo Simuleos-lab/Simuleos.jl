@@ -15,7 +15,6 @@ Each Dict represents a commit record.
 function iterate_raw_tape(handler::TapeHandler)
     path = _tape_path(handler)
     isfile(path) || return Dict{String, Any}[]
-
     _TapeIterator(path)
 end
 
@@ -30,11 +29,12 @@ function Base.iterate(ti::_TapeIterator)
     iterate(ti, state)
 end
 
-function Base.iterate(ti::_TapeIterator, state)
+function Base.iterate(::_TapeIterator, state)
     io = state[1]
     while !eof(io)
         line = readline(io)
         isempty(strip(line)) && continue
+        # #NOTE: I like this, use JSON3 for smaller overhead
         parsed = JSON3.read(line, Dict{String, Any})
         return (parsed, state)
     end
@@ -55,6 +55,25 @@ Returns a lazy iterator that yields `CommitWrapper` objects.
 function iterate_tape(handler::TapeHandler)
     (CommitWrapper(raw) for raw in iterate_raw_tape(handler))
 end
+
+# TapeHandler convenience iteration (defaults to wrapped)
+
+function Base.iterate(handler::TapeHandler)
+    iter = iterate_tape(handler)
+    result = iterate(iter)
+    isnothing(result) && return nothing
+    (result[1], (iter, result[2]))
+end
+
+function Base.iterate(::TapeHandler, state)
+    iter, inner_state = state
+    result = iterate(iter, inner_state)
+    isnothing(result) && return nothing
+    (result[1], (iter, result[2]))
+end
+
+Base.IteratorSize(::Type{TapeHandler}) = Base.SizeUnknown()
+Base.eltype(::Type{TapeHandler}) = CommitWrapper
 
 # Raw blob loading
 
