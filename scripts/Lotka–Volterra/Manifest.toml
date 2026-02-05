@@ -1181,7 +1181,7 @@ uuid = "699a6c99-e7fa-54fc-8d76-47d257e15c1d"
 version = "0.9.5"
 
 [[deps.Simuleos]]
-deps = ["Dates", "JSON3", "LibGit2", "SHA", "Serialization"]
+deps = ["Dates", "JSON3", "LibGit2", "SHA", "Serialization", "UXLayers"]
 path = "../.."
 uuid = "583fa42a-a17c-4ad2-8932-70aab3cc9651"
 version = "0.1.0"
@@ -1380,6 +1380,11 @@ version = "0.1.0"
 deps = ["Random", "SHA"]
 uuid = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 version = "1.11.0"
+
+[[deps.UXLayers]]
+path = "../../../UXLayers"
+uuid = "1a1fd5e4-9e4d-4911-8946-66050ff0ef51"
+version = "1.0.0-DEV"
 
 [[deps.Unicode]]
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"

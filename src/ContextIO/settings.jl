@@ -1,7 +1,7 @@
-# Settings access for Session (cached UXLayers integration)
-# This is the hot path - uses session cache, falls back to UXLayers on miss
+# Settings access for Session (cached source-based resolution)
+# This is the hot path - uses session cache, falls back to sources on miss
 
-using ..Core: Session, SimOS, __MISSING__, ux_root
+using ..Core: Session, SimOS, __MISSING__, _resolve_setting
 import ..Core: settings  # Import to extend with Session methods
 
 # Import Simuleos module for OS access (will be available at runtime)
@@ -20,8 +20,8 @@ end
 """
     settings(session::Session, key::String)
 
-Get a setting value from session cache. On miss, fetches from UXLayers and caches.
-Errors if key not found in UXLayers.
+Get a setting value from session cache. On miss, resolves from sources and caches.
+Errors if key not found in any source.
 """
 function settings(session::Session, key::String)
     # Check cache first
@@ -33,15 +33,14 @@ function settings(session::Session, key::String)
         return cached
     end
 
-    # Cache miss - fetch from UXLayers via OS
+    # Cache miss - resolve from sources via OS
     os = _get_os()
-    view = ux_root(os)
-    val = get(view, key, __MISSING__)
+    found, val = _resolve_setting(os, key)
 
     # Cache the result (including misses)
-    session._settings_cache[key] = val
+    session._settings_cache[key] = found ? val : __MISSING__
 
-    if val === __MISSING__
+    if !found
         error("Setting not found: $key")
     end
     return val
@@ -50,7 +49,7 @@ end
 """
     settings(session::Session, key::String, default)
 
-Get a setting value from session cache. On miss, fetches from UXLayers and caches.
+Get a setting value from session cache. On miss, resolves from sources and caches.
 Returns default if key not found.
 """
 function settings(session::Session, key::String, default)
@@ -63,15 +62,14 @@ function settings(session::Session, key::String, default)
         return cached
     end
 
-    # Cache miss - fetch from UXLayers via OS
+    # Cache miss - resolve from sources via OS
     os = _get_os()
-    view = ux_root(os)
-    val = get(view, key, __MISSING__)
+    found, val = _resolve_setting(os, key)
 
     # Cache the result (including misses)
-    session._settings_cache[key] = val
+    session._settings_cache[key] = found ? val : __MISSING__
 
-    if val === __MISSING__
+    if !found
         return default
     end
     return val

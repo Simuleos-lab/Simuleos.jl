@@ -35,6 +35,6 @@ export LITE_TYPES, _is_lite, _liteify
 export _capture_metadata
 
 # Export settings functions
-export settings, ux_root, __MISSING__
+export settings, ux_root, __MISSING__, _resolve_setting
 
 end # module Core

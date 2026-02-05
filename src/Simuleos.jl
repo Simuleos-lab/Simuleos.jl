@@ -10,6 +10,11 @@ include("Core/Core.jl")
 using .Core
 
 # =============================================================================
+# UXLayer (settings sources, must be before app modules)
+# =============================================================================
+include("UXLayer.jl")
+
+# =============================================================================
 # App Modules (depend on Core)
 # =============================================================================
 include("ContextIO/ContextIO.jl")
@@ -55,9 +60,11 @@ function set_os!(new_os::Core.SimOS)
     # Copy fields from new_os to OS
     OS.home_path = new_os.home_path
     OS.project_root = new_os.project_root
+    OS.bootstrap = new_os.bootstrap
     OS._project = new_os._project
     OS._home = new_os._home
     OS._ux_root = new_os._ux_root
+    OS._sources = new_os._sources
     return OS
 end
 
@@ -69,19 +76,25 @@ Reset the global SimOS instance to defaults.
 function reset_os!()
     OS.home_path = joinpath(homedir(), ".simuleos")
     OS.project_root = nothing
+    OS.bootstrap = Dict{String, Any}()
     OS._project = nothing
     OS._home = nothing
-    OS._ux_root = nothing  # Reset UXLayers view
+    OS._ux_root = nothing
+    OS._sources = Dict{String, Any}[]
     return OS
 end
 
 """
-    activate(path::String)
+    activate(path::String, args::Dict{String, Any})
 
-Activate a project at the given path.
-Sets OS.project_root and invalidates lazy state.
+Activate a project at the given path with settings args.
+Sets OS.project_root, invalidates lazy state, and builds settings sources.
+
+# Arguments
+- `path`: Path to the project directory (must contain .simuleos/)
+- `args`: Settings overrides (highest priority source)
 """
-function activate(path::String)
+function activate(path::String, args::Dict{String, Any})
     if !isdir(path)
         error("Project path does not exist: $path")
     end
@@ -91,6 +104,10 @@ function activate(path::String)
     end
     OS.project_root = path
     OS._project = nothing  # Invalidate lazy project
+
+    # Build settings sources
+    _build_ux_root!(OS, args)
+
     return nothing
 end
 
@@ -98,15 +115,14 @@ end
     activate()
 
 Auto-detect and activate a project from the current working directory.
-Searches upward for a .simuleos directory.
+Searches upward for a .simuleos directory. Uses empty args.
 """
 function activate()
     path = pwd()
     while true
         simuleos_dir = joinpath(path, ".simuleos")
         if isdir(simuleos_dir)
-            OS.project_root = path
-            OS._project = nothing
+            activate(path, Dict{String, Any}())
             return nothing
         end
         parent = dirname(path)
@@ -174,7 +190,7 @@ export iterate_raw_tape, iterate_tape, load_raw_blob, load_blob
 export simignore!, set_simignore_rules!, _should_ignore
 
 # Settings (UXLayers integration)
-export settings, ux_root
+export settings, ux_root, DEFAULTS
 
 # Git functions (backward compatibility)
 export git_hash, git_dirty, git_describe, git_branch, git_remote, git_init

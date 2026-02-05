@@ -9,8 +9,7 @@
     using Simuleos
 end
 
-## ...- .- .-- -- ..- .--. --. - .--.-..-...
-# --- Lotka–Volterra with noise (Euler–Maruyama) ---
+## --- Lotka–Volterra with noise (Euler–Maruyama) ---
 function simulate_lv(; X0=30.0, Y0=8.0, alpha=1.2, beta=0.08, delta=0.06, gamma=1.0,
                       sigmax=0.25, sigmay=0.25, dt=0.01, T=50.0, seed=1,
                       intervention=:predator_death, strength=0.6, t_int=T/2)
@@ -54,7 +53,7 @@ function simulate_lv(; X0=30.0, Y0=8.0, alpha=1.2, beta=0.08, delta=0.06, gamma=
     @sim_capture "simulate_lv"
 end
 
-# --- main execution ---
+## --- main execution ---
 let
 
     # - start a new simulation session
@@ -74,15 +73,15 @@ let
 
         # Randomly draw parameters from plausible ranges
         rng = Random.default_rng()
-        X0 = rand(rng) * (50 - 20) + 20           # prey initial: 20-50
-        Y0 = rand(rng) * (15 - 5) + 5             # predator initial: 5-15
-        alpha = rand(rng) * (1.5 - 0.8) + 0.8     # prey growth: 0.8-1.5
-        beta = rand(rng) * (0.12 - 0.05) + 0.05   # prey-predator: 0.05-0.12
-        delta = rand(rng) * (0.08 - 0.04) + 0.04  # predator benefit: 0.04-0.08
-        gamma = rand(rng) * (1.2 - 0.8) + 0.8     # predator mortality: 0.8-1.2
-        sigmax = rand(rng) * (0.35 - 0.15) + 0.15 # prey noise: 0.15-0.35
-        sigmay = rand(rng) * (0.35 - 0.15) + 0.15 # predator noise: 0.15-0.35
-        strength = rand(rng) * (0.8 - 0.3) + 0.3  # intervention strength: 0.3-0.8
+        X0 = rand(rng) * (50 - 20) + 20             # prey initial: 20-50
+        Y0 = rand(rng) * (15 - 5) + 5               # predator initial: 5-15
+        alpha = rand(rng) * (1.5 - 0.8) + 0.8       # prey growth: 0.8-1.5
+        beta = rand(rng) * (0.12 - 0.05) + 0.05     # prey-predator: 0.05-0.12
+        delta = rand(rng) * (0.08 - 0.04) + 0.04    # predator benefit: 0.04-0.08
+        gamma = rand(rng) * (1.2 - 0.8) + 0.8       # predator mortality: 0.8-1.2
+        sigmax = rand(rng) * (0.35 - 0.15) + 0.15   # prey noise: 0.15-0.35
+        sigmay = rand(rng) * (0.35 - 0.15) + 0.15   # predator noise: 0.15-0.35
+        strength = rand(rng) * (0.8 - 0.3) + 0.3    # intervention strength: 0.3-0.8
 
         simulate_lv(X0=X0, Y0=Y0, alpha=alpha, beta=beta, delta=delta, gamma=gamma,
                     sigmax=sigmax, sigmay=sigmay, seed=rand(1:typemax(Int32)),

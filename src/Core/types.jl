@@ -17,14 +17,16 @@ to all subsystems. Access via `Simuleos.OS`.
     # Bootstrap data (provided at creation)
     home_path::String = joinpath(homedir(), ".simuleos")
     project_root::Union{Nothing, String} = nothing  # auto-detect or explicit
+    bootstrap::Dict{String, Any} = Dict{String, Any}()  # bootstrap settings
 
     # Lazy subsystem references (initialized on first access)
     # These are Union{Nothing, T} - check and initialize on first access
     _project::Any = nothing  # Will be Project once loaded
     _home::Any = nothing     # Will be SimuleosHome once loaded
 
-    # UXLayers integration (lazy init on first settings() call)
+    # UXLayers integration (built at activate() time)
     _ux_root::Any = nothing  # Will be UXLayerView once loaded
+    _sources::Vector{Dict{String, Any}} = Dict{String, Any}[]  # Settings sources in priority order
 end
 
 # =============================================================================

@@ -21,7 +21,7 @@ function load_lv_data(simuleos_path::String)
 
     # Get the latest commit
     commit = rand(collect(t))
-    scope = rand(collect(scopes(commit)))
+    @time scope = rand(collect(scopes(commit)))
 
     # Extract variables
     vars = Dict{String, VariableWrapper}()
@@ -47,7 +47,11 @@ function load_lv_data(simuleos_path::String)
         end
     end
 
-    return (; ts, X, Y, params, metadata=metadata(commit), scope_label=label(scope))
+    return (; 
+        ts, X, Y, params, 
+        metadata=metadata(commit), 
+        scope_label=label(scope)
+    )
 end
 
 # Plot population dynamics over time

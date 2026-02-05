@@ -1,5 +1,5 @@
-# Settings access for SimOS (UXLayers integration)
-# This is the cold path - direct access to UXLayers
+# Settings access for SimOS (source-based resolution)
+# Iterates through _sources in priority order, returns first hit
 
 using UXLayers: UXLayerView
 
@@ -7,35 +7,45 @@ using UXLayers: UXLayerView
 const __MISSING__ = :__MISSING__
 
 """
-    _init_ux_root!(os::SimOS)
+    ux_root(os::SimOS)
 
-Lazily initialize the UXLayers root view on first access.
+Get the UXLayers root view. Must call activate() first.
 """
-function _init_ux_root!(os::SimOS)
+function ux_root(os::SimOS)::UXLayerView
     if isnothing(os._ux_root)
-        os._ux_root = UXLayerView("simuleos")
+        error("Settings not initialized. Call Simuleos.activate(path, args) first.")
     end
     return os._ux_root
 end
 
 """
-    ux_root(os::SimOS)
+    _resolve_setting(os::SimOS, key::String)
 
-Get the UXLayers root view, initializing if needed.
+Resolve a setting by checking sources in priority order.
+Returns (found::Bool, value::Any).
 """
-function ux_root(os::SimOS)::UXLayerView
-    return _init_ux_root!(os)
+function _resolve_setting(os::SimOS, key::String)
+    for source in os._sources
+        if haskey(source, key)
+            return (true, source[key])
+        end
+    end
+    return (false, nothing)
 end
 
 """
     settings(os::SimOS, key::String)
 
-Get a setting value from UXLayers. Errors if key not found.
+Get a setting value by checking sources in priority order.
+Errors if key not found in any source.
 """
 function settings(os::SimOS, key::String)
-    view = ux_root(os)
-    val = get(view, key, __MISSING__)
-    if val === __MISSING__
+    if isempty(os._sources)
+        error("Settings not initialized. Call Simuleos.activate(path, args) first.")
+    end
+
+    found, val = _resolve_setting(os, key)
+    if !found
         error("Setting not found: $key")
     end
     return val
@@ -44,12 +54,16 @@ end
 """
     settings(os::SimOS, key::String, default)
 
-Get a setting value from UXLayers, returning default if not found.
+Get a setting value by checking sources in priority order.
+Returns default if key not found in any source.
 """
 function settings(os::SimOS, key::String, default)
-    view = ux_root(os)
-    val = get(view, key, __MISSING__)
-    if val === __MISSING__
+    if isempty(os._sources)
+        return default
+    end
+
+    found, val = _resolve_setting(os, key)
+    if !found
         return default
     end
     return val
