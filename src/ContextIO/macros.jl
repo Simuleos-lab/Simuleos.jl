@@ -14,9 +14,9 @@ function _extract_symbols(expr)
     end
 end
 
-# =============================================================================
+# ==================================
 # @sim_session - Initialize session with metadata and directory structure
-# =============================================================================
+# ==================================
 macro sim_session(label)
     src_file = string(__source__.file)
     src_dir = dirname(src_file)
@@ -45,9 +45,9 @@ macro sim_session(label)
     end
 end
 
-# =============================================================================
+# ==================================
 # @sim_store - Mark variables for blob storage (per-scope)
-# =============================================================================
+# ==================================
 macro sim_store(vars...)
     symbols = Symbol[]
     for v in vars
@@ -61,12 +61,12 @@ macro sim_store(vars...)
     end |> esc
 end
 
-# =============================================================================
+# ==================================
 # @sim_context - Add context labels and data to current scope
 # Usage: @sim_context "label"
 #        @sim_context :key => value
 #        @sim_context "label" :key1 => val1 :key2 => val2
-# =============================================================================
+# ==================================
 macro sim_context(args...)
     exprs = []
     for arg in args
@@ -90,9 +90,9 @@ macro sim_context(args...)
     end |> esc
 end
 
-# =============================================================================
+# ==================================
 # @sim_capture - Snapshot local scope + globals
-# =============================================================================
+# ==================================
 macro sim_capture(label)
     src_file = string(__source__.file)
     src_line = __source__.line
@@ -127,9 +127,9 @@ macro sim_capture(label)
     end
 end
 
-# =============================================================================
+# ==================================
 # @sim_commit - Persist stage to JSONL tape (optional label)
-# =============================================================================
+# ==================================
 macro sim_commit(label="")
     quote
         s = Simuleos.ContextIO._get_session()

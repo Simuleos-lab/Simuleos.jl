@@ -3,9 +3,9 @@
 
 using Dates
 
-# =============================================================================
+# ==================================
 # Lite Data Detection and Conversion
-# =============================================================================
+# ==================================
 
 const LITE_TYPES = Union{Bool, Int, Float64, String, Nothing, Missing, Symbol}
 
@@ -44,9 +44,9 @@ function _liteify(value::Any)
     error("Cannot liteify non-lite value of type $(typeof(value))")
 end
 
-# =============================================================================
+# ==================================
 # Metadata Capture
-# =============================================================================
+# ==================================
 
 """
     _capture_metadata(script_path, git_handler=nothing)

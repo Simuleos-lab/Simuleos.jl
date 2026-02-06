@@ -7,7 +7,7 @@ import LibGit2
     mktempdir() do dir
         # Initialize repo
         gh = Simuleos.GitHandler(dir)
-        Simuleos.init(gh)
+        Simuleos.git_init(gh)
 
         @testset "hash" begin
             # Initial commit is needed for hash to work
@@ -19,25 +19,25 @@ import LibGit2
             LibGit2.commit(repo, "Initial commit"; author=sig, committer=sig)
             close(repo)
 
-            h = Simuleos.hash(gh)
+            h = Simuleos.git_hash(gh)
             @test length(h) == 40  # SHA-1 hex string
             @test all(c -> c in "0123456789abcdef", h)
         end
 
         @testset "dirty" begin
             # After commit, repo should be clean
-            @test Simuleos.dirty(gh) == false
+            @test Simuleos.git_dirty(gh) == false
 
             # Create uncommitted change
             test_file = joinpath(dir, "test.txt")
             write(test_file, "modified content")
 
             # Repo should now be dirty
-            @test Simuleos.dirty(gh) == true
+            @test Simuleos.git_dirty(gh) == true
         end
 
         @testset "branch" begin
-            b = Simuleos.branch(gh)
+            b = Simuleos.git_branch(gh)
             @test !isnothing(b)
             @test length(b) > 0
         end
@@ -48,7 +48,7 @@ import LibGit2
             LibGit2.tag_create(repo, "v0.1.0", LibGit2.head_oid(repo))
             close(repo)
 
-            d = Simuleos.describe(gh)
+            d = Simuleos.git_describe(gh)
             @test !isnothing(d)
             @test length(d) > 0
         end
@@ -59,14 +59,14 @@ import LibGit2
             mktempdir() do dir2
                 # Initialize two separate repos
                 gh1 = Simuleos.GitHandler(dir1)
-                Simuleos.init(gh1)
+                Simuleos.git_init(gh1)
 
                 # Create a handler for dir2 but initialize dir1
                 # This should fail the identity check if we try to use gh1 on dir2's repo
                 gh_mixed = Simuleos.GitHandler(dir1)
 
                 # First operation should work
-                Simuleos.init(gh_mixed)
+                Simuleos.git_init(gh_mixed)
 
                 # Setup commits
                 repo = LibGit2.GitRepo(dir1)
@@ -77,7 +77,7 @@ import LibGit2
                 close(repo)
 
                 # Operations should work fine
-                @test length(Simuleos.hash(gh_mixed)) == 40
+                @test length(Simuleos.git_hash(gh_mixed)) == 40
             end
         end
     end

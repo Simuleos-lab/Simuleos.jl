@@ -3,29 +3,28 @@
 
 module Simuleos
 
-# =============================================================================
+# ==================================
 # Core Module (must be first - all types defined here)
-# =============================================================================
+# ==================================
 include("Core/Core.jl")
 using .Core
 
-# =============================================================================
+# ==================================
 # UXLayer (settings sources, must be before app modules)
-# =============================================================================
+# ==================================
 include("UXLayer.jl")
 
-# =============================================================================
+# ==================================
 # App Modules (depend on Core)
-# =============================================================================
+# ==================================
 include("ContextIO/ContextIO.jl")
 include("FileSystem/FileSystem.jl")
 include("Registry/Registry.jl")
 include("Tools/Tools.jl")
 include("Traceability/Traceability.jl")
 
-# Import git functions for re-export (backward compatibility)
+# Import git functions for re-export
 using .Core: git_hash, git_dirty, git_describe, git_branch, git_remote, git_init
-using .Core: hash, dirty, describe, branch, remote, init
 
 # Import settings functions
 # Core defines settings() for SimOS, ContextIO extends it for Session
@@ -44,9 +43,9 @@ using .ContextIO: label, timestamp, variables, labels, data
 using .ContextIO: name, src_type, value, blob_ref, src
 using .ContextIO: iterate_raw_tape, iterate_tape, load_raw_blob, load_blob
 
-# =============================================================================
+# ==================================
 # SimOS - The God Object
-# =============================================================================
+# ==================================
 
 # Global instance (mutable, swappable for testing)
 const OS = Core.SimOS()
@@ -163,9 +162,9 @@ function home()::Core.SimuleosHome
     return OS._home
 end
 
-# =============================================================================
+# ==================================
 # Convenience Re-exports (for backward compatibility during transition)
-# =============================================================================
+# ==================================
 
 # Core types (commonly used)
 export SimOS, Project, Session, Stage, Scope, ScopeVariable
@@ -192,8 +191,7 @@ export simignore!, set_simignore_rules!, _should_ignore
 # Settings (UXLayers integration)
 export settings, ux_root, DEFAULTS
 
-# Git functions (backward compatibility)
+# Git functions
 export git_hash, git_dirty, git_describe, git_branch, git_remote, git_init
-export hash, dirty, describe, branch, remote, init
 
 end # module Simuleos

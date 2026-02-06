@@ -141,10 +141,3 @@ function git_init(gh::GitHandler)
     return nothing
 end
 
-# Backward compatibility aliases (deprecated, will be removed)
-const hash = git_hash
-const dirty = git_dirty
-const describe = git_describe
-const branch = git_branch
-const remote = git_remote
-const init = git_init
