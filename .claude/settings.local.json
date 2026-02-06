@@ -9,7 +9,8 @@
       "Bash(julia:*)",
       "Bash(wc:*)",
       "Bash(tree:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(cmp:*)"
     ]
   }
 }
