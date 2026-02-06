@@ -1,6 +1,5 @@
 # Simignore: variable filtering (like .gitignore for Simuleos)
 # Rules are stored in Session.simignore_rules
-using ..Core: Session
 
 const RuleType = Dict{Symbol, T} where T
 
@@ -8,7 +7,7 @@ const RuleType = Dict{Symbol, T} where T
 # - rg: for error messages
 function _rule_str(rule::RuleType)
     try
-        return JSON3.write(rule)  # Note: JSON3.write not JSON3.print for string output
+        return ContextIO.JSON3.write(rule)  # Note: JSON3.write not JSON3.print for string output
     catch
         return string(rule)
     end
@@ -38,7 +37,7 @@ function check_rules(rule::RuleType)
 end
 
 """
-    set_simignore_rules!(session::Session, rules::Vector{Dict{Symbol, Any}})
+    set_simignore_rules!(session::Core.Session, rules::Vector{Dict{Symbol, Any}})
 
 Set simignore rules for the given session. Validates rules on set.
 
@@ -51,7 +50,7 @@ Variables are INCLUDED by default if no rules match.
 Last matching rule determines the action.
 """
 function set_simignore_rules!(
-        session::Session, 
+        session::Core.Session,
         rules::Vector{T} where T<:RuleType
     )
     validated_rules = Dict{Symbol, Any}[]
@@ -88,7 +87,7 @@ function simignore!(rules::Vector{RuleType})
 end
 
 function append_simignore_rule!(
-        session::Session, rule::RuleType
+        session::Core.Session, rule::RuleType
     )
     check_rules(rule)
     push!(session.simignore_rules, rule)
@@ -96,7 +95,7 @@ function append_simignore_rule!(
 end
 
 """
-    _should_ignore(session::Session, name::Symbol, val::Any, scope_label::String)::Bool
+    _should_ignore(session::Core.Session, name::Symbol, val::Any, scope_label::String)::Bool
 
 Check if a variable should be ignored based on simignore rules.
 
@@ -110,7 +109,7 @@ Logic:
    - If rules match: return last matching rule's action == :exclude
 """
 function _should_ignore(
-        session::Session, name::Symbol, 
+        session::Core.Session, name::Symbol,
         val::Any, scope_label::String
     )::Bool
     # Step 1: Type-based filtering (always applied)

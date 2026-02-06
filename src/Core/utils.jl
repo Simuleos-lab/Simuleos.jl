@@ -1,8 +1,6 @@
 # Core utilities shared across modules
 # Includes lite data detection and metadata capture
 
-using Dates
-
 # ==================================
 # Lite Data Detection and Conversion
 # ==================================
@@ -57,7 +55,7 @@ function _capture_metadata(script_path, git_handler=nothing)::Dict{String, Any}
     meta = Dict{String, Any}()
 
     # Timestamp
-    meta["timestamp"] = string(now())
+    meta["timestamp"] = string(Dates.now())
 
     # Julia version
     meta["julia_version"] = string(VERSION)
@@ -77,17 +75,17 @@ function _capture_metadata(script_path, git_handler=nothing)::Dict{String, Any}
 
         # Try to get git information using GitHandler
         try
-            gh = GitHandler(script_dir)
-            meta["git_commit"] = git_hash(gh)
-            meta["git_dirty"] = git_dirty(gh)
+            gh = Core.GitHandler(script_dir)
+            meta["git_commit"] = Core.git_hash(gh)
+            meta["git_dirty"] = Core.git_dirty(gh)
         catch
             meta["git_commit"] = nothing
             meta["git_dirty"] = nothing
         end
     else
         try
-            meta["git_commit"] = git_hash(git_handler)
-            meta["git_dirty"] = git_dirty(git_handler)
+            meta["git_commit"] = Core.git_hash(git_handler)
+            meta["git_dirty"] = Core.git_dirty(git_handler)
         catch
             meta["git_commit"] = nothing
             meta["git_dirty"] = nothing

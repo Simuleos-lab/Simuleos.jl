@@ -1,9 +1,6 @@
 # Loading functions for tape and blob data
 # Two variants: load_raw_* returns Dict/Vector, load_* returns Wrapper
 
-using JSON3
-using Serialization
-
 # Raw tape iteration
 
 """
@@ -34,7 +31,7 @@ function Base.iterate(::_TapeIterator, state)
     while !eof(io)
         line = readline(io)
         isempty(strip(line)) && continue
-        parsed = JSON3.read(line, Dict{String, Any})
+        parsed = ContextIO.JSON3.read(line, Dict{String, Any})
         return (parsed, state)
     end
     close(io)
@@ -89,7 +86,7 @@ Deserializes and returns the blob data as a Julia object.
 function load_raw_blob(handler::BlobHandler)
     path = _blob_path(handler)
     open(path, "r") do io
-        deserialize(io)
+        Serialization.deserialize(io)
     end
 end
 

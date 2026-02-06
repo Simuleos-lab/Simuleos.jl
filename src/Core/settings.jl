@@ -1,17 +1,15 @@
 # Settings access for SimOS (source-based resolution)
 # Iterates through _sources in priority order, returns first hit
 
-using UXLayers: UXLayerView
-
 # Sentinel for missing values
 const __MISSING__ = :__MISSING__
 
 """
-    ux_root(os::SimOS)
+    ux_root(os::Core.SimOS)
 
 Get the UXLayers root view. Must call activate() first.
 """
-function ux_root(os::SimOS)::UXLayerView
+function ux_root(os::Core.SimOS)::UXLayers.UXLayerView
     if isnothing(os._ux_root)
         error("Settings not initialized. Call Simuleos.activate(path, args) first.")
     end
@@ -19,12 +17,12 @@ function ux_root(os::SimOS)::UXLayerView
 end
 
 """
-    _resolve_setting(os::SimOS, key::String)
+    _resolve_setting(os::Core.SimOS, key::String)
 
 Resolve a setting by checking sources in priority order.
 Returns (found::Bool, value::Any).
 """
-function _resolve_setting(os::SimOS, key::String)
+function _resolve_setting(os::Core.SimOS, key::String)
     for source in os._sources
         if haskey(source, key)
             return (true, source[key])
@@ -34,17 +32,17 @@ function _resolve_setting(os::SimOS, key::String)
 end
 
 """
-    settings(os::SimOS, key::String)
+    settings(os::Core.SimOS, key::String)
 
 Get a setting value by checking sources in priority order.
 Errors if key not found in any source.
 """
-function settings(os::SimOS, key::String)
+function settings(os::Core.SimOS, key::String)
     if isempty(os._sources)
         error("Settings not initialized. Call Simuleos.activate(path, args) first.")
     end
 
-    found, val = _resolve_setting(os, key)
+    found, val = Core._resolve_setting(os, key)
     if !found
         error("Setting not found: $key")
     end
@@ -52,17 +50,17 @@ function settings(os::SimOS, key::String)
 end
 
 """
-    settings(os::SimOS, key::String, default)
+    settings(os::Core.SimOS, key::String, default)
 
 Get a setting value by checking sources in priority order.
 Returns default if key not found in any source.
 """
-function settings(os::SimOS, key::String, default)
+function settings(os::Core.SimOS, key::String, default)
     if isempty(os._sources)
         return default
     end
 
-    found, val = _resolve_setting(os, key)
+    found, val = Core._resolve_setting(os, key)
     if !found
         return default
     end

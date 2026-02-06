@@ -1,8 +1,5 @@
 # Macro implementations for Simuleos ContextIO
 
-using Dates
-using ..Core: Session, Stage, Scope, ScopeVariable, _capture_metadata
-
 # Helper to extract symbols from macro arguments
 function _extract_symbols(expr)
     if expr isa Symbol

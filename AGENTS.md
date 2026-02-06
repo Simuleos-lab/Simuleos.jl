@@ -12,6 +12,13 @@
     - remove old tests
 - keep code clean and simple
 
+## IMPORTANT
+- do not do exports for internal modules
+- always use explicit imports
+- full qualified names in code
+- Use exports only in Simuleos module
+
+
 ## Relevant
 - run julia tests with the project flag `julia --project`
 - use Pkg to modify Project.toml and Manifest.toml

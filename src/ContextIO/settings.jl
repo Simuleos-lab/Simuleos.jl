@@ -1,7 +1,6 @@
 # Settings access for Session (cached source-based resolution)
 # This is the hot path - uses session cache, falls back to sources on miss
 
-using ..Core: Session, SimOS, __MISSING__, _resolve_setting
 import ..Core: settings  # Import to extend with Session methods
 
 # Import Simuleos module for OS access (will be available at runtime)
@@ -12,22 +11,22 @@ import ..Core: settings  # Import to extend with Session methods
 
 Get the global SimOS instance. Deferred to avoid circular dependency.
 """
-function _get_os()::SimOS
+function _get_os()::Core.SimOS
     # Access Simuleos.OS via the parent module
     return Main.Simuleos.OS
 end
 
 """
-    settings(session::Session, key::String)
+    settings(session::Core.Session, key::String)
 
 Get a setting value from session cache. On miss, resolves from sources and caches.
 Errors if key not found in any source.
 """
-function settings(session::Session, key::String)
+function settings(session::Core.Session, key::String)
     # Check cache first
     if haskey(session._settings_cache, key)
         cached = session._settings_cache[key]
-        if cached === __MISSING__
+        if cached === Core.__MISSING__
             error("Setting not found: $key")
         end
         return cached
@@ -35,10 +34,10 @@ function settings(session::Session, key::String)
 
     # Cache miss - resolve from sources via OS
     os = _get_os()
-    found, val = _resolve_setting(os, key)
+    found, val = Core._resolve_setting(os, key)
 
     # Cache the result (including misses)
-    session._settings_cache[key] = found ? val : __MISSING__
+    session._settings_cache[key] = found ? val : Core.__MISSING__
 
     if !found
         error("Setting not found: $key")
@@ -47,16 +46,16 @@ function settings(session::Session, key::String)
 end
 
 """
-    settings(session::Session, key::String, default)
+    settings(session::Core.Session, key::String, default)
 
 Get a setting value from session cache. On miss, resolves from sources and caches.
 Returns default if key not found.
 """
-function settings(session::Session, key::String, default)
+function settings(session::Core.Session, key::String, default)
     # Check cache first
     if haskey(session._settings_cache, key)
         cached = session._settings_cache[key]
-        if cached === __MISSING__
+        if cached === Core.__MISSING__
             return default
         end
         return cached
@@ -64,10 +63,10 @@ function settings(session::Session, key::String, default)
 
     # Cache miss - resolve from sources via OS
     os = _get_os()
-    found, val = _resolve_setting(os, key)
+    found, val = Core._resolve_setting(os, key)
 
     # Cache the result (including misses)
-    session._settings_cache[key] = found ? val : __MISSING__
+    session._settings_cache[key] = found ? val : Core.__MISSING__
 
     if !found
         return default
@@ -76,11 +75,11 @@ function settings(session::Session, key::String, default)
 end
 
 """
-    _reset_settings_cache!(session::Session)
+    _reset_settings_cache!(session::Core.Session)
 
 Clear the settings cache. Called at @sim_session start.
 """
-function _reset_settings_cache!(session::Session)
+function _reset_settings_cache!(session::Core.Session)
     empty!(session._settings_cache)
     return nothing
 end

@@ -1,9 +1,7 @@
 # Session management and global state
 
-using ..Core: Session
-
 # Global session state
-__SIM_SESSION__::Union{Nothing, Session} = nothing
+__SIM_SESSION__::Union{Nothing, Core.Session} = nothing
 
 function _reset_session!()
     global __SIM_SESSION__ = nothing
@@ -14,6 +12,6 @@ function _get_session()
     return __SIM_SESSION__
 end
 
-function _set_session!(session::Session)
+function _set_session!(session::Core.Session)
     global __SIM_SESSION__ = session
 end

@@ -1,36 +1,32 @@
 # Blob storage with SHA1 hashing
 
-using SHA
-using Serialization
-using ..Core: Session
-
 # Chunk size for streaming hash computation
 const HASH_CHUNK_SIZE = 8192
 
 function _blob_hash(value)::String
-    ctx = SHA.SHA1_CTX()
+    ctx = ContextIO.SHA.SHA1_CTX()
     io = IOBuffer()
-    serialize(io, value)
+    Serialization.serialize(io, value)
     seekstart(io)
 
     # Read and hash in chunks to reduce memory usage
     buffer = Vector{UInt8}(undef, HASH_CHUNK_SIZE)
     while !eof(io)
         n = readbytes!(io, buffer, HASH_CHUNK_SIZE)
-        SHA.update!(ctx, view(buffer, 1:n))
+        ContextIO.SHA.update!(ctx, view(buffer, 1:n))
     end
 
-    return bytes2hex(SHA.digest!(ctx))
+    return bytes2hex(ContextIO.SHA.digest!(ctx))
 end
 
-function _write_blob(session::Session, value)::String
+function _write_blob(session::Core.Session, value)::String
     hash = _blob_hash(value)
     blob_dir = joinpath(session.root_dir, "blobs")
     mkpath(blob_dir)
     blob_path = joinpath(blob_dir, "$(hash).jls")
     if !isfile(blob_path)
         open(blob_path, "w") do io
-            serialize(io, value)
+            Serialization.serialize(io, value)
         end
     end
     return hash

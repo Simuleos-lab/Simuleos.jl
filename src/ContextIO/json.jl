@@ -1,18 +1,14 @@
 # Direct JSON serialization for Simuleos objects
 # Avoids intermediate Dict allocation for better commit performance
 
-using JSON3
-using Dates
-using ..Core: Session, Scope, ScopeVariable
-
 # Fallback - delegates to JSON3 for primitives
-_write_json(io::IO, x) = JSON3.write(io, x)
+_write_json(io::IO, x) = ContextIO.JSON3.write(io, x)
 
 # Symbol -> String
-_write_json(io::IO, s::Symbol) = JSON3.write(io, string(s))
+_write_json(io::IO, s::Symbol) = ContextIO.JSON3.write(io, string(s))
 
 # DateTime -> ISO string
-_write_json(io::IO, dt::DateTime) = JSON3.write(io, string(dt))
+_write_json(io::IO, dt::Dates.DateTime) = ContextIO.JSON3.write(io, string(dt))
 
 # Dict - iterate keys, call _write_json for values
 function _write_json(io::IO, d::Dict)
@@ -51,7 +47,7 @@ function _write_json(io::IO, s::Set)
 end
 
 # ScopeVariable - manual field writing, skip nothing/empty
-function _write_json(io::IO, sv::ScopeVariable)
+function _write_json(io::IO, sv::Core.ScopeVariable)
     print(io, "{\"src_type\":")
     _write_json(io, sv.src_type)
     print(io, ",\"src\":")
@@ -68,7 +64,7 @@ function _write_json(io::IO, sv::ScopeVariable)
 end
 
 # Scope - manual field writing, skip empty collections
-function _write_json(io::IO, scope::Scope)
+function _write_json(io::IO, scope::Core.Scope)
     print(io, "{\"label\":")
     _write_json(io, scope.label)
     print(io, ",\"timestamp\":")
@@ -95,7 +91,7 @@ function _write_json(io::IO, scope::Scope)
 end
 
 # Write commit record directly to IO
-function _write_commit_record(io::IO, session::Session, commit_label::String="")
+function _write_commit_record(io::IO, session::Core.Session, commit_label::String="")
     print(io, "{\"type\":\"commit\",\"session_label\":")
     _write_json(io, session.label)
     print(io, ",\"metadata\":")
@@ -115,7 +111,7 @@ function _write_commit_record(io::IO, session::Session, commit_label::String="")
 end
 
 # Derive blob_refs from all scopes' variables
-function _collect_blob_refs(scopes::Vector{Scope})::Vector{String}
+function _collect_blob_refs(scopes::Vector{Core.Scope})::Vector{String}
     refs = Set{String}()
     for scope in scopes
         for (_, sv) in scope.variables

@@ -3,7 +3,7 @@
 
 module FileSystem
 
-using ..Core
-
+# AGENT: IMPORTANT
+# DO NOT ADD EXPORT STATEMENTS
 
 end # module FileSystem

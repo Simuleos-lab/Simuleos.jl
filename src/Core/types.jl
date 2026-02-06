@@ -1,8 +1,6 @@
 # Core type definitions for Simuleos
 # All types are defined here - app modules have access to all types
 
-using Dates
-
 # ==================================
 # SimOS - The God Object
 # ==================================
@@ -15,7 +13,7 @@ to all subsystems. Access via `Simuleos.OS`.
 """
 @kwdef mutable struct SimOS
     # Bootstrap data (provided at creation)
-    home_path::String = joinpath(homedir(), ".simuleos")
+    home_path::String = default_home_path()  # ~/.simuleos
     project_root::Union{Nothing, String} = nothing  # auto-detect or explicit
     bootstrap::Dict{String, Any} = Dict{String, Any}()  # bootstrap settings
 
@@ -69,7 +67,7 @@ A snapshot of variables at a point in time.
 """
 @kwdef mutable struct Scope
     label::String = ""
-    timestamp::DateTime = now()
+    timestamp::Dates.DateTime = Dates.now()
     isopen::Bool = true                       # lifecycle tracking
     variables::Dict{String, ScopeVariable} = Dict{String, ScopeVariable}()
     labels::Vector{String} = String[]         # context labels from @sim_context
@@ -150,5 +148,5 @@ Links an output artifact (hash/path) to its generation context.
     artifact_path::Union{Nothing, String} = nothing
     session_label::String
     commit_label::String
-    timestamp::DateTime
+    timestamp::Dates.DateTime
 end

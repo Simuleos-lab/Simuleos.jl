@@ -3,6 +3,36 @@ using Test
 using Dates
 using Serialization
 
+# Convenience aliases for ContextIO query types/functions
+const RootHandler = Simuleos.ContextIO.RootHandler
+const SessionHandler = Simuleos.ContextIO.SessionHandler
+const TapeHandler = Simuleos.ContextIO.TapeHandler
+const BlobHandler = Simuleos.ContextIO.BlobHandler
+const BlobWrapper = Simuleos.ContextIO.BlobWrapper
+const sessions = Simuleos.ContextIO.sessions
+const tape = Simuleos.ContextIO.tape
+const blob = Simuleos.ContextIO.blob
+const exists = Simuleos.ContextIO.exists
+const iterate_raw_tape = Simuleos.ContextIO.iterate_raw_tape
+const iterate_tape = Simuleos.ContextIO.iterate_tape
+const load_raw_blob = Simuleos.ContextIO.load_raw_blob
+const load_blob = Simuleos.ContextIO.load_blob
+const session_label = Simuleos.ContextIO.session_label
+const commit_label = Simuleos.ContextIO.commit_label
+const metadata = Simuleos.ContextIO.metadata
+const blob_refs = Simuleos.ContextIO.blob_refs
+const scopes = Simuleos.ContextIO.scopes
+const label = Simuleos.ContextIO.label
+const timestamp = Simuleos.ContextIO.timestamp
+const labels = Simuleos.ContextIO.labels
+const data = Simuleos.ContextIO.data
+const variables = Simuleos.ContextIO.variables
+const name = Simuleos.ContextIO.name
+const src_type = Simuleos.ContextIO.src_type
+const src = Simuleos.ContextIO.src
+const value = Simuleos.ContextIO.value
+const blob_ref = Simuleos.ContextIO.blob_ref
+
 @testset "Query System" begin
     # Create temporary .simuleos structure for testing
     mktempdir() do tmpdir

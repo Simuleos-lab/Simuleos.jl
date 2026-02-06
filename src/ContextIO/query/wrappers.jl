@@ -1,8 +1,6 @@
 # Wrapper structs holding loaded data with accessor methods
 # Wrappers are immutable structs holding a copy of raw data
 
-using Dates
-
 """
     CommitWrapper
 
@@ -101,14 +99,14 @@ function label(s::ScopeWrapper)::String
 end
 
 """
-    timestamp(s::ScopeWrapper) -> DateTime
+    timestamp(s::ScopeWrapper) -> Dates.DateTime
 
 Returns the timestamp for this scope.
 """
-function timestamp(s::ScopeWrapper)::DateTime
+function timestamp(s::ScopeWrapper)::Dates.DateTime
     ts = get(s.raw, "timestamp", nothing)
-    isnothing(ts) && return DateTime(0)
-    DateTime(ts)
+    isnothing(ts) && return Dates.DateTime(0)
+    Dates.DateTime(ts)
 end
 
 """

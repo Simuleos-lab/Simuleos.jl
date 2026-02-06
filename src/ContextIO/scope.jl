@@ -1,13 +1,10 @@
 # Scope processing utilities
 
-using Dates
-using ..Core: Session, Scope, ScopeVariable, _is_lite, _liteify
-
 # Helper function to process scope from locals and globals
 # Mutates scope in-place, populating variables
 function _process_scope!(
-    scope::Scope,
-    session::Session,
+    scope::Core.Scope,
+    session::Core.Session,
     locals::Dict{Symbol, Any},
     globals::Dict{Symbol, Any},
     label::String,
@@ -21,17 +18,17 @@ function _process_scope!(
 
         if sym in scope.blob_set
             hash = _write_blob(session, val)
-            scope.variables[name] = ScopeVariable(
+            scope.variables[name] = Core.ScopeVariable(
                 name = name, src_type = src_type,
                 value = nothing, blob_ref = hash, src = src
             )
-        elseif _is_lite(val)
-            scope.variables[name] = ScopeVariable(
+        elseif Core._is_lite(val)
+            scope.variables[name] = Core.ScopeVariable(
                 name = name, src_type = src_type,
-                value = _liteify(val), blob_ref = nothing, src = src
+                value = Core._liteify(val), blob_ref = nothing, src = src
             )
         else
-            scope.variables[name] = ScopeVariable(
+            scope.variables[name] = Core.ScopeVariable(
                 name = name, src_type = src_type,
                 value = nothing, blob_ref = nothing, src = src
             )
@@ -52,7 +49,7 @@ function _process_scope!(
 
     # Set scope metadata
     scope.label = label
-    scope.timestamp = now()
+    scope.timestamp = Dates.now()
     scope.isopen = false
     scope.data[:src_file] = src_file
     scope.data[:src_line] = src_line

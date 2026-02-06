@@ -3,7 +3,7 @@
 
 module Tools
 
-using ..Core
-
+# AGENT: IMPORTANT
+# DO NOT ADD EXPORT STATEMENTS
 
 end # module Tools
