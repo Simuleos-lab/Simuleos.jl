@@ -160,6 +160,12 @@ function write_commit_to_tape(
         _write_commit_record(io, session_label, commit_label, stage, meta, root_dir)
         println(io)
     end
+
+    # Warn if tape file is getting large
+    tape_size = filesize(tape_path)
+    if tape_size > 200_000_000  # 200 MB
+        @warn "Tape file is large" path=tape_path size_mb=round(tape_size / 1_000_000; digits=1)
+    end
 end
 
 # ==================================
