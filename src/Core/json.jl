@@ -2,13 +2,13 @@
 # Avoids intermediate Dict allocation for better commit performance
 
 # Fallback - delegates to JSON3 for primitives
-_write_json(io::IO, x) = ContextIO.JSON3.write(io, x)
+_write_json(io::IO, x) = JSON3.write(io, x)
 
 # Symbol -> String
-_write_json(io::IO, s::Symbol) = ContextIO.JSON3.write(io, string(s))
+_write_json(io::IO, s::Symbol) = JSON3.write(io, string(s))
 
 # DateTime -> ISO string
-_write_json(io::IO, dt::Dates.DateTime) = ContextIO.JSON3.write(io, string(dt))
+_write_json(io::IO, dt::Dates.DateTime) = JSON3.write(io, string(dt))
 
 # Dict - iterate keys, call _write_json for values
 function _write_json(io::IO, d::Dict)
@@ -91,18 +91,18 @@ function _write_json(io::IO, scope::Core.Scope)
 end
 
 # Write commit record directly to IO
-function _write_commit_record(io::IO, session::Core.Session, commit_label::String="")
+function _write_commit_record(io::IO, recorder::Core.SessionRecorder, root_dir::String, commit_label::String="")
     print(io, "{\"type\":\"commit\",\"session_label\":")
-    _write_json(io, session.label)
+    _write_json(io, recorder.label)
     print(io, ",\"metadata\":")
-    _write_json(io, session.meta)
+    _write_json(io, recorder.meta)
     print(io, ",\"scopes\":[")
-    for (i, scope) in enumerate(session.stage.scopes)
+    for (i, scope) in enumerate(recorder.stage.scopes)
         i > 1 && print(io, ",")
         _write_json(io, scope)
     end
     print(io, "],\"blob_refs\":")
-    _write_json(io, _collect_blob_refs(session.stage.scopes))
+    _write_json(io, _collect_blob_refs(recorder.stage.scopes))
     if !isempty(commit_label)
         print(io, ",\"commit_label\":")
         _write_json(io, commit_label)

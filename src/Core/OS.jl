@@ -1,54 +1,52 @@
 # ==================================
-# SimOS - The God Object
+# Global State — current_sim
 # ==================================
 
-# Global instance (mutable, swappable for testing)
-const OS = Core.SimOS()
+# Single global: current_sim[]. No separate session global.
+const current_sim = Ref{Union{Nothing, Core.SimOs}}(nothing)
 
 """
-    set_os!(new_os::Core.SimOS)
+    set_sim!(new_sim::Core.SimOs)
 
-Replace the global SimOS instance. Used for testing.
+Replace the global SimOs instance. Used for testing.
 """
-function set_os!(new_os::Core.SimOS)
-    # Copy fields from new_os to OS
-    Core.OS.home_path = new_os.home_path
-    Core.OS.project_root = new_os.project_root
-    Core.OS.bootstrap = new_os.bootstrap
-    Core.OS._project = new_os._project
-    Core.OS._home = new_os._home
-    Core.OS._ux_root = new_os._ux_root
-    Core.OS._sources = new_os._sources
-    return Core.OS
+function set_sim!(new_sim::Core.SimOs)
+    Core.current_sim[] = new_sim
+    return Core.current_sim[]
 end
 
 """
-    reset_os!()
+    reset_sim!()
 
-Reset the global SimOS instance to defaults.
+Reset the global SimOs instance to nothing.
 """
-function reset_os!()
-    Core.OS.home_path = joinpath(homedir(), ".simuleos")
-    Core.OS.project_root = nothing
-    Core.OS.bootstrap = Dict{String, Any}()
-    Core.OS._project = nothing
-    Core.OS._home = nothing
-    Core.OS._ux_root = nothing
-    Core.OS._sources = Dict{String, Any}[]
-    return Core.OS
+function reset_sim!()
+    Core.current_sim[] = nothing
+    return nothing
 end
 
 """
-    activate(path::String, args::Dict{String, Any})
+    _get_sim()
+
+Get the current SimOs instance, error if not activated.
+"""
+function _get_sim()::Core.SimOs
+    sim = Core.current_sim[]
+    isnothing(sim) && error("No Simuleos instance active. Call Simuleos.sim_activate() first.")
+    return sim
+end
+
+"""
+    sim_activate(path::String, args::Dict{String, Any})
 
 Activate a project at the given path with settings args.
-Sets OS.project_root, invalidates lazy state, and builds settings sources.
+Sets `current_sim[]`, invalidates lazy state, and builds settings sources.
 
 # Arguments
 - `path`: Path to the project directory (must contain .simuleos/)
 - `args`: Settings overrides (highest priority source)
 """
-function activate(path::String, args::Dict{String, Any})
+function sim_activate(path::String, args::Dict{String, Any})
     if !isdir(path)
         error("Project path does not exist: $path")
     end
@@ -56,32 +54,41 @@ function activate(path::String, args::Dict{String, Any})
     if !isdir(simuleos_dir)
         error("Not a Simuleos project (no .simuleos directory): $path")
     end
-    Core.OS.project_root = path
-    Core.OS._project = nothing  # Invalidate lazy project
+
+    # Create or update SimOs
+    sim = Core.current_sim[]
+    if isnothing(sim)
+        sim = Core.SimOs()
+        Core.current_sim[] = sim
+    end
+
+    sim.project_root = path
+    sim._project = nothing  # Invalidate lazy project
 
     # Build settings sources
-    Core._build_ux_root!(Core.OS, args)
+    Core._buildux!(sim, args)
 
     return nothing
 end
 
 """
-    activate()
+    sim_activate()
 
 Auto-detect and activate a project from the current working directory.
 Searches upward for a .simuleos directory. Uses empty args.
 """
-function activate()
+function sim_activate()
     path = pwd()
     while true
         simuleos_dir = joinpath(path, ".simuleos")
         if isdir(simuleos_dir)
-            activate(path, Dict{String, Any}())
+            Core.sim_activate(path, Dict{String, Any}())
             return nothing
         end
         parent = dirname(path)
         if parent == path  # Reached root
-            error("No Simuleos project found in current directory or parents")
+            @warn "No Simuleos project found in current directory or parents"
+            return nothing
         end
         path = parent
     end
@@ -93,16 +100,17 @@ end
 Get the current active Project. Lazily initializes if needed.
 """
 function project()::Core.Project
-    if isnothing(Core.OS._project)
-        if isnothing(Core.OS.project_root)
-            error("No project activated. Use Simuleos.activate(path) first.")
+    sim = Core._get_sim()
+    if isnothing(sim._project)
+        if isnothing(sim.project_root)
+            error("No project activated. Use Simuleos.sim_activate(path) first.")
         end
-        Core.OS._project = Core.Project(
-            root_path = Core.OS.project_root,
-            simuleos_dir = joinpath(Core.OS.project_root, ".simuleos")
+        sim._project = Core.Project(
+            root_path = sim.project_root,
+            simuleos_dir = joinpath(sim.project_root, ".simuleos")
         )
     end
-    return Core.OS._project
+    return sim._project
 end
 
 """
@@ -111,8 +119,9 @@ end
 Get the SimuleosHome instance. Lazily initializes if needed.
 """
 function home()::Core.SimuleosHome
-    if isnothing(Core.OS._home)
-        Core.OS._home = Registry.init_home(Core.OS.home_path)
+    sim = Core._get_sim()
+    if isnothing(sim._home)
+        sim._home = Registry.init_home(sim.home_path)
     end
-    return Core.OS._home
+    return sim._home
 end

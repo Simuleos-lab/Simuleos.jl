@@ -2,29 +2,31 @@
 # All types are defined here - app modules have access to all types
 
 # ==================================
-# SimOS - The God Object
+# SimOs - The App Object
 # ==================================
 
 """
-    SimOS
+    SimOs
 
 The central state object for Simuleos. Holds bootstrap data and lazy references
-to all subsystems. Access via `Simuleos.OS`.
+to all subsystems. Access via `Simuleos.current_sim[]`.
 """
-@kwdef mutable struct SimOS
+@kwdef mutable struct SimOs
     # Bootstrap data (provided at creation)
-    home_path::String = default_home_path()  # ~/.simuleos
+    home_path::String = Core.default_home_path()  # ~/.simuleos
     project_root::Union{Nothing, String} = nothing  # auto-detect or explicit
     bootstrap::Dict{String, Any} = Dict{String, Any}()  # bootstrap settings
 
     # Lazy subsystem references (initialized on first access)
-    # These are Union{Nothing, T} - check and initialize on first access
     _project::Any = nothing  # Will be Project once loaded
     _home::Any = nothing     # Will be SimuleosHome once loaded
 
-    # UXLayers integration (built at activate() time)
-    _ux_root::Any = nothing  # Will be UXLayerView once loaded
-    _sources::Vector{Dict{String, Any}} = Dict{String, Any}[]  # Settings sources in priority order
+    # UXLayers integration (built at sim_activate() time)
+    ux::Any = nothing  # Will be UXLayerView once loaded
+
+    # Subsystem references
+    recorder::Any = nothing  # Will be SessionRecorder when recording
+    reader::Any = nothing    # Will be SessionReader when reading
 end
 
 # ==================================
@@ -70,8 +72,8 @@ A snapshot of variables at a point in time.
     timestamp::Dates.DateTime = Dates.now()
     isopen::Bool = true                       # lifecycle tracking
     variables::Dict{String, ScopeVariable} = Dict{String, ScopeVariable}()
-    labels::Vector{String} = String[]         # context labels from @sim_context
-    data::Dict{Symbol, Any} = Dict{Symbol, Any}()  # context data from @sim_context
+    labels::Vector{String} = String[]         # context labels from @session_context
+    data::Dict{Symbol, Any} = Dict{Symbol, Any}()  # context data from @session_context
     blob_set::Set{Symbol} = Set{Symbol}()     # per-scope blob requests
 end
 
@@ -86,20 +88,29 @@ Collection of scopes pending commit.
 end
 
 """
-    Session
+    SessionRecorder
 
 A recording session with metadata and staged scopes.
+References `current_sim[].project` for project-level data instead of storing root_dir.
 """
-@kwdef mutable struct Session
+@kwdef mutable struct SessionRecorder
     label::String
-    root_dir::String           # .simuleos/ path
     stage::Stage
     meta::Dict{String, Any}    # git, julia version, etc.
     simignore_rules::Vector{Dict{Symbol, Any}} = Dict{Symbol, Any}[]
 
-    # Settings cache (reset at @sim_session start, populated lazily)
+    # Settings cache (reset at @session_init start, populated lazily)
     # Uses :__MISSING__ sentinel for UXLayers misses to avoid repeated calls
     _settings_cache::Dict{String, Any} = Dict{String, Any}()
+end
+
+"""
+    SessionReader
+
+Manages reading state on `sim.reader`. Minimal for now — delegates to handlers in Core.
+"""
+@kwdef mutable struct SessionReader
+    session_label::Union{Nothing, String} = nothing
 end
 
 # ==================================
@@ -149,4 +160,98 @@ Links an output artifact (hash/path) to its generation context.
     session_label::String
     commit_label::String
     timestamp::Dates.DateTime
+end
+
+# ==================================
+# Handler Types (for lazy navigation of .simuleos/ directory structure)
+# ==================================
+
+"""
+    RootHandler(path::String)
+
+Entry point for querying a .simuleos/ directory.
+"""
+struct RootHandler
+    path::String  # path to .simuleos/
+end
+
+"""
+    SessionHandler
+
+Points to a session directory under sessions/<label>/.
+"""
+struct SessionHandler
+    root::RootHandler
+    label::String
+end
+
+"""
+    TapeHandler
+
+Points to a context.tape.jsonl file within a session.
+"""
+struct TapeHandler
+    session::SessionHandler
+end
+
+"""
+    BlobHandler
+
+Points to a blob file under blobs/<sha1>.jls.
+"""
+struct BlobHandler
+    root::RootHandler
+    sha1::String
+end
+
+# ==================================
+# Record Types (typed, loaded from tape/blobs)
+# ==================================
+
+"""
+    CommitRecord
+
+A typed commit record loaded from the tape. Replaces CommitWrapper.
+"""
+struct CommitRecord
+    session_label::String
+    commit_label::String
+    metadata::Dict{String, Any}
+    scopes::Vector{Any}       # Will hold ScopeRecord objects
+    blob_refs::Vector{String}
+end
+
+"""
+    ScopeRecord
+
+A typed scope record loaded from the tape. Replaces ScopeWrapper.
+"""
+struct ScopeRecord
+    label::String
+    timestamp::Dates.DateTime
+    variables::Vector{Any}    # Will hold VariableRecord objects
+    labels::Vector{String}
+    data::Dict{String, Any}
+end
+
+"""
+    VariableRecord
+
+A typed variable record loaded from the tape. Replaces VariableWrapper.
+"""
+struct VariableRecord
+    name::String
+    src_type::String
+    value::Any
+    blob_ref::Union{Nothing, String}
+    src::Symbol
+end
+
+"""
+    BlobRecord
+
+A typed blob record loaded from disk. Replaces BlobWrapper.
+"""
+struct BlobRecord
+    data::Any
 end

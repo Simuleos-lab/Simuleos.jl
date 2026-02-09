@@ -4,12 +4,14 @@
 # Mutates scope in-place, populating variables
 function _process_scope!(
     scope::Core.Scope,
-    session::Core.Session,
+    recorder::Core.SessionRecorder,
+    root_dir::String,
     locals::Dict{Symbol, Any},
     globals::Dict{Symbol, Any},
     label::String,
     src_file::String,
-    src_line::Int
+    src_line::Int,
+    should_ignore_fn::Function
 )
     # Helper to process a single variable
     function process_var!(sym::Symbol, val::Any, src::Symbol)
@@ -17,7 +19,7 @@ function _process_scope!(
         src_type = first(string(typeof(val)), 25)  # truncate to 25 chars
 
         if sym in scope.blob_set
-            hash = _write_blob(session, val)
+            hash = Core._write_blob(root_dir, val)
             scope.variables[name] = Core.ScopeVariable(
                 name = name, src_type = src_type,
                 value = nothing, blob_ref = hash, src = src
@@ -37,13 +39,13 @@ function _process_scope!(
 
     # Process globals first (can be overridden by locals)
     for (sym, val) in globals
-        _should_ignore(session, sym, val, label) && continue
+        should_ignore_fn(recorder, sym, val, label) && continue
         process_var!(sym, val, :global)
     end
 
     # Process locals (override globals if same name)
     for (sym, val) in locals
-        _should_ignore(session, sym, val, label) && continue
+        should_ignore_fn(recorder, sym, val, label) && continue
         process_var!(sym, val, :local)
     end
 

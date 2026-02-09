@@ -3,35 +3,23 @@ using Test
 using Dates
 using Serialization
 
-# Convenience aliases for ContextIO query types/functions
-const RootHandler = Simuleos.ContextIO.RootHandler
-const SessionHandler = Simuleos.ContextIO.SessionHandler
-const TapeHandler = Simuleos.ContextIO.TapeHandler
-const BlobHandler = Simuleos.ContextIO.BlobHandler
-const BlobWrapper = Simuleos.ContextIO.BlobWrapper
-const sessions = Simuleos.ContextIO.sessions
-const tape = Simuleos.ContextIO.tape
-const blob = Simuleos.ContextIO.blob
-const exists = Simuleos.ContextIO.exists
-const iterate_raw_tape = Simuleos.ContextIO.iterate_raw_tape
-const iterate_tape = Simuleos.ContextIO.iterate_tape
-const load_raw_blob = Simuleos.ContextIO.load_raw_blob
-const load_blob = Simuleos.ContextIO.load_blob
-const session_label = Simuleos.ContextIO.session_label
-const commit_label = Simuleos.ContextIO.commit_label
-const metadata = Simuleos.ContextIO.metadata
-const blob_refs = Simuleos.ContextIO.blob_refs
-const scopes = Simuleos.ContextIO.scopes
-const label = Simuleos.ContextIO.label
-const timestamp = Simuleos.ContextIO.timestamp
-const labels = Simuleos.ContextIO.labels
-const data = Simuleos.ContextIO.data
-const variables = Simuleos.ContextIO.variables
-const name = Simuleos.ContextIO.name
-const src_type = Simuleos.ContextIO.src_type
-const src = Simuleos.ContextIO.src
-const value = Simuleos.ContextIO.value
-const blob_ref = Simuleos.ContextIO.blob_ref
+# Convenience aliases for Core query types/functions
+const RootHandler = Simuleos.Core.RootHandler
+const SessionHandler = Simuleos.Core.SessionHandler
+const TapeHandler = Simuleos.Core.TapeHandler
+const BlobHandler = Simuleos.Core.BlobHandler
+const BlobRecord = Simuleos.Core.BlobRecord
+const CommitRecord = Simuleos.Core.CommitRecord
+const ScopeRecord = Simuleos.Core.ScopeRecord
+const VariableRecord = Simuleos.Core.VariableRecord
+const sessions = Simuleos.Core.sessions
+const tape = Simuleos.Core.tape
+const blob = Simuleos.Core.blob
+const exists = Simuleos.Core.exists
+const iterate_raw_tape = Simuleos.Core.iterate_raw_tape
+const iterate_tape = Simuleos.Core.iterate_tape
+const load_raw_blob = Simuleos.Core.load_raw_blob
+const load_blob = Simuleos.Core.load_blob
 
 @testset "Query System" begin
     # Create temporary .simuleos structure for testing
@@ -116,60 +104,60 @@ const blob_ref = Simuleos.ContextIO.blob_ref
 
             @testset "load_raw_blob()" begin
                 b = blob(root, blob_hash)
-                data = load_raw_blob(b)
-                @test data == test_data
+                raw_data = load_raw_blob(b)
+                @test raw_data == test_data
             end
         end
 
-        @testset "Wrappers" begin
+        @testset "Typed Records" begin
             root = RootHandler(simuleos_dir)
             sess = first(sessions(root))
             t = tape(sess)
 
-            @testset "CommitWrapper" begin
+            @testset "CommitRecord" begin
                 commits = collect(iterate_tape(t))
                 @test length(commits) == 2
 
                 c1 = commits[1]
-                @test session_label(c1) == "test_session"
-                @test commit_label(c1) == "first_commit"
-                @test metadata(c1)["git_branch"] == "main"
-                @test blob_refs(c1) == ["abc123def456"]
+                @test c1 isa CommitRecord
+                @test c1.session_label == "test_session"
+                @test c1.commit_label == "first_commit"
+                @test c1.metadata["git_branch"] == "main"
+                @test c1.blob_refs == ["abc123def456"]
 
                 c2 = commits[2]
-                @test session_label(c2) == "test_session"
-                @test isempty(blob_refs(c2))
+                @test c2.session_label == "test_session"
+                @test isempty(c2.blob_refs)
             end
 
-            @testset "ScopeWrapper" begin
+            @testset "ScopeRecord" begin
                 commits = collect(iterate_tape(t))
                 c1 = commits[1]
 
-                scope_list = collect(scopes(c1))
-                @test length(scope_list) == 1
+                @test length(c1.scopes) == 1
 
-                s = scope_list[1]
-                @test label(s) == "scope1"
-                @test timestamp(s) == DateTime(2024, 1, 15, 10, 30, 0)
-                @test labels(s) == ["iteration", "step1"]
-                @test data(s)["step"] == 1
+                s = c1.scopes[1]
+                @test s isa ScopeRecord
+                @test s.label == "scope1"
+                @test s.timestamp == DateTime(2024, 1, 15, 10, 30, 0)
+                @test s.labels == ["iteration", "step1"]
+                @test s.data["step"] == 1
             end
 
-            @testset "VariableWrapper" begin
+            @testset "VariableRecord" begin
                 commits = collect(iterate_tape(t))
                 c1 = commits[1]
-                s = first(scopes(c1))
+                s = c1.scopes[1]
 
-                var_list = collect(variables(s))
-                @test length(var_list) == 2
+                @test length(s.variables) == 2
 
                 # Find x and y variables
                 var_x = nothing
                 var_y = nothing
-                for v in var_list
-                    if name(v) == "x"
+                for v in s.variables
+                    if v.name == "x"
                         var_x = v
-                    elseif name(v) == "y"
+                    elseif v.name == "y"
                         var_y = v
                     end
                 end
@@ -178,23 +166,24 @@ const blob_ref = Simuleos.ContextIO.blob_ref
                 @test !isnothing(var_y)
 
                 # Test x (inline value)
-                @test src_type(var_x) == "Int64"
-                @test src(var_x) == :local
-                @test value(var_x) == 42
-                @test isnothing(blob_ref(var_x))
+                @test var_x isa VariableRecord
+                @test var_x.src_type == "Int64"
+                @test var_x.src == :local
+                @test var_x.value == 42
+                @test isnothing(var_x.blob_ref)
 
                 # Test y (blob reference)
-                @test src_type(var_y) == "Vector{Float64}"
-                @test src(var_y) == :local
-                @test isnothing(value(var_y))
-                @test blob_ref(var_y) == "abc123def456"
+                @test var_y.src_type == "Vector{Float64}"
+                @test var_y.src == :local
+                @test isnothing(var_y.value)
+                @test var_y.blob_ref == "abc123def456"
             end
 
-            @testset "BlobWrapper" begin
+            @testset "BlobRecord" begin
                 b = blob(root, blob_hash)
-                bw = load_blob(b)
-                @test bw isa BlobWrapper
-                @test data(bw) == test_data
+                br = load_blob(b)
+                @test br isa BlobRecord
+                @test br.data == test_data
             end
         end
 

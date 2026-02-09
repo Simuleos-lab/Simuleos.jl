@@ -1,19 +1,7 @@
 ## Simuleos Glossary
 
 ### Simuleos
-— The system that wraps simulation scripts to capture results + context in an append-only way.
-
-### Simulation script
-— The user’s Julia code that runs the model; can be “raw” or “sim-enabled”.
-
-### Raw script (`*.raw.jl`)
-— Baseline script without Simuleos, used as the reference for non-invasiveness.
-
-### Sim script (`*.sim.jl`)
-— Same simulation but instrumented with Simuleos macros to capture context/data.    
-
-### Run
-— A top-level append-only record representing one labeled execution (what we call a “session”).
+— An Operative System for simulation management in Julia.
 
 ### Session label
 — User-provided global label attached to a run via `@sim_session`.

@@ -4,7 +4,7 @@
 const HASH_CHUNK_SIZE = 8192
 
 function _blob_hash(value)::String
-    ctx = ContextIO.SHA.SHA1_CTX()
+    ctx = SHA.SHA1_CTX()
     io = IOBuffer()
     Serialization.serialize(io, value)
     seekstart(io)
@@ -13,15 +13,15 @@ function _blob_hash(value)::String
     buffer = Vector{UInt8}(undef, HASH_CHUNK_SIZE)
     while !eof(io)
         n = readbytes!(io, buffer, HASH_CHUNK_SIZE)
-        ContextIO.SHA.update!(ctx, view(buffer, 1:n))
+        SHA.update!(ctx, view(buffer, 1:n))
     end
 
-    return bytes2hex(ContextIO.SHA.digest!(ctx))
+    return bytes2hex(SHA.digest!(ctx))
 end
 
-function _write_blob(session::Core.Session, value)::String
+function _write_blob(root_dir::String, value)::String
     hash = _blob_hash(value)
-    blob_dir = joinpath(session.root_dir, "blobs")
+    blob_dir = joinpath(root_dir, "blobs")
     mkpath(blob_dir)
     blob_path = joinpath(blob_dir, "$(hash).jls")
     if !isfile(blob_path)

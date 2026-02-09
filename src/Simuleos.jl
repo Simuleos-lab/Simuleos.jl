@@ -11,12 +11,31 @@ include("Core/Core.jl")
 # ==================================
 # App Modules (depend on Core)
 # ==================================
-include("ContextIO/ContextIO.jl")
+include("Recorder/Recorder.jl")
+include("Reader/Reader.jl")
 include("FileSystem/FileSystem.jl")
 include("Registry/Registry.jl")
 include("Tools/Tools.jl")
 
+# ==================================
+# Bring macros into module scope
+# ==================================
+using .Recorder: @session_init, @session_store, @session_context, @session_capture, @session_commit
+
+# ==================================
+# Exports
+# ==================================
 # AGENT: IMPORTANT
-# DO NOT ADD EXPORT STATEMENTS
+# PUT EXPORT STATEMENTS HERE
+
+# Recorder macros
+export @session_init, @session_store, @session_context, @session_capture, @session_commit
+
+# ==================================
+# Auto-detection on load
+# ==================================
+function __init__()
+    Core.sim_activate()
+end
 
 end # module Simuleos

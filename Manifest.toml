@@ -94,7 +94,7 @@ uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 version = "1.11.0"
 
 [[deps.Simuleos]]
-deps = ["Dates", "JSON3", "LibGit2", "SHA", "Serialization"]
+deps = ["Dates", "JSON3", "LibGit2", "SHA", "Serialization", "UXLayers"]
 path = "."
 uuid = "583fa42a-a17c-4ad2-8932-70aab3cc9651"
 version = "0.1.0"

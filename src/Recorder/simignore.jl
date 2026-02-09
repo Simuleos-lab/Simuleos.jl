@@ -1,13 +1,12 @@
 # Simignore: variable filtering (like .gitignore for Simuleos)
-# Rules are stored in Session.simignore_rules
+# Rules are stored in SessionRecorder.simignore_rules
 
 const RuleType = Dict{Symbol, T} where T
 
 # Helper to stringify rule to a json-like string
-# - rg: for error messages
 function _rule_str(rule::RuleType)
     try
-        return ContextIO.JSON3.write(rule)  # Note: JSON3.write not JSON3.print for string output
+        return Core.JSON3.write(rule)
     catch
         return string(rule)
     end
@@ -37,9 +36,9 @@ function check_rules(rule::RuleType)
 end
 
 """
-    set_simignore_rules!(session::Core.Session, rules::Vector{Dict{Symbol, Any}})
+    set_simignore_rules!(recorder::Core.SessionRecorder, rules::Vector{Dict{Symbol, Any}})
 
-Set simignore rules for the given session. Validates rules on set.
+Set simignore rules for the given session recorder. Validates rules on set.
 
 Each rule is a Dict with:
 - `:regex` (required) - Regex pattern for matching variable names
@@ -50,19 +49,17 @@ Variables are INCLUDED by default if no rules match.
 Last matching rule determines the action.
 """
 function set_simignore_rules!(
-        session::Core.Session,
+        recorder::Core.SessionRecorder,
         rules::Vector{T} where T<:RuleType
     )
     validated_rules = Dict{Symbol, Any}[]
 
     for rule in rules
-        # Validate rule
         check_rules(rule)
-
         push!(validated_rules, rule)
     end
 
-    session.simignore_rules = validated_rules
+    recorder.simignore_rules = validated_rules
     return nothing
 end
 
@@ -70,32 +67,22 @@ end
     simignore!(rules::Vector)
 
 Set simignore rules for the current session.
-
-Example:
-```julia
-simignore!([
-    Dict(:regex => r"^_", :action => :exclude),           # Exclude private vars
-    Dict(:regex => r"^_temp_keep", :action => :include),  # But keep this one
-    Dict(:regex => r"debug", :scope => "dev", :action => :exclude)  # Only in "dev" scope
-])
-```
-
 """
 function simignore!(rules::Vector{RuleType})
-    session = _get_session()
-    set_simignore_rules!(session, rules)
+    recorder = _get_recorder()
+    set_simignore_rules!(recorder, rules)
 end
 
 function append_simignore_rule!(
-        session::Core.Session, rule::RuleType
+        recorder::Core.SessionRecorder, rule::RuleType
     )
     check_rules(rule)
-    push!(session.simignore_rules, rule)
+    push!(recorder.simignore_rules, rule)
     return nothing
 end
 
 """
-    _should_ignore(session::Core.Session, name::Symbol, val::Any, scope_label::String)::Bool
+    _should_ignore(recorder::Core.SessionRecorder, name::Symbol, val::Any, scope_label::String)::Bool
 
 Check if a variable should be ignored based on simignore rules.
 
@@ -109,25 +96,25 @@ Logic:
    - If rules match: return last matching rule's action == :exclude
 """
 function _should_ignore(
-        session::Core.Session, name::Symbol,
+        recorder::Core.SessionRecorder, name::Symbol,
         val::Any, scope_label::String
     )::Bool
     # Step 1: Type-based filtering (always applied)
     val isa Module && return true
     val isa Function && return true
-     
+
     # Step 2: Rule-based filtering
     name_str = string(name)
     last_rule = nothing
-    for rule in session.simignore_rules
+    for rule in recorder.simignore_rules
         # Check regex match
         regex_matches = occursin(rule[:regex], name_str)
         regex_matches || continue
-            
+
         # Check scope match (if scope is specified)
         rule_scope = get(rule, :scope, nothing)
         isnothing(rule_scope) || rule_scope == scope_label || continue
-        
+
         # Global rule (no scope specified)
         last_rule = rule
     end

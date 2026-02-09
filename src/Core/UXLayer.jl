@@ -46,49 +46,49 @@ end
 # ==================================
 
 """
-    _build_ux_root!(os::Core.SimOS, args::Dict{String, Any})
+    _buildux!(sim::Core.SimOs, args::Dict{String, Any})
 
 Build the UXLayers root view with all sources in priority order.
-Called at activate() time.
+Called at sim_activate() time.
 
 Sources (priority order, first hit wins):
-1. args          - passed to activate()
-2. bootstrap     - from SimOS constructor
-3. local         - .simuleos/settings.json
-4. global        - ~/.simuleos/settings.json
-5. DEFAULTS      - built-in defaults
+1. args          - passed to sim_activate()
+2. local         - .simuleos/settings.json
+3. global        - ~/.simuleos/settings.json
+
+Bootstrap and defaults are set separately via update_bootstrap!() and update_defaults!().
 """
-function _build_ux_root!(os::Core.SimOS, args::Dict{String, Any})
-    # Build source list in priority order
-    sources = Dict{String, Any}[]
+function _buildux!(sim::Core.SimOs, args::Dict{String, Any})
+    # Create UXLayerView root
+    ux = UXLayers._uxLayerView("simuleos")
 
-    # Priority 1: args (highest)
-    push!(sources, args)
-
-    # Priority 2: bootstrap from constructor
-    push!(sources, os.bootstrap)
-
-    # Priority 3: local project settings
-    if !isnothing(os.project_root)
-        local_path = joinpath(os.project_root, ".simuleos", "settings.json")
-        push!(sources, Core._load_settings_json(local_path))
+    # Load sources in priority order (highest to lowest)
+    # Priority 2: local project settings
+    local_settings = if !isnothing(sim.project_root)
+        local_path = joinpath(sim.project_root, ".simuleos", "settings.json")
+        Core._load_settings_json(local_path)
     else
-        push!(sources, Dict{String, Any}())
+        Dict{String, Any}()
     end
 
-    # Priority 4: global user settings
-    global_path = joinpath(os.home_path, "settings.json")
-    push!(sources, Core._load_settings_json(global_path))
+    # Priority 3: global user settings
+    global_path = joinpath(sim.home_path, "settings.json")
+    global_settings = Core._load_settings_json(global_path)
 
-    # Priority 5: built-in defaults (lowest)
-    push!(sources, Core.DEFAULTS)
+    # Load all sources into UXLayers
+    UXLayers.refresh!(ux,
+        Dict(
+            :args => args,
+            :local => local_settings,
+            :global => global_settings,
+        ),
+        [:args, :local, :global]  # Priority order
+    )
 
-    # Store sources for resolution
-    os._sources = sources
+    # Set bootstrap and defaults
+    UXLayers.update_bootstrap!(ux, sim.bootstrap)
+    UXLayers.update_defaults!(ux, Core.DEFAULTS)
 
-    # Create UXLayerView (for compatibility, not used for resolution)
-    os._ux_root = UXLayers.UXLayerView("simuleos")
-
-    return os._ux_root
+    sim.ux = ux
+    return ux
 end
-

@@ -1,17 +1,12 @@
 # Simuleos home directory management (~/.simuleos)
-# Stub implementation - to be expanded
-
-function default_home_path()::String
-    joinpath(homedir(), ".simuleos")
-end
 
 """
-    init_home(path::String=default_home_path())
+    init_home(path::String=Core.default_home_path())
 
 Initialize or load the Simuleos home directory.
 Creates the directory structure if it doesn't exist.
 """
-function init_home(path::String=default_home_path())::Core.SimuleosHome
+function init_home(path::String=Core.default_home_path())::Core.SimuleosHome
     if !isdir(path)
         mkpath(path)
         mkpath(joinpath(path, "registry"))
