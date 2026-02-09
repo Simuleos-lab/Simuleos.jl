@@ -1,5 +1,7 @@
 # Simuleos home directory management (~/.simuleos)
 
+const REGISTRY_DIRNAME = "registry"
+
 """
     init_home(path::String=Core.default_home_path())
 
@@ -9,8 +11,7 @@ Creates the directory structure if it doesn't exist.
 function init_home(path::String=Core.default_home_path())::Core.SimuleosHome
     if !isdir(path)
         mkpath(path)
-        mkpath(joinpath(path, "registry"))
-        mkpath(joinpath(path, "config"))
+        mkpath(joinpath(path, REGISTRY_DIRNAME))
     end
     return Core.SimuleosHome(path=path)
 end
@@ -30,7 +31,7 @@ end
 Get the path to the registry directory.
 """
 function registry_path(home::Core.SimuleosHome)::String
-    joinpath(home.path, "registry")
+    joinpath(home.path, REGISTRY_DIRNAME)
 end
 
 """
