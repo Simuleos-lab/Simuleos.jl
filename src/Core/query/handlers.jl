@@ -19,7 +19,7 @@ function sessions(root::Core.RootHandler)
     [
         Core.SessionHandler(root, name)
         for name in readdir(sessions_path)
-        if isdir(joinpath(sessions_path, name))
+        if isdir(_session_dir(Core.SessionHandler(root, name)))
     ]
 end
 

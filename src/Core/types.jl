@@ -2,6 +2,13 @@
 # All types are defined here - app modules have access to all types
 
 # ==================================
+# File Format Constants
+# ==================================
+
+const TAPE_FILENAME = "context.tape.jsonl"
+const BLOB_EXT = ".jls"
+
+# ==================================
 # SimOs - The App Object
 # ==================================
 

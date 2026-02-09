@@ -17,11 +17,11 @@ function _session_dir(session::Core.SessionHandler)
 end
 
 function _tape_path(tape::Core.TapeHandler)
-    joinpath(_session_dir(tape.session), "tapes", "context.tape.jsonl")
+    joinpath(_session_dir(tape.session), "tapes", Core.TAPE_FILENAME)
 end
 
 function _blob_path(root_dir::String, sha1::String)
-    joinpath(root_dir, "blobs", "$(sha1).jls")
+    joinpath(root_dir, "blobs", "$(sha1)$(Core.BLOB_EXT)")
 end
 
 function _blob_path(bh::Core.BlobHandler)

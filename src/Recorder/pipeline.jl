@@ -4,6 +4,12 @@
 # and delegates here.
 
 # ==================================
+# Constants
+# ==================================
+
+const MAX_TAPE_SIZE_BYTES = 200_000_000  # 200 MB threshold for tape file warnings
+
+# ==================================
 # Variable Processing (helper)
 # ==================================
 
@@ -163,7 +169,7 @@ function write_commit_to_tape(
 
     # Warn if tape file is getting large
     tape_size = filesize(tape_path)
-    if tape_size > 200_000_000  # 200 MB
+    if tape_size > MAX_TAPE_SIZE_BYTES
         @warn "Tape file is large" path=tape_path size_mb=round(tape_size / 1_000_000; digits=1)
     end
 end
