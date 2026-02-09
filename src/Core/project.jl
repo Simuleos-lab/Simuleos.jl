@@ -20,8 +20,12 @@ function _tape_path(tape::Core.TapeHandler)
     joinpath(_session_dir(tape.session), "tapes", "context.tape.jsonl")
 end
 
+function _blob_path(root_dir::String, sha1::String)
+    joinpath(root_dir, "blobs", "$(sha1).jls")
+end
+
 function _blob_path(bh::Core.BlobHandler)
-    joinpath(bh.root.path, "blobs", "$(bh.sha1).jls")
+    _blob_path(bh.root.path, bh.sha1)
 end
 
 # ==================================

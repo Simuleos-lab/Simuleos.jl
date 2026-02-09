@@ -21,9 +21,8 @@ end
 
 function _write_blob(root_dir::String, value)::String
     hash = _blob_hash(value)
-    blob_dir = joinpath(root_dir, "blobs")
-    mkpath(blob_dir)
-    blob_path = joinpath(blob_dir, "$(hash).jls")
+    blob_path = _blob_path(root_dir, hash)
+    mkpath(dirname(blob_path))
     if !isfile(blob_path)
         open(blob_path, "w") do io
             Serialization.serialize(io, value)

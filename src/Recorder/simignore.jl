@@ -85,44 +85,11 @@ end
     _should_ignore(recorder::Core.SessionRecorder, name::Symbol, val::Any, scope_label::String)::Bool
 
 Check if a variable should be ignored based on simignore rules.
-
-Returns `true` if the variable should be ignored (not captured).
-
-Logic:
-1. Type-based filtering: Modules and Functions are always ignored
-2. Rule-based filtering: Check simignore_rules
-   - Find all rules where regex matches name AND (scope is missing OR scope == scope_label)
-   - If no rules match: return false (include by default)
-   - If rules match: return last matching rule's action == :exclude
+Delegates to the pure `_should_ignore_var` in pipeline.jl.
 """
 function _should_ignore(
         recorder::Core.SessionRecorder, name::Symbol,
         val::Any, scope_label::String
     )::Bool
-    # Step 1: Type-based filtering (always applied)
-    val isa Module && return true
-    val isa Function && return true
-
-    # Step 2: Rule-based filtering
-    name_str = string(name)
-    last_rule = nothing
-    for rule in recorder.simignore_rules
-        # Check regex match
-        regex_matches = occursin(rule[:regex], name_str)
-        regex_matches || continue
-
-        # Check scope match (if scope is specified)
-        rule_scope = get(rule, :scope, nothing)
-        isnothing(rule_scope) || rule_scope == scope_label || continue
-
-        # Global rule (no scope specified)
-        last_rule = rule
-    end
-
-    # No matching rules: include by default
-    isnothing(last_rule) && return false
-
-    # Last matching rule determines action
-    last_action = get(last_rule, :action, nothing)
-    return last_action == :exclude
+    return _should_ignore_var(name, val, scope_label, recorder.simignore_rules)
 end

@@ -149,13 +149,12 @@ function write_commit_to_tape(
 )
     root_dir = Core.project(simos).simuleos_dir
 
-    # Build session directory and tape path
-    safe_label = replace(session_label, r"[^\w\-]" => "_")
-    session_dir = joinpath(root_dir, "sessions", safe_label)
-    tapes_dir = joinpath(session_dir, "tapes")
-    mkpath(tapes_dir)
-
-    tape_path = joinpath(tapes_dir, "context.tape.jsonl")
+    # Build tape path via Core handlers (SSOT for .simuleos/ layout)
+    root = Core.RootHandler(root_dir)
+    session = Core.SessionHandler(root, session_label)
+    tape = Core.TapeHandler(session)
+    tape_path = Core._tape_path(tape)
+    mkpath(dirname(tape_path))
 
     open(tape_path, "a") do io
         _write_commit_record(io, session_label, commit_label, stage, meta, root_dir)
