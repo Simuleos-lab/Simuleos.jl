@@ -20,6 +20,10 @@ const iterate_raw_tape = Simuleos.Core.iterate_raw_tape
 const iterate_tape = Simuleos.Core.iterate_tape
 const load_raw_blob = Simuleos.Core.load_raw_blob
 const load_blob = Simuleos.Core.load_blob
+# Canonical path helpers (SSOT for .simuleos/ directory layout)
+const _session_dir = Simuleos.Core._session_dir
+const _tape_path = Simuleos.Core._tape_path
+const _blob_path = Simuleos.Core._blob_path
 
 @testset "Query System" begin
     # Create temporary .simuleos structure for testing
@@ -27,26 +31,27 @@ const load_blob = Simuleos.Core.load_blob
         simuleos_dir = joinpath(tmpdir, ".simuleos")
         mkpath(simuleos_dir)
 
-        # Create sessions directory structure
+        # Create handlers to derive canonical paths
         test_session_name = "test_session"
-        session_dir = joinpath(simuleos_dir, "sessions", test_session_name)
-        tapes_dir = joinpath(session_dir, "tapes")
+        root = RootHandler(simuleos_dir)
+        session = SessionHandler(root, test_session_name)
+        tape_handler = TapeHandler(session)
+
+        # Create sessions directory structure using canonical paths
+        tape_path = _tape_path(tape_handler)
+        tapes_dir = dirname(tape_path)
         mkpath(tapes_dir)
 
-        # Create blobs directory
-        blobs_dir = joinpath(simuleos_dir, "blobs")
-        mkpath(blobs_dir)
-
-        # Write a test blob
+        # Write a test blob using canonical path
         test_data = Dict("foo" => 42, "bar" => [1, 2, 3])
         blob_hash = "abc123def456"
-        blob_path = joinpath(blobs_dir, "$(blob_hash).jls")
+        blob_path = _blob_path(simuleos_dir, blob_hash)
+        mkpath(dirname(blob_path))
         open(blob_path, "w") do io
             serialize(io, test_data)
         end
 
         # Write test tape with two commits (JSONL = one JSON object per line)
-        tape_path = joinpath(tapes_dir, "context.tape.jsonl")
         open(tape_path, "w") do io
             # First commit - must be a single line
             println(io, """{"type":"commit","session_label":"test_session","metadata":{"git_branch":"main"},"scopes":[{"label":"scope1","timestamp":"2024-01-15T10:30:00","variables":{"x":{"src_type":"Int64","src":"local","value":42},"y":{"src_type":"Vector{Float64}","src":"local","blob_ref":"abc123def456"}},"labels":["iteration","step1"],"data":{"step":1}}],"blob_refs":["abc123def456"],"commit_label":"first_commit"}""")
@@ -55,8 +60,6 @@ const load_blob = Simuleos.Core.load_blob
         end
 
         @testset "Handlers" begin
-            root = RootHandler(simuleos_dir)
-
             @testset "RootHandler" begin
                 @test root.path == simuleos_dir
             end
@@ -89,7 +92,6 @@ const load_blob = Simuleos.Core.load_blob
         end
 
         @testset "Raw Loaders" begin
-            root = RootHandler(simuleos_dir)
             sess = first(sessions(root))
             t = tape(sess)
 
@@ -110,7 +112,6 @@ const load_blob = Simuleos.Core.load_blob
         end
 
         @testset "Typed Records" begin
-            root = RootHandler(simuleos_dir)
             sess = first(sessions(root))
             t = tape(sess)
 
