@@ -40,6 +40,7 @@ Represents a Simuleos project (a directory with .simuleos/).
 Contains sessions and provides access to project-level operations.
 """
 @kwdef mutable struct Project
+    id::String                           # Project UUID (from project.json)
     root_path::String                    # Project root directory
     simuleos_dir::String                 # .simuleos/ path
     git_handler::Any = nothing           # GitHandler if git repo

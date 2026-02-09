@@ -65,15 +65,13 @@ function _buildux!(sim::Core.SimOs, args::Dict{String, Any})
     # Load sources in priority order (highest to lowest)
     # Priority 2: local project settings
     local_settings = if !isnothing(sim.project_root)
-        local_path = joinpath(sim.project_root, ".simuleos", "settings.json")
-        Core._load_settings_json(local_path)
+        Core._load_settings_json(Core.local_settings_path(sim.project_root))
     else
         Dict{String, Any}()
     end
 
     # Priority 3: global user settings
-    global_path = joinpath(sim.home_path, "settings.json")
-    global_settings = Core._load_settings_json(global_path)
+    global_settings = Core._load_settings_json(Core.global_settings_path(sim.home_path))
 
     # Load all sources into UXLayers
     UXLayers.refresh!(ux,

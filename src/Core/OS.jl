@@ -37,23 +37,34 @@ function _get_sim()::Core.SimOs
 end
 
 """
+    validate_project_folder(path::String)
+
+Validate that `path` is a Simuleos project.
+Checks that `.simuleos/project.json` exists.
+"""
+function validate_project_folder(path::String)
+    pjpath = Core.project_json_path(path)
+    if !isfile(pjpath)
+        error("Not a Simuleos project (no .simuleos/project.json): $path\n" *
+              "Run `Simuleos.sim_init(\"$path\")` first.")
+    end
+    return nothing
+end
+
+"""
     sim_activate(path::String, args::Dict{String, Any})
 
 Activate a project at the given path with settings args.
 Sets `current_sim[]`, invalidates lazy state, and builds settings sources.
 
 # Arguments
-- `path`: Path to the project directory (must contain .simuleos/)
+- `path`: Path to the project directory (must contain .simuleos/project.json)
 - `args`: Settings overrides (highest priority source)
 """
 function sim_activate(path::String, args::Dict{String, Any})
-    if !isdir(path)
-        error("Project path does not exist: $path")
-    end
-    simuleos_dir = joinpath(path, ".simuleos")
-    if !isdir(simuleos_dir)
-        error("Not a Simuleos project (no .simuleos directory): $path")
-    end
+    isfile(path) && error("Project path must not be a file: $path")
+
+    Core.validate_project_folder(path)
 
     # Create or update SimOs
     sim = Core.current_sim[]
@@ -72,6 +83,20 @@ function sim_activate(path::String, args::Dict{String, Any})
 end
 
 """
+    sim_activate_jl(args::Dict{String, Any})
+
+Activate a project based on the currently active Julia environment.
+- Uses `Base.activate_project()` to get the active environment path.
+- Validates that it's not a global environment.
+"""
+function sim_activate_jl(args::Dict{String, Any})
+    jl_proj = Base.activate_project()
+    jl_proj in Base.DEPOT_PATH && error("Global environment cannot be used as a Simuleos project. Please activate a local project with a .simuleos/ directory.")
+    path = dirname(jl_proj)
+    sim_activate(path, args)
+end
+
+"""
     sim_activate()
 
 Auto-detect and activate a project from the current working directory.
@@ -80,8 +105,7 @@ Searches upward for a .simuleos directory. Uses empty args.
 function sim_activate()
     path = pwd()
     while true
-        simuleos_dir = joinpath(path, ".simuleos")
-        if isdir(simuleos_dir)
+        if isdir(Core.simuleos_dir(path))
             Core.sim_activate(path, Dict{String, Any}())
             return nothing
         end
@@ -101,27 +125,22 @@ Get the current active Project. Lazily initializes if needed.
 """
 function project()::Core.Project
     sim = Core._get_sim()
-    if isnothing(sim._project)
-        if isnothing(sim.project_root)
-            error("No project activated. Use Simuleos.sim_activate(path) first.")
-        end
-        sim._project = Core.Project(
-            root_path = sim.project_root,
-            simuleos_dir = joinpath(sim.project_root, ".simuleos")
-        )
+    isnothing(sim._project) || return sim._project
+    isnothing(sim.project_root) && error("No project activated. Use Simuleos.sim_activate(path) first.")
+
+    # Load project id from project.json
+    pjpath = Core.project_json_path(sim.project_root)
+    pjdata = open(pjpath, "r") do io
+        JSON3.read(io, Dict{String, Any})
     end
+    id = get(pjdata, "id", nothing)
+    isnothing(id) && error("project.json is missing 'id' field: $pjpath")
+
+    sim._project = Core.Project(
+        id = id,
+        root_path = sim.project_root,
+        simuleos_dir = Core.simuleos_dir(sim.project_root)
+    )
     return sim._project
 end
 
-"""
-    home()
-
-Get the SimuleosHome instance. Lazily initializes if needed.
-"""
-function home()::Core.SimuleosHome
-    sim = Core._get_sim()
-    if isnothing(sim._home)
-        sim._home = Registry.init_home(sim.home_path)
-    end
-    return sim._home
-end

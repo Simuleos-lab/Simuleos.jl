@@ -5,52 +5,50 @@
 @time begin
     import Pkg
     Pkg.activate(@__DIR__)
-    
+
     using Simuleos
     using CairoMakie
 end
 
-## ..--. --. .- --. .- .- -.. - .--. -. -. 
+# Bring query API into scope
+const SCore = Simuleos.Core
+
+## ..--. --. .- --. .- .- -.. - .--. -. -.
 # Load data from .simuleos recording
 function load_lv_data(simuleos_path::String)
-    root = RootHandler(simuleos_path)
+    root = SCore.RootHandler(simuleos_path)
 
     # Get the first (and only) session
-    sess = rand(sessions(root))
-    t = tape(sess)
+    sess = rand(SCore.sessions(root))
+    t = SCore.tape(sess)
 
     # Get the latest commit
     commit = rand(collect(t))
-    @time scope = rand(collect(scopes(commit)))
+    @time scope = rand(commit.scopes)
 
     # Extract variables
-    vars = Dict{String, VariableWrapper}()
-    for var in variables(scope)
-        vars[name(var)] = var
+    vars = Dict{String, SCore.VariableRecord}()
+    for var in scope.variables
+        vars[var.name] = var
     end
 
     # Load blob data for time series
-    ts_ref = blob_ref(vars["ts"])
-    X_ref = blob_ref(vars["X"])
-    Y_ref = blob_ref(vars["Y"])
-
-    ts = data(load_blob(blob(root, ts_ref)))
-    X = data(load_blob(blob(root, X_ref)))
-    Y = data(load_blob(blob(root, Y_ref)))
+    ts = SCore.load_blob(SCore.blob(root, vars["ts"].blob_ref)).data
+    X = SCore.load_blob(SCore.blob(root, vars["X"].blob_ref)).data
+    Y = SCore.load_blob(SCore.blob(root, vars["Y"].blob_ref)).data
 
     # Extract parameters (lite values)
     params = Dict{String, Any}()
     for (k, var) in vars
-        v = value(var)
-        if !isnothing(v)
-            params[k] = v
+        if !isnothing(var.value)
+            params[k] = var.value
         end
     end
 
-    return (; 
-        ts, X, Y, params, 
-        metadata=metadata(commit), 
-        scope_label=label(scope)
+    return (;
+        ts, X, Y, params,
+        metadata=commit.metadata,
+        scope_label=scope.label
     )
 end
 

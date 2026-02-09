@@ -5,7 +5,7 @@
 # Lite Data Detection and Conversion
 # ==================================
 
-const LITE_TYPES = Union{Bool, Int, Float64, String, Nothing, Missing, Symbol}
+const LITE_TYPES = Union{Bool,Int,Float64,String,Nothing,Missing,Symbol}
 
 _is_lite(::LITE_TYPES) = true
 _is_lite(::Any) = false
@@ -47,12 +47,15 @@ end
 # ==================================
 
 """
-    _capture_metadata(script_path, git_handler=nothing)
+    _capture_session_metadata(script_path, git_handler=nothing)
 
 Capture metadata for a session: timestamp, Julia version, hostname, git info.
 """
-function _capture_metadata(script_path, git_handler=nothing)::Dict{String, Any}
-    meta = Dict{String, Any}()
+function _capture_session_metadata(
+        script_path, 
+        git_handler = Core.GitHandler(dirname(script_path))
+    )::Dict{String,Any}
+    meta = Dict{String,Any}()
 
     # Timestamp
     meta["timestamp"] = string(Dates.now())
@@ -67,22 +70,7 @@ function _capture_metadata(script_path, git_handler=nothing)::Dict{String, Any}
     meta["script_path"] = script_path
 
     # Git information
-    if isnothing(git_handler)
-        script_dir = dirname(script_path)
-        if isempty(script_dir)
-            script_dir = pwd()
-        end
-
-        # Try to get git information using GitHandler
-        try
-            gh = Core.GitHandler(script_dir)
-            meta["git_commit"] = Core.git_hash(gh)
-            meta["git_dirty"] = Core.git_dirty(gh)
-        catch
-            meta["git_commit"] = nothing
-            meta["git_dirty"] = nothing
-        end
-    else
+    if !isnothing(git_handler)
         try
             meta["git_commit"] = Core.git_hash(git_handler)
             meta["git_dirty"] = Core.git_dirty(git_handler)

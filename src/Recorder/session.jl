@@ -20,8 +20,7 @@ Returns the containing directory (the project root), or `nothing` if not found.
 function _find_project_root(start_path::String)
     path = abspath(start_path)
     while true
-        simuleos_dir = joinpath(path, ".simuleos")
-        if isdir(simuleos_dir)
+        if isdir(Core.simuleos_dir(path))
             return path
         end
         parent = dirname(path)
@@ -56,14 +55,14 @@ function session_init(label::String, script_path::String)
     end
 
     # Ensure current_sim is activated for this project
-    sim = Core.current_sim[]
-    if isnothing(sim) || sim.project_root != project_root
-        Core.sim_activate(project_root, Dict{String, Any}())
-    end
+    # Note: we expect the user to have activated the project first.
     sim = Core._get_sim()
 
+    # Clear any previous recorder
+    sim.recorder = nothing
+
     # Capture metadata
-    meta = Core._capture_metadata(script_path)
+    meta = Core._capture_session_metadata(script_path)
 
     # Error if git repo is dirty
     if get(meta, "git_dirty", false) === true

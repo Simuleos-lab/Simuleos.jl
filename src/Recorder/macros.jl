@@ -21,11 +21,6 @@ const _Core = Core
 macro session_init(label)
     src_file = string(__source__.file)
     quote
-        # Clear any previous recorder
-        _sim = $(_Core).current_sim[]
-        if !isnothing(_sim)
-            _sim.recorder = nothing
-        end
         $(_Recorder).session_init($(esc(label)), $(src_file))
     end
 end
@@ -41,7 +36,10 @@ macro session_store(vars...)
     quote
         r = $(_Recorder)._get_recorder()
         $(
-            [:(push!(r.stage.current_scope.blob_set, $(QuoteNode(sym)))) for sym in symbols]...
+            [
+                :(push!(r.stage.current_scope.blob_set, $(QuoteNode(sym)))) 
+                for sym in symbols
+            ]...
         )
         nothing
     end |> esc
@@ -136,7 +134,7 @@ macro session_commit(label="")
         end
 
         # Clear recorder on current_sim
-        $(_Core).current_sim[].recorder = nothing
+        $(_Core)._get_sim().recorder = nothing
 
         nothing
     end
@@ -187,6 +185,6 @@ function session_commit(label::String="")
     end
 
     # Clear recorder
-    Core.current_sim[].recorder = nothing
+    Core._get_sim().recorder = nothing
     return nothing
 end

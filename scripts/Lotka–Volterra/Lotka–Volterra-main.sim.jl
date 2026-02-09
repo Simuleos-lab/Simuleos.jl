@@ -44,13 +44,13 @@ function simulate_lv(; X0=30.0, Y0=8.0, alpha=1.2, beta=0.08, delta=0.06, gamma=
     # mark non-lite variables to be stored
     # - call store hooks
     # - add link to scope
-    @sim_store X, Y, ts
+    @session_store X, Y, ts
 
     # - collect scope variables
-    # - tag the sope with label
+    # - tag the scope with label
     # - add it to the current stage [global]
     # - return the scope [local]
-    @sim_capture "simulate_lv"
+    @session_capture "simulate_lv"
 end
 
 ## --- main execution ---
@@ -65,8 +65,8 @@ let
     # - clear sim.stage
     # - run hooks
     # - tag the scope with label
-    @sim_session "Lotka-Volterra Simulation"
-    @sim_context "v001"
+    @session_init "Lotka-Volterra Simulation"
+    @session_context "v001"
 
     n_iters = 10
     for it in 1:n_iters
@@ -90,6 +90,6 @@ let
         # - store the current stage
         # - run hooks
         # - clear sim.stage
-        @sim_commit
+        @session_commit
     end
 end

@@ -6,6 +6,7 @@ module Core
 import Dates
 import SHA
 import Serialization
+import UUIDs
 import UXLayers
 import JSON3
 import LibGit2
@@ -22,12 +23,15 @@ include("git.jl")
 # Utilities
 include("utils.jl")
 
-include("UXLayer.jl")
+include("uxlayer.jl")
 
 # OS global and operations
 include("OS.jl")
 
-# Settings (UXLayers integration)
+# System init (sim_init)
+include("sys-init.jl")
+
+# Settings
 include("OS-settings.jl")
 
 # Data I/O (moved from ContextIO)
