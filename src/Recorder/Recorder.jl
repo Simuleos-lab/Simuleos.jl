@@ -15,6 +15,9 @@ include("settings.jl")
 # Simignore (depends on session.jl for _get_recorder)
 include("simignore.jl")
 
+# Pipeline primitives (object-level, no workflow globals)
+include("pipeline.jl")
+
 # Macros (must be last - depends on everything else)
 include("macros.jl")
 

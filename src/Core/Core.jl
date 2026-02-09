@@ -17,6 +17,9 @@ include("home.jl")
 # Types first (no dependencies except home)
 include("types.jl")
 
+# Project structure: path helpers, project root discovery
+include("project.jl")
+
 # Git interface
 include("git.jl")
 
@@ -28,19 +31,17 @@ include("uxlayer.jl")
 # OS global and operations
 include("OS.jl")
 
-# System init (sim_init)
+# System init and validation (sim_init, validate_project_folder)
 include("sys-init.jl")
 
 # Settings
 include("OS-settings.jl")
 
-# Data I/O (moved from ContextIO)
+# Data I/O primitives
 include("blob.jl")
 include("json.jl")
-include("tape.jl")
-include("scope.jl")
 
-# Query system (moved from ContextIO)
+# Query system
 include("query/handlers.jl")
 include("query/loaders.jl")
 

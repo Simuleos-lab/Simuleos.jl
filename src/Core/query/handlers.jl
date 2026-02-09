@@ -1,26 +1,10 @@
-# Handler navigation and path helpers for .simuleos/ directory structure
+# Handler navigation for .simuleos/ directory structure
 # Handler types are declared in Core/types.jl
+# Path helpers are in Core/project.jl
 
-# Path helpers
-
-function _sessions_dir(root::Core.RootHandler)
-    joinpath(root.path, "sessions")
-end
-
-function _session_dir(session::Core.SessionHandler)
-    safe_label = replace(session.label, r"[^\w\-]" => "_")
-    joinpath(_sessions_dir(session.root), safe_label)
-end
-
-function _tape_path(tape::Core.TapeHandler)
-    joinpath(_session_dir(tape.session), "tapes", "context.tape.jsonl")
-end
-
-function _blob_path(bh::Core.BlobHandler)
-    joinpath(bh.root.path, "blobs", "$(bh.sha1).jls")
-end
-
+# ==================================
 # Navigation methods
+# ==================================
 
 """
     sessions(root::RootHandler)

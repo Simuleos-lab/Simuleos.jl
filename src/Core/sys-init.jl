@@ -1,6 +1,21 @@
 # ==================================
-# sim_init — Project Initialization
+# Project Initialization & Validation
 # ==================================
+
+"""
+    validate_project_folder(path::String)
+
+Validate that `path` is a Simuleos project.
+Checks that `.simuleos/project.json` exists.
+"""
+function validate_project_folder(path::String)
+    pjpath = Core.project_json_path(path)
+    if !isfile(pjpath)
+        error("Not a Simuleos project (no .simuleos/project.json): $path\n" *
+              "Run `Simuleos.sim_init(\"$path\")` first.")
+    end
+    return nothing
+end
 
 """
     sim_init(path::String; args::Dict{String, Any} = Dict{String, Any}())

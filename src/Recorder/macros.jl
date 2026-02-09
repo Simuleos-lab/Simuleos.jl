@@ -37,7 +37,7 @@ macro session_store(vars...)
         r = $(_Recorder)._get_recorder()
         $(
             [
-                :(push!(r.stage.current_scope.blob_set, $(QuoteNode(sym)))) 
+                :(push!(r.stage.current_scope.blob_set, $(QuoteNode(sym))))
                 for sym in symbols
             ]...
         )
@@ -82,12 +82,12 @@ macro session_capture(label)
     src_line = __source__.line
     quote
         r = $(_Recorder)._get_recorder()
-        _root_dir = $(_Core).project().simuleos_dir
+        _simos = $(_Core)._get_sim()
 
         # Capture locals
         _locals = Base.@locals()
 
-        # Capture globals from Main (filtering done in _process_scope!)
+        # Capture globals from Main (filtering done in _fill_scope!)
         _global_names = names(Main; imported = false)
         _globals = Dict{Symbol, Any}()
         for name in _global_names
@@ -97,10 +97,11 @@ macro session_capture(label)
         end
 
         # Finalize current_scope with captured variables
-        $(_Core)._process_scope!(
-            r.stage.current_scope, r, _root_dir, _locals, _globals,
-            $(esc(label)), $(src_file), $(src_line),
-            $(_Recorder)._should_ignore
+        $(_Recorder)._fill_scope!(
+            r.stage.current_scope, r.stage, _locals, _globals,
+            $(src_file), $(src_line), $(esc(label));
+            simignore_rules = r.simignore_rules,
+            simos = _simos
         )
 
         # Push finalized scope to stage.scopes
@@ -119,7 +120,7 @@ end
 macro session_commit(label="")
     quote
         r = $(_Recorder)._get_recorder()
-        _root_dir = $(_Core).project().simuleos_dir
+        _simos = $(_Core)._get_sim()
 
         # Check for pending context in current_scope
         cs = r.stage.current_scope
@@ -129,12 +130,15 @@ macro session_commit(label="")
         end
 
         if !isempty(r.stage.scopes)
-            $(_Core)._append_to_tape(r, _root_dir, $(esc(label)))
+            $(_Recorder).write_commit_to_tape(
+                r.label, $(esc(label)), r.stage, r.meta;
+                simos = _simos
+            )
             r.stage = $(_Core).Stage()
         end
 
         # Clear recorder on current_sim
-        $(_Core)._get_sim().recorder = nothing
+        _simos.recorder = nothing
 
         nothing
     end
@@ -151,12 +155,13 @@ Programmatic form of @session_capture. Caller must provide locals/globals.
 """
 function session_capture(label::String, locals::Dict{Symbol, Any}, globals::Dict{Symbol, Any}, src_file::String, src_line::Int)
     r = _get_recorder()
-    root_dir = Core.project().simuleos_dir
+    simos = Core._get_sim()
 
-    Core._process_scope!(
-        r.stage.current_scope, r, root_dir, locals, globals,
-        label, src_file, src_line,
-        _should_ignore
+    _fill_scope!(
+        r.stage.current_scope, r.stage, locals, globals,
+        src_file, src_line, label;
+        simignore_rules = r.simignore_rules,
+        simos = simos
     )
 
     push!(r.stage.scopes, r.stage.current_scope)
@@ -171,7 +176,7 @@ Programmatic form of @session_commit. Persists stage and clears recorder.
 """
 function session_commit(label::String="")
     r = _get_recorder()
-    root_dir = Core.project().simuleos_dir
+    simos = Core._get_sim()
 
     cs = r.stage.current_scope
     if !isempty(cs.labels) || !isempty(cs.data) || !isempty(cs.blob_set)
@@ -180,11 +185,11 @@ function session_commit(label::String="")
     end
 
     if !isempty(r.stage.scopes)
-        Core._append_to_tape(r, root_dir, label)
+        write_commit_to_tape(r.label, label, r.stage, r.meta; simos = simos)
         r.stage = Core.Stage()
     end
 
     # Clear recorder
-    Core._get_sim().recorder = nothing
+    simos.recorder = nothing
     return nothing
 end

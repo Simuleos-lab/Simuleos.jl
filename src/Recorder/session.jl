@@ -12,26 +12,6 @@ function _get_recorder()::Core.SessionRecorder
 end
 
 """
-    _find_project_root(start_path::String) -> Union{String, Nothing}
-
-Search upward from `start_path` for a `.simuleos/` directory.
-Returns the containing directory (the project root), or `nothing` if not found.
-"""
-function _find_project_root(start_path::String)
-    path = abspath(start_path)
-    while true
-        if isdir(Core.simuleos_dir(path))
-            return path
-        end
-        parent = dirname(path)
-        if parent == path  # Reached filesystem root
-            return nothing
-        end
-        path = parent
-    end
-end
-
-"""
     session_init(label::String, script_path::String)
 
 Internal session creation: locates project root, validates environment,
@@ -40,7 +20,7 @@ captures metadata, and initializes the session on `current_sim[].recorder`.
 function session_init(label::String, script_path::String)
     # Find project root by searching upward from the script's directory
     start = dirname(abspath(script_path))
-    project_root = _find_project_root(start)
+    project_root = Core.find_project_root(start)
 
     if isnothing(project_root)
         error("No Simuleos project found (no .simuleos/ directory) searching upward from: $start")
@@ -62,7 +42,7 @@ function session_init(label::String, script_path::String)
     sim.recorder = nothing
 
     # Capture metadata
-    meta = Core._capture_session_metadata(script_path)
+    meta = _capture_recorder_session_metadata(script_path)
 
     # Error if git repo is dirty
     if get(meta, "git_dirty", false) === true
@@ -79,4 +59,45 @@ function session_init(label::String, script_path::String)
     sim.recorder = recorder
 
     return recorder
+end
+
+# ==================================
+# Metadata Capture
+# ==================================
+
+"""
+    _capture_recorder_session_metadata(script_path, git_handler=nothing)
+
+Capture metadata for a recorder session: timestamp, Julia version, hostname, git info.
+"""
+function _capture_recorder_session_metadata(
+        script_path,
+        git_handler = Core.GitHandler(dirname(script_path))
+    )::Dict{String,Any}
+    meta = Dict{String,Any}()
+
+    # Timestamp
+    meta["timestamp"] = string(Dates.now())
+
+    # Julia version
+    meta["julia_version"] = string(VERSION)
+
+    # Hostname
+    meta["hostname"] = gethostname()
+
+    # Script path
+    meta["script_path"] = script_path
+
+    # Git information
+    if !isnothing(git_handler)
+        try
+            meta["git_commit"] = Core.git_hash(git_handler)
+            meta["git_dirty"] = Core.git_dirty(git_handler)
+        catch
+            meta["git_commit"] = nothing
+            meta["git_dirty"] = nothing
+        end
+    end
+
+    return meta
 end

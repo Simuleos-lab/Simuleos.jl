@@ -1,4 +1,4 @@
-# Home directory (~/.simuleos/) is ONLY for global configuration and settings, for the moment.
+# Home directory (~/.simuleos/) — global configuration and settings only
 # Session data (tapes, blobs) is NEVER stored here.
 # All session data goes to {project_root}/.simuleos/
 
@@ -8,10 +8,11 @@ function default_home_path()::String
     joinpath(homedir(), _simuleos_dirname())
 end
 
+# Shared base path helper (used by both home and project paths)
 simuleos_dir(project_root::String)::String = joinpath(project_root, _simuleos_dirname())
 
+# Project identity file path (used by sys-init and OS)
 project_json_path(project_root::String)::String = joinpath(simuleos_dir(project_root), "project.json")
 
-local_settings_path(project_root::String)::String = joinpath(simuleos_dir(project_root), "settings.json")
-
+# Global settings
 global_settings_path(home_path::String)::String = joinpath(home_path, "settings.json")

@@ -37,21 +37,6 @@ function _get_sim()::Core.SimOs
 end
 
 """
-    validate_project_folder(path::String)
-
-Validate that `path` is a Simuleos project.
-Checks that `.simuleos/project.json` exists.
-"""
-function validate_project_folder(path::String)
-    pjpath = Core.project_json_path(path)
-    if !isfile(pjpath)
-        error("Not a Simuleos project (no .simuleos/project.json): $path\n" *
-              "Run `Simuleos.sim_init(\"$path\")` first.")
-    end
-    return nothing
-end
-
-"""
     sim_activate(path::String, args::Dict{String, Any})
 
 Activate a project at the given path with settings args.
@@ -103,28 +88,21 @@ Auto-detect and activate a project from the current working directory.
 Searches upward for a .simuleos directory. Uses empty args.
 """
 function sim_activate()
-    path = pwd()
-    while true
-        if isdir(Core.simuleos_dir(path))
-            Core.sim_activate(path, Dict{String, Any}())
-            return nothing
-        end
-        parent = dirname(path)
-        if parent == path  # Reached root
-            @warn "No Simuleos project found in current directory or parents"
-            return nothing
-        end
-        path = parent
+    root = Core.find_project_root(pwd())
+    if isnothing(root)
+        @warn "No Simuleos project found in current directory or parents"
+        return nothing
     end
+    Core.sim_activate(root, Dict{String, Any}())
+    return nothing
 end
 
 """
-    project()
+    project(sim::SimOs)
 
-Get the current active Project. Lazily initializes if needed.
+Get the Project for an explicit SimOs instance. Lazily initializes if needed.
 """
-function project()::Core.Project
-    sim = Core._get_sim()
+function project(sim::Core.SimOs)::Core.Project
     isnothing(sim._project) || return sim._project
     isnothing(sim.project_root) && error("No project activated. Use Simuleos.sim_activate(path) first.")
 
@@ -142,5 +120,15 @@ function project()::Core.Project
         simuleos_dir = Core.simuleos_dir(sim.project_root)
     )
     return sim._project
+end
+
+"""
+    project()
+
+Get the current active Project. Lazily initializes if needed.
+Uses the global SimOs instance.
+"""
+function project()::Core.Project
+    Core.project(Core._get_sim())
 end
 

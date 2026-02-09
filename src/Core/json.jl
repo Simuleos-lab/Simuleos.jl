@@ -90,35 +90,3 @@ function _write_json(io::IO, scope::Core.Scope)
     print(io, "}")
 end
 
-# Write commit record directly to IO
-function _write_commit_record(io::IO, recorder::Core.SessionRecorder, root_dir::String, commit_label::String="")
-    print(io, "{\"type\":\"commit\",\"session_label\":")
-    _write_json(io, recorder.label)
-    print(io, ",\"metadata\":")
-    _write_json(io, recorder.meta)
-    print(io, ",\"scopes\":[")
-    for (i, scope) in enumerate(recorder.stage.scopes)
-        i > 1 && print(io, ",")
-        _write_json(io, scope)
-    end
-    print(io, "],\"blob_refs\":")
-    _write_json(io, _collect_blob_refs(recorder.stage.scopes))
-    if !isempty(commit_label)
-        print(io, ",\"commit_label\":")
-        _write_json(io, commit_label)
-    end
-    print(io, "}")
-end
-
-# Derive blob_refs from all scopes' variables
-function _collect_blob_refs(scopes::Vector{Core.Scope})::Vector{String}
-    refs = Set{String}()
-    for scope in scopes
-        for (_, sv) in scope.variables
-            if !isnothing(sv.blob_ref)
-                push!(refs, sv.blob_ref)
-            end
-        end
-    end
-    return collect(refs)
-end
