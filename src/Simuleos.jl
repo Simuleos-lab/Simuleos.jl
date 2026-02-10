@@ -13,9 +13,7 @@ include("Core/Core.jl")
 # ==================================
 include("Recorder/Recorder.jl")
 include("Reader/Reader.jl")
-include("FileSystem/FileSystem.jl")
 include("Registry/Registry.jl")
-include("Tools/Tools.jl")
 
 # ==================================
 # Bring macros into module scope

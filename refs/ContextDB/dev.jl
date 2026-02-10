@@ -68,17 +68,17 @@ let
 
     # Example ACE text
     ace_text = """
-    There is an experiment I10.
-    I10 is a Markov-chain-Monte-Carlo-experiment.
-    I10 estimates pi.
+    There is an experiment I1x.
+    I1x is a Markov-chain-Monte-Carlo-experiment.
+    I1x estimates pi.
 
     There is a target-distribution t1.
     t1 is a uniform-distribution.
     t1 is-defined-on the unit-square.
-    I10 has-target t1.
+    I1x has-target t1.
 
     There is a chain c1.
-    c1 implements I10.
+    c1 implements I1x.
     c1 has-number-of-iterations 100000.
     c1 has-burn-in 10000.
     c1 has-random-seed 42.
@@ -101,16 +101,16 @@ let
     d1 is the unit-disc.
     d1 is-contained-in the unit-square.
 
-    I10 visits points with c1.
+    I1x visits points with c1.
     A visited-point is a point that is visited-by c1.
 
     There is a ratio r1.
     r1 is the fraction-of visited-points that are inside d1.
-    I10 computes r1.
+    I1x computes r1.
 
     There is a pi-estimate e1.
     e1 is derived-from r1.
-    I10 computes e1.
+    I1x computes e1.
 
     e1 has-value 3.1416.
     e1 has-standard-error 0.0020.

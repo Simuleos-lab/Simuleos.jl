@@ -16,9 +16,9 @@
 ## I Axis: Interface styles:
 
 - Ideally, for each SimuleOs subsystem we want to follow a similar design
-    - have a lower integration base interface (around `I10`) 
+    - have a lower integration base interface (around `I1x`) 
         - that takes explicit arguments for all dependencies
-    - and a higher integration user interface (around `I30`)
+    - and a higher integration user interface (around `I3x`)
         - that resolves dependencies internally (e.g., via `SIMOS[]`)
 - both public
     - one is intended for internal use by other subsystems
@@ -30,18 +30,18 @@
     - and the use of implicit objects (e.g., "uses `SIMOS[].recorder[]`")
 
 ## I Axis: Levels of integration:
-- Level `I00` — zero integration, utilities: `f(...)`
+- Level `I0x` — zero integration, utilities: `f(...)`
     - no access to any `SimOs` object
-    - Pure utilities (e.g., `_is_lite(val)`) don't take it, `I00` = pure
-- Level `I10` — all dependencies as arguments: `f(simos, recorder, stage, ...)`
+    - Pure utilities (e.g., `_is_lite(val)`) don't take it, `I0x` = pure
+- Level `I1x` — all dependencies as arguments: `f(simos, recorder, stage, ...)`
     - explicit access to `SimOs` object
     - no use of `SimOs` inner globals
         - eg: explicit `recorder` argument
-- Level `I20` — pass `SimOs`, reach inside it: `f(simos, ...)`
+- Level `I2x` — pass `SimOs`, reach inside it: `f(simos, ...)`
     - explicit access to `SimOs` object
     - use of `SimOs` inner globals
         - eg: `simos.recorder`
-- Level `I30` — resolve globals internally: `f(...)` 
+- Level `I3x` — resolve globals internally: `f(...)` 
     - no explicit `SimOs` argument
     - use of `SIMOS` internal global
     - eg: uses `SIMOS[]`, `SIMOS[].recorder`

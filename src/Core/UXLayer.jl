@@ -23,7 +23,7 @@ const DEFAULTS = Dict{String, Any}(
 """
     _load_settings_json(path::String)::Dict{String, Any}
 
-I00 — pure file I/O
+I0x — pure file I/O
 
 Load settings from a JSON file. Returns empty dict if file doesn't exist.
 Errors on malformed JSON.
@@ -50,7 +50,7 @@ end
 """
     _buildux!(sim::Core.SimOs, args::Dict{String, Any})
 
-I20 — reads `sim.project_root`, `sim.home_path`, `sim.bootstrap`; writes `sim.ux`
+I2x — reads `sim.project_root`, `sim.home_path`, `sim.bootstrap`; writes `sim.ux`
 
 Build the UXLayers root view with all sources in priority order.
 Called at sim_activate() time.

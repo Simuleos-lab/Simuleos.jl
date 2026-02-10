@@ -1,6 +1,6 @@
 # Macro implementations for Simuleos Recorder
 
-# I00 — pure macro helper
+# I0x — pure macro helper
 function _extract_symbols(expr)
     if expr isa Symbol
         return [expr]
@@ -17,7 +17,7 @@ const _Core = Core
 
 # ==================================
 # @session_init - Initialize session with metadata and directory structure
-# I30 — expands to `session_init(label, src_file)` → uses `SIMOS[]`, writes `SIMOS[].recorder`
+# I3x — expands to `session_init(label, src_file)` → uses `SIMOS[]`, writes `SIMOS[].recorder`
 # ==================================
 macro session_init(label)
     src_file = string(__source__.file)
@@ -28,7 +28,7 @@ end
 
 # ==================================
 # @session_store - Mark variables for blob storage (per-scope)
-# I30 — via `_get_recorder()` → reads `SIMOS[].recorder.stage.current_scope.blob_set`
+# I3x — via `_get_recorder()` → reads `SIMOS[].recorder.stage.current_scope.blob_set`
 # ==================================
 macro session_store(vars...)
     symbols = Symbol[]
@@ -49,7 +49,7 @@ end
 
 # ==================================
 # @session_context - Add context labels and data to current scope
-# I30 — via `_get_recorder()` → reads/writes `SIMOS[].recorder.stage.current_scope`
+# I3x — via `_get_recorder()` → reads/writes `SIMOS[].recorder.stage.current_scope`
 # Usage: @session_context "label"
 #        @session_context :key => value
 #        @session_context "label" :key1 => val1 :key2 => val2
@@ -79,7 +79,7 @@ end
 
 # ==================================
 # @session_capture - Snapshot local scope + globals
-# I30 — via `_get_recorder()`, `_get_sim()` → reads `SIMOS[].recorder`, `SIMOS[]`
+# I3x — via `_get_recorder()`, `_get_sim()` → reads `SIMOS[].recorder`, `SIMOS[]`
 # ==================================
 macro session_capture(label)
     src_file = string(__source__.file)
@@ -120,7 +120,7 @@ end
 
 # ==================================
 # @session_commit - Persist stage to JSONL tape (optional label), clears recorder
-# I30 — via `_get_recorder()`, `_get_sim()` → reads `SIMOS[].recorder`, `SIMOS[]`; writes tape, clears `SIMOS[].recorder`
+# I3x — via `_get_recorder()`, `_get_sim()` → reads `SIMOS[].recorder`, `SIMOS[]`; writes tape, clears `SIMOS[].recorder`
 # ==================================
 macro session_commit(label="")
     quote
@@ -156,7 +156,7 @@ end
 """
     session_capture(label::String, locals::Dict{Symbol, Any}, globals::Dict{Symbol, Any}, src_file::String, src_line::Int)
 
-I30 — via `_get_recorder()`, `_get_sim()` → reads `SIMOS[].recorder`, `SIMOS[]`
+I3x — via `_get_recorder()`, `_get_sim()` → reads `SIMOS[].recorder`, `SIMOS[]`
 
 Programmatic form of @session_capture. Caller must provide locals/globals.
 """
@@ -179,7 +179,7 @@ end
 """
     session_commit(label::String="")
 
-I30 — via `_get_recorder()`, `_get_sim()` → reads `SIMOS[].recorder`, `SIMOS[]`; clears `SIMOS[].recorder`
+I3x — via `_get_recorder()`, `_get_sim()` → reads `SIMOS[].recorder`, `SIMOS[]`; clears `SIMOS[].recorder`
 
 Programmatic form of @session_commit. Persists stage and clears recorder.
 """

@@ -15,13 +15,13 @@
 
 - **Three layers** (ordered by integration level):
   - **Kernel.Core** — shared foundation: types, global state, settings, paths, utilities.
-  - **Kernel-SubSystems** — core workflow subsystems, complete within Core (I00-I10).
-  - **App-SubSystems** — extended workflow subsystems with user-facing integration (I20-I30).
+  - **Kernel-SubSystems** — core workflow subsystems, complete within Core (I0x-I1x).
+  - **App-SubSystems** — extended workflow subsystems with user-facing integration (I2x-I3x).
   Layer names are cosmetic. The real constraint is the downward-only dependency rule.
 
 - **Every subsystem can span layers.**
-  A subsystem may have a Kernel part (flat, long names, I00-I10, no user-facing concerns)
-  and an App part (own directory, I20-I30, user-facing lifecycle and macros).
+  A subsystem may have a Kernel part (flat, long names, I0x-I1x, no user-facing concerns)
+  and an App part (own directory, I2x-I3x, user-facing lifecycle and macros).
   Core-only subsystems simply have no App part.
 
 - **All types are centralized in Kernel.Core.**
@@ -56,7 +56,7 @@ If a subsystem needs upper-layer functionality, it must add components to the lo
 ```
  ┌─────────────────────────────────────────────────────────────────┐
  │                      APP-SUBSYSTEMS                             │
- │                      (I20-I30, user-facing)                     │
+ │                      (I2x-I3x, user-facing)                     │
  │                                                                 │
  │  ┌─────────────────┐  ┌───────────────┐  ┌──────────────────┐  │
  │  │ ScopeRecorder   │  │ ScopeReader   │  │ Registry         │  │
@@ -80,7 +80,7 @@ If a subsystem needs upper-layer functionality, it must add components to the lo
          ▼  ▼  ▼              ▼  ▼               ▼  only downward
  ┌─────────────────────────────────────────────────────────────────┐
  │                    KERNEL-SUBSYSTEMS                             │
- │                    (I00-I10, complete within Core)               │
+ │                    (I0x-I1x, complete within Core)               │
  │                    flat: all-to-all dependencies OK              │
  │                                                                 │
  │        ┌────────────────┐                                       │
@@ -139,13 +139,13 @@ If a subsystem needs upper-layer functionality, it must add components to the lo
 
 ### Subsystem classification
 
-Kernel-SubSystems (complete within Core, I00-I10):
+Kernel-SubSystems (complete within Core, I0x-I1x):
 - BlobStore — content-addressed value storage (blob.jl)
 - TapeIO — JSONL tape serialization (json.jl)
 - GitMeta — git repository metadata extraction (git.jl)
 - QueryNav — handler-based navigation of .simuleos structure (query/)
 
-App-SubSystems (Kernel part + App part, span I00-I30):
+App-SubSystems (Kernel part + App part, span I0x-I3x):
 - ScopeRecorder — captures simulation state into tapes and blobs
 - ScopeReader — structured access to recorded sessions
 - Registry — cross-project resolution (deferred)

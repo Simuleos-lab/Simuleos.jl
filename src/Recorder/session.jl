@@ -3,7 +3,7 @@
 """
     _get_recorder()
 
-I30 — reads `SIMOS[].recorder` via `_get_sim()`
+I3x — reads `SIMOS[].recorder` via `_get_sim()`
 
 Get the active SessionRecorder from SIMOS[].recorder. Errors if none active.
 """
@@ -16,7 +16,7 @@ end
 """
     session_init(label::String, script_path::String)
 
-I30 — reads `SIMOS[]` via `_get_sim()`; writes `SIMOS[].recorder`
+I3x — reads `SIMOS[]` via `_get_sim()`; writes `SIMOS[].recorder`
 
 Internal session creation: locates project root, validates environment,
 captures metadata, and initializes the session on `SIMOS[].recorder`.
@@ -72,7 +72,7 @@ end
 """
     _capture_recorder_session_metadata(script_path, git_handler=nothing)
 
-I00 — pure metadata capture (no SimOs integration)
+I0x — pure metadata capture (no SimOs integration)
 
 Capture metadata for a recorder session: timestamp, Julia version, hostname, git info.
 """

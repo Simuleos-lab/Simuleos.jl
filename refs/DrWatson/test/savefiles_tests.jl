@@ -59,8 +59,8 @@ rm(savename(simulation, "bson"))
 @test !isfile(savename(simulation, "bson"))
 
 ex = @macroexpand @tagsave("testname.bson", (@dict a b c ), storepatch=false; safe=true)
-I20 = @macroexpand @tagsave("testname.bson", @dict a b c; storepatch=false, safe=true)
-@test ex.args[1:end-1] == I20.args[1:end-1]
+I2x = @macroexpand @tagsave("testname.bson", @dict a b c; storepatch=false, safe=true)
+@test ex.args[1:end-1] == I2x.args[1:end-1]
 
 # Remove leftover
 

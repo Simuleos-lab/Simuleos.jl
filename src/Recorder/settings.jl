@@ -6,7 +6,7 @@ import ..Core: settings  # Import to extend with SessionRecorder methods
 """
     settings(recorder::Core.SessionRecorder, key::String)
 
-I10/I30 — reads `recorder._settings_cache`; on miss falls back via `_get_sim()` → `SIMOS[].ux`
+I1x/I3x — reads `recorder._settings_cache`; on miss falls back via `_get_sim()` → `SIMOS[].ux`
 
 Get a setting value from recorder cache. On miss, resolves via UXLayers and caches.
 Errors if key not found.
@@ -39,7 +39,7 @@ end
 """
     settings(recorder::Core.SessionRecorder, key::String, default)
 
-I10/I30 — reads `recorder._settings_cache`; on miss falls back via `_get_sim()` → `SIMOS[].ux`
+I1x/I3x — reads `recorder._settings_cache`; on miss falls back via `_get_sim()` → `SIMOS[].ux`
 
 Get a setting value from recorder cache. On miss, resolves via UXLayers and caches.
 Returns default if key not found.
@@ -67,7 +67,7 @@ end
 """
     _reset_settings_cache!(recorder::Core.SessionRecorder)
 
-I10 — operates on `recorder._settings_cache`
+I1x — operates on `recorder._settings_cache`
 
 Clear the settings cache. Called at @session_init start.
 """

@@ -8,7 +8,7 @@ const SIMOS = Ref{Union{Nothing, Core.SimOs}}(nothing)
 """
     set_sim!(new_sim::Core.SimOs)
 
-I30 — writes `SIMOS[]`
+I3x — writes `SIMOS[]`
 
 Replace the global SimOs instance. Used for testing.
 """
@@ -20,7 +20,7 @@ end
 """
     reset_sim!()
 
-I30 — writes `SIMOS[]`
+I3x — writes `SIMOS[]`
 
 Reset the global SimOs instance to nothing.
 """
@@ -32,7 +32,7 @@ end
 """
     _get_sim()
 
-I30 — reads `SIMOS[]`
+I3x — reads `SIMOS[]`
 
 Get the current SimOs instance, error if not activated.
 """
@@ -45,7 +45,7 @@ end
 """
     sim_activate(path::String, args::Dict{String, Any})
 
-I30 — reads/writes `SIMOS[]`, `SIMOS[].project_root`, `SIMOS[]._project`, `SIMOS[].ux`
+I3x — reads/writes `SIMOS[]`, `SIMOS[].project_root`, `SIMOS[]._project`, `SIMOS[].ux`
 
 Activate a project at the given path with settings args.
 Sets `SIMOS[]`, invalidates lazy state, and builds settings sources.
@@ -78,7 +78,7 @@ end
 """
     sim_activate_jl(args::Dict{String, Any})
 
-I30 — via `sim_activate`
+I3x — via `sim_activate`
 
 Activate a project based on the currently active Julia environment.
 - Uses `Base.activate_project()` to get the active environment path.
@@ -94,7 +94,7 @@ end
 """
     sim_activate()
 
-I30 — via `sim_activate`
+I3x — via `sim_activate`
 
 Auto-detect and activate a project from the current working directory.
 Searches upward for a .simuleos directory. Uses empty args.
@@ -112,7 +112,7 @@ end
 """
     project(sim::SimOs)
 
-I20 — reads `sim._project`, `sim.project_root`
+I2x — reads `sim._project`, `sim.project_root`
 
 Get the Project for an explicit SimOs instance. Lazily initializes if needed.
 """
@@ -139,7 +139,7 @@ end
 """
     project()
 
-I30 — via `_get_sim()`, `project(sim)`
+I3x — via `_get_sim()`, `project(sim)`
 
 Get the current active Project. Lazily initializes if needed.
 """

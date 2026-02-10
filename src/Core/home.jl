@@ -1,4 +1,4 @@
-# Home directory (~/.simuleos/) — global configuration and settings only (all I00 — pure path helpers)
+# Home directory (~/.simuleos/) — global configuration and settings only (all I0x — pure path helpers)
 # Session data (tapes, blobs) is NEVER stored here.
 # All session data goes to {project_root}/.simuleos/
 

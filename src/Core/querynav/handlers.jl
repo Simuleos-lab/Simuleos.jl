@@ -1,4 +1,4 @@
-# Handler navigation for .simuleos/ directory structure (all I10 — takes handler objects as arguments)
+# Handler navigation for .simuleos/ directory structure (all I1x — takes handler objects as arguments)
 # Handler types are declared in Core/types.jl
 # Path helpers are in Core/project.jl
 

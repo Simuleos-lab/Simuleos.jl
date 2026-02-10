@@ -1,6 +1,6 @@
 # Simignore: variable filtering (like .gitignore for Simuleos)
 # Rules are stored in SessionRecorder.simignore_rules
-# I00: check_rules, _rule_str | I10: set_simignore_rules!, append_simignore_rule!, _should_ignore | I30: simignore!
+# I0x: check_rules, _rule_str | I1x: set_simignore_rules!, append_simignore_rule!, _should_ignore | I3x: simignore!
 
 const RuleType = Dict{Symbol, T} where T
 
@@ -39,7 +39,7 @@ end
 """
     set_simignore_rules!(recorder::Core.SessionRecorder, rules::Vector{Dict{Symbol, Any}})
 
-I10 — writes `recorder.simignore_rules`
+I1x — writes `recorder.simignore_rules`
 
 Set simignore rules for the given session recorder. Validates rules on set.
 
@@ -69,7 +69,7 @@ end
 """
     simignore!(rules::Vector)
 
-I30 — via `_get_recorder()` → reads `SIMOS[].recorder`
+I3x — via `_get_recorder()` → reads `SIMOS[].recorder`
 
 Set simignore rules for the current session.
 """
@@ -78,7 +78,7 @@ function simignore!(rules::Vector{RuleType})
     set_simignore_rules!(recorder, rules)
 end
 
-# I10 — writes `recorder.simignore_rules`
+# I1x — writes `recorder.simignore_rules`
 function append_simignore_rule!(
         recorder::Core.SessionRecorder, rule::RuleType
     )
@@ -90,7 +90,7 @@ end
 """
     _should_ignore(recorder::Core.SessionRecorder, name::Symbol, val::Any, scope_label::String)::Bool
 
-I10 — reads `recorder.simignore_rules`
+I1x — reads `recorder.simignore_rules`
 
 Check if a variable should be ignored based on simignore rules.
 Delegates to the pure `_should_ignore_var` in pipeline.jl.

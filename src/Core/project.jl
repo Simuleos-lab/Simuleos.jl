@@ -2,7 +2,7 @@
 # All .simuleos/ directory layout knowledge lives here
 
 # ==================================
-# Path Helpers (all I00 — pure path construction)
+# Path Helpers (all I0x — pure path construction)
 # ==================================
 
 local_settings_path(project_root::String)::String = joinpath(simuleos_dir(project_root), "settings.json")
@@ -35,7 +35,7 @@ end
 """
     find_project_root(start_path::String) -> Union{String, Nothing}
 
-I00 — pure directory traversal
+I0x — pure directory traversal
 
 Search upward from `start_path` for a `.simuleos/` directory.
 Returns the containing directory (the project root), or `nothing` if not found.
