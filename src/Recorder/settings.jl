@@ -19,7 +19,7 @@ function settings(recorder::Core.SessionRecorder, key::String)
         return cached
     end
 
-    # Cache miss - resolve via current_sim
+    # Cache miss - resolve via SIMOS
     sim = Core._get_sim()
     try
         val = Core.settings(sim, key)
@@ -50,7 +50,7 @@ function settings(recorder::Core.SessionRecorder, key::String, default)
         return cached
     end
 
-    # Cache miss - resolve via current_sim
+    # Cache miss - resolve via SIMOS
     sim = Core._get_sim()
     val = Core.settings(sim, key, default)
 

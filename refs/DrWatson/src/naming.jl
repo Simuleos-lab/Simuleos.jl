@@ -91,7 +91,7 @@ function savename(prefix::String, c, suffix::String;
 
     if any(sep in prefix for sep in ['/', '\\'])
         @warn """
-            Path separators in `savename` prefixes may break reproducibility on other OS.
+            Path separators in `savename` prefixes may break reproducibility on other SIMOS.
             The recommended way is using the `*dir()` methods or `joinpath` with
             `savename` (e.g. `datadir("path", "to", "folder", savename("prefix", data))`).
         """

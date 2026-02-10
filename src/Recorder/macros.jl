@@ -137,7 +137,7 @@ macro session_commit(label="")
             r.stage = $(_Core).Stage()
         end
 
-        # Clear recorder on current_sim
+        # Clear recorder on SIMOS
         _simos.recorder = nothing
 
         nothing

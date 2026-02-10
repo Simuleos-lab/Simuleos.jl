@@ -77,7 +77,7 @@ try
 
     # Check UXLayers integration
     println("\n6. Checking UXLayers integration...")
-    ux = Simuleos.OS.ux
+    ux = Simuleos.SIMOS.ux
     @assert !isnothing(ux) "Failed: UXLayers view should not be nothing"
     @assert ux isa UXLayers._uxLayerView "Failed: ux should be a UXLayerView"
     println("   ✓ UXLayers view created: $(typeof(ux))")
@@ -115,7 +115,7 @@ finally
         println("   ✓ Removed test global settings")
     end
 
-    # Reset OS
+    # Reset SIMOS
     Simuleos.reset_os!()
-    println("   ✓ Reset OS state")
+    println("   ✓ Reset SIMOS state")
 end

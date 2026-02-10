@@ -19,10 +19,10 @@ Simuleos.activate()
 # ======================================
 
 # Get setting (errors if not found)
-val = Simuleos.settings(Simuleos.OS, "max_blob_size")
+val = Simuleos.settings(Simuleos.SIMOS, "max_blob_size")
 
 # Get setting with default (returns default if not found)
-val = Simuleos.settings(Simuleos.OS, "compression", false)
+val = Simuleos.settings(Simuleos.SIMOS, "compression", false)
 
 ## ======================================
 # Access settings from Session (hot path, cached)
@@ -48,7 +48,7 @@ val = Simuleos.settings(session, "compression", false)
 # Bootstrap settings (set before activate)
 # ======================================
 
-Simuleos.OS.bootstrap = Dict{String,Any}(
+Simuleos.SIMOS.bootstrap = Dict{String,Any}(
     "default_format" => "json"
 )
 Simuleos.activate("/path/to/project", args)

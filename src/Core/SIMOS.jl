@@ -1,9 +1,9 @@
 # ==================================
-# Global State — current_sim
+# Global State — SIMOS
 # ==================================
 
-# Single global: current_sim[]. No separate session global.
-const current_sim = Ref{Union{Nothing, Core.SimOs}}(nothing)
+# Single global: SIMOS[].
+const SIMOS = Ref{Union{Nothing, Core.SimOs}}(nothing)
 
 """
     set_sim!(new_sim::Core.SimOs)
@@ -11,8 +11,8 @@ const current_sim = Ref{Union{Nothing, Core.SimOs}}(nothing)
 Replace the global SimOs instance. Used for testing.
 """
 function set_sim!(new_sim::Core.SimOs)
-    Core.current_sim[] = new_sim
-    return Core.current_sim[]
+    Core.SIMOS[] = new_sim
+    return Core.SIMOS[]
 end
 
 """
@@ -21,7 +21,7 @@ end
 Reset the global SimOs instance to nothing.
 """
 function reset_sim!()
-    Core.current_sim[] = nothing
+    Core.SIMOS[] = nothing
     return nothing
 end
 
@@ -31,7 +31,7 @@ end
 Get the current SimOs instance, error if not activated.
 """
 function _get_sim()::Core.SimOs
-    sim = Core.current_sim[]
+    sim = Core.SIMOS[]
     isnothing(sim) && error("No Simuleos instance active. Call Simuleos.sim_activate() first.")
     return sim
 end
@@ -40,7 +40,7 @@ end
     sim_activate(path::String, args::Dict{String, Any})
 
 Activate a project at the given path with settings args.
-Sets `current_sim[]`, invalidates lazy state, and builds settings sources.
+Sets `SIMOS[]`, invalidates lazy state, and builds settings sources.
 
 # Arguments
 - `path`: Path to the project directory (must contain .simuleos/project.json)
@@ -52,10 +52,10 @@ function sim_activate(path::String, args::Dict{String, Any})
     Core.validate_project_folder(path)
 
     # Create or update SimOs
-    sim = Core.current_sim[]
+    sim = Core.SIMOS[]
     if isnothing(sim)
         sim = Core.SimOs()
-        Core.current_sim[] = sim
+        Core.SIMOS[] = sim
     end
 
     sim.project_root = path

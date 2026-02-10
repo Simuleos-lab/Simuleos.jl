@@ -16,7 +16,7 @@ const BLOB_EXT = ".jls"
     SimOs
 
 The central state object for Simuleos. Holds bootstrap data and lazy references
-to all subsystems. Access via `Simuleos.current_sim[]`.
+to all subsystems. Access via `Simuleos.SIMOS[]`.
 """
 @kwdef mutable struct SimOs
     # Bootstrap data (provided at creation)
@@ -99,7 +99,7 @@ end
     SessionRecorder
 
 A recording session with metadata and staged scopes.
-References `current_sim[].project` for project-level data instead of storing root_dir.
+References `SIMOS[].project` for project-level data instead of storing root_dir.
 """
 @kwdef mutable struct SessionRecorder
     label::String

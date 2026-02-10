@@ -1,11 +1,6 @@
-## What I think works well about this
+## The index workflow
 
-The core loop is sound: scan → report → user decides → evolve. Keeping the human as the bottleneck for
-decisions while automating discovery is the right balance. The read-only constraint is critical - it
-means you can run these freely without risk.
-
-Specialized reviewers with shared format is a strong pattern. It's the "unix philosophy" applied to
-codebase review - each tool does one thing, but they all speak the same language (report format).
-
-"Constant additive improvement" over perfection is realistic and sustainable. The index doesn't need
-to be complete - it needs to be directionally useful.
+- Core loop works: scan → report → user decides → evolve 
+- read-only, safe to run freely
+- Unix philosophy: specialized reviewers, shared report format
+- Constant additive improvement over perfection — directionally useful, not complete

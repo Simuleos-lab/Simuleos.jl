@@ -1,9 +1,9 @@
-# Session management — uses current_sim[].recorder instead of separate global
+# Session management — uses SIMOS[].recorder instead of separate global
 
 """
     _get_recorder()
 
-Get the active SessionRecorder from current_sim[].recorder. Errors if none active.
+Get the active SessionRecorder from SIMOS[].recorder. Errors if none active.
 """
 function _get_recorder()::Core.SessionRecorder
     sim = Core._get_sim()
@@ -15,7 +15,7 @@ end
     session_init(label::String, script_path::String)
 
 Internal session creation: locates project root, validates environment,
-captures metadata, and initializes the session on `current_sim[].recorder`.
+captures metadata, and initializes the session on `SIMOS[].recorder`.
 """
 function session_init(label::String, script_path::String)
     # Find project root by searching upward from the script's directory
@@ -34,7 +34,7 @@ function session_init(label::String, script_path::String)
               "not in ~/.simuleos/.")
     end
 
-    # Ensure current_sim is activated for this project
+    # Ensure SIMOS is activated for this project
     # Note: we expect the user to have activated the project first.
     sim = Core._get_sim()
 

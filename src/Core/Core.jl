@@ -28,14 +28,14 @@ include("utils.jl")
 
 include("uxlayer.jl")
 
-# OS global and operations
-include("OS.jl")
+# SIMOS global and operations
+include("SIMOS.jl")
 
 # System init and validation (sim_init, validate_project_folder)
 include("sys-init.jl")
 
 # Settings
-include("OS-settings.jl")
+include("SIMOS-settings.jl")
 
 # Data I/O primitives
 include("blob.jl")

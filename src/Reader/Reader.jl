@@ -8,7 +8,7 @@ import ..Core
 """
     _get_reader()
 
-Get the active SessionReader from current_sim[].reader. Creates one if needed.
+Get the active SessionReader from SIMOS[].reader. Creates one if needed.
 """
 function _get_reader()::Core.SessionReader
     sim = Core._get_sim()
