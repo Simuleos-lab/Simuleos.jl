@@ -7,7 +7,7 @@ module Registry
 import ..Kernel
 
 # Home directory management
-include("home.jl")
+include("home-I0x.jl")
 
 # AGENT: IMPORTANT
 # DO NOT ADD EXPORT STATEMENTS

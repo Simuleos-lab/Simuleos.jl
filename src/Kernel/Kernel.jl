@@ -21,7 +21,7 @@ include("core/types.jl")
 include("core/project.jl")
 
 # Git interface
-include("gitmeta/git.jl")
+include("gitmeta/git-I0x.jl")
 
 # Utilities
 include("core/utils.jl")
@@ -38,12 +38,13 @@ include("core/sys-init.jl")
 include("core/SIMOS-settings.jl")
 
 # Data I/O primitives
-include("blobstore/blob.jl")
-include("tapeio/json.jl")
+include("blobstore/blob-I0x.jl")
+include("tapeio/json-I0x.jl")
 
 # Query system
-include("querynav/handlers.jl")
-include("querynav/loaders.jl")
+include("querynav/loaders-I0x.jl")
+include("querynav/handlers-I1x.jl")
+include("querynav/loaders-I1x.jl")
 
 # AGENT: IMPORTANT
 # DO NOT ADD EXPORT STATEMENTS
