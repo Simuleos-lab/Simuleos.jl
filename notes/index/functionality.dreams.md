@@ -2,27 +2,12 @@
 - for instance, memoization, replay, diffing, etc.
 
 # Tape Rewrite System
-- sometimes we nedd to rewrite the data from a tape
-- usage case:
-    - new tape format
-    - bug fix in tape format
-    - consolidation
-        - a first tape version might be optimized for quick collection
-        - but, later on, we may want to optimize for storage space
-        - importantly, this is not an index
-        - it is not for having both formats at the same time
-        - but, rather, for having one format at a time
-        - and being able to migrate from one format to another
-        - for instance, the initial format may store all data inline
-        - with no de-duplication
-- important, the new tape must be functionally equivalent to the old tape
-    - that include be an alias for the old one
-    - links/references must be preserved
-- any rewrite system must:
-    - read the old tape
-    - process each record
-    - write a new tape
-    - validate: reproduce old tape from new tape
+- Rewrite tape data for format changes, bug fixes, or consolidation
+    - Consolidation: migrate from collection-optimized to storage-optimized (single format at a time,
+    inline→deduplicated)
+    - New tape must be functionally equivalent: aliases preserved, references maintained
+    - Process: read old tape → process records → write new tape → reconstructing temp-old from new → validate
+    temp-old with original old
 
 
 ## Resource Resolution System (RRS)

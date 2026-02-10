@@ -1,16 +1,7 @@
 ## Simuleos State
-- Simuleos is a state machine which operate with a a state which comprhened 
-    - RunTime
-        - SimOs
-    - Disk
-        - project folder
-            - ./.simuleos
-        - user home folder
-            - ~/.simuleos
-- The Core should provide objects/interfaces to manage the state
-- At runtime, we prefer a lazy approach to avoid synchronization issues
-- In the cases when performance require catching, we take a best effort policy
-    - we prefer simplicity over syncronicity
+- State machine with two scopes: Runtime (SimOs) and Disk (./.simuleos, ~/.simuleos)
+- Lazy evaluation at runtime (avoid sync issues); best-effort caching when needed
+- Core provides objects/interfaces to manage state; prefer simplicity over syncronicity
 
 
 ## Simuleos Core Interface

@@ -7,19 +7,9 @@
         - eg: rm, gc, rename, archive, etc...
 
 ## Workflows: Scope Recording
-- this is a key workflow in symuleos
-- it involved the enbeding calles of simuleos macros for capturing programs scopes
-- it aims to populate a database at the project's `.simuleos` folder
-- steps draft
-    - i. init simuleos
-    - ii. init recording session
-    - iii. record/stage scopes
-        - including labels and context
-    - iv. commit stage
-    - v. repeat if necessary
-- here the globals based interface is the more natural one
-    - we can have a global `current_session` object which is used by the macros
-    - this way, we don't need to pass the session object around
+-  Key workflow: embed simuleos macros to capture program scopes into .simuleos database
+- Steps: init → session → record scopes (with labels/context) → commit → repeat
+- Globals-based interface preferred (macros use implicit current_session)
 
 
 ## Workflows: Data base reading
