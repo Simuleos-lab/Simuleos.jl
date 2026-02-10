@@ -2,7 +2,7 @@
 # Includes lite data detection and metadata capture
 
 # ==================================
-# Lite Data Detection and Conversion
+# Lite Data Detection and Conversion (all I00 — pure type utilities)
 # ==================================
 
 const LITE_TYPES = Union{Bool,Int,Float64,String,Nothing,Missing,Symbol}

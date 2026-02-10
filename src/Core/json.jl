@@ -1,4 +1,4 @@
-# Direct JSON serialization for Simuleos objects
+# Direct JSON serialization for Simuleos objects (all I00 — pure serialization)
 # Avoids intermediate Dict allocation for better commit performance
 
 # Fallback - delegates to JSON3 for primitives

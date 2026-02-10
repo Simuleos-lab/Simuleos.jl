@@ -1,4 +1,4 @@
-# Blob storage with SHA1 hashing
+# Blob storage with SHA1 hashing (all I00 — pure hashing and file I/O)
 
 # Chunk size for streaming hash computation
 const HASH_CHUNK_SIZE = 8192

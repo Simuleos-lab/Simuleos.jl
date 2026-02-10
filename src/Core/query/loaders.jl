@@ -1,4 +1,4 @@
-# Loading functions for tape and blob data
+# Loading functions for tape and blob data (I00 for record constructors, I10 for handler-based loaders)
 # Constructs typed Record objects from raw data
 
 # ==================================

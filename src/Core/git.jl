@@ -1,4 +1,4 @@
-# Git interface using LibGit2 (Julia stdlib)
+# Git interface using LibGit2 (Julia stdlib) (all I00 — operates on GitHandler, no SimOs integration)
 # Provides safe, functional access to git operations
 
 """

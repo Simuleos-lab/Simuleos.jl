@@ -5,6 +5,8 @@ const REGISTRY_DIRNAME = "registry"
 """
     init_home(path::String=Core.default_home_path())
 
+I00 — pure directory initialization (no SimOs integration)
+
 Initialize or load the Simuleos home directory.
 Creates the directory structure if it doesn't exist.
 """
@@ -19,6 +21,8 @@ end
 """
     home_path(home::Core.SimuleosHome)
 
+I00 — pure accessor
+
 Get the path to the Simuleos home directory.
 """
 function home_path(home::Core.SimuleosHome)::String
@@ -28,6 +32,8 @@ end
 """
     registry_path(home::Core.SimuleosHome)
 
+I00 — pure accessor
+
 Get the path to the registry directory.
 """
 function registry_path(home::Core.SimuleosHome)::String
@@ -36,6 +42,8 @@ end
 
 """
     config_path(home::Core.SimuleosHome)
+
+I00 — pure accessor
 
 Get the path to the config directory.
 """

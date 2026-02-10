@@ -13,6 +13,7 @@ const MAX_TAPE_SIZE_BYTES = 200_000_000  # 200 MB threshold for tape file warnin
 # Variable Processing (helper)
 # ==================================
 
+# I10 — operates on `scope` (Scope object), writes scope.variables
 function _process_var!(
         scope::Core.Scope,
         sym::Symbol, val::Any, src::Symbol,
@@ -46,6 +47,8 @@ end
 
 """
     _fill_scope!(scope, stage, locals, globals, src_file, src_line, label; simignore_rules, simos)
+
+I10 — reads `simos` (via `project(simos).simuleos_dir`), operates on `scope`, `stage`
 
 Fill a Scope object from raw locals/globals dictionaries.
 Applies simignore filtering, writes blobs, liteifies values.
@@ -104,6 +107,8 @@ end
 """
     _should_ignore_var(name, val, scope_label, simignore_rules) -> Bool
 
+I00 — pure filtering logic (no SimOs integration)
+
 Check if a variable should be ignored. Pure function (no recorder dependency).
 """
 function _should_ignore_var(
@@ -136,6 +141,8 @@ end
 
 """
     write_commit_to_tape(session_label, commit_label, stage, meta; simos)
+
+I10 — reads `simos` (via `project(simos).simuleos_dir`), reads `stage.scopes`
 
 Write a commit record from the stage to the session's tape file.
 
@@ -178,6 +185,7 @@ end
 # I/O Helpers (internal)
 # ==================================
 
+# I00 — pure I/O serialization
 function _write_commit_record(
     io::IO,
     session_label::String,
@@ -204,6 +212,7 @@ function _write_commit_record(
     print(io, "}")
 end
 
+# I00 — pure data extraction
 function _collect_blob_refs(scopes::Vector{Core.Scope})::Vector{String}
     refs = Set{String}()
     for scope in scopes

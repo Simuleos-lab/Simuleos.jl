@@ -7,6 +7,8 @@ const __MISSING__ = :__MISSING__
 """
     ux_root(sim::Core.SimOs)
 
+I20 — reads `sim.ux`
+
 Get the UXLayers root view. Must call sim_activate() first.
 """
 function ux_root(sim::Core.SimOs)::UXLayers._uxLayerView
@@ -19,6 +21,8 @@ end
 """
     settings(sim::Core.SimOs, key::String)
 
+I20 — reads `sim.ux`
+
 Get a setting value via UXLayers.
 Errors if key not found.
 """
@@ -29,6 +33,8 @@ end
 
 """
     settings(sim::Core.SimOs, key::String, default)
+
+I20 — reads `sim.ux`
 
 Get a setting value via UXLayers.
 Returns default if key not found.

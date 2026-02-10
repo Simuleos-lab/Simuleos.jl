@@ -5,6 +5,8 @@
 """
     validate_project_folder(path::String)
 
+I00 — pure path validation
+
 Validate that `path` is a Simuleos project.
 Checks that `.simuleos/project.json` exists.
 """
@@ -19,6 +21,8 @@ end
 
 """
     sim_init(path::String; args::Dict{String, Any} = Dict{String, Any}())
+
+I30 — via `sim_activate` → writes `SIMOS[]`
 
 Initialize a Simuleos project at `path`.
 - Creates `.simuleos/project.json` with a unique project UUID.
@@ -45,6 +49,8 @@ end
 
 """
     sim_init(; args::Dict{String, Any} = Dict{String, Any}())
+
+I30 — via `sim_init(path)`
 
 Initialize a Simuleos project at the current working directory.
 """
