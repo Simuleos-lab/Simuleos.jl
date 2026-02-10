@@ -39,7 +39,7 @@ function _load_settings_json(path::String)::Dict{String, Any}
     end
 
     # Parse JSON - will error on malformed JSON
-    parsed = Core.JSON3.read(content, Dict{String, Any})
+    parsed = JSON3.read(content, Dict{String, Any})
     return parsed
 end
 
@@ -48,7 +48,7 @@ end
 # ==================================
 
 """
-    _buildux!(sim::Core.SimOs, args::Dict{String, Any})
+    _buildux!(sim::SimOs, args::Dict{String, Any})
 
 I2x — reads `sim.project_root`, `sim.home_path`, `sim.bootstrap`; writes `sim.ux`
 
@@ -62,20 +62,20 @@ Sources (priority order, first hit wins):
 
 Bootstrap and defaults are set separately via update_bootstrap!() and update_defaults!().
 """
-function _buildux!(sim::Core.SimOs, args::Dict{String, Any})
+function _buildux!(sim::SimOs, args::Dict{String, Any})
     # Create UXLayerView root
     ux = UXLayers._uxLayerView("simuleos")
 
     # Load sources in priority order (highest to lowest)
     # Priority 2: local project settings
     local_settings = if !isnothing(sim.project_root)
-        Core._load_settings_json(Core.local_settings_path(sim.project_root))
+        _load_settings_json(local_settings_path(sim.project_root))
     else
         Dict{String, Any}()
     end
 
     # Priority 3: global user settings
-    global_settings = Core._load_settings_json(Core.global_settings_path(sim.home_path))
+    global_settings = _load_settings_json(global_settings_path(sim.home_path))
 
     # Load all sources into UXLayers
     UXLayers.refresh!(ux,
@@ -89,7 +89,7 @@ function _buildux!(sim::Core.SimOs, args::Dict{String, Any})
 
     # Set bootstrap and defaults
     UXLayers.update_bootstrap!(ux, sim.bootstrap)
-    UXLayers.update_defaults!(ux, Core.DEFAULTS)
+    UXLayers.update_defaults!(ux, DEFAULTS)
 
     sim.ux = ux
     return ux

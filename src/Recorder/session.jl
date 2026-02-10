@@ -7,8 +7,8 @@ I3x — reads `SIMOS[].recorder` via `_get_sim()`
 
 Get the active SessionRecorder from SIMOS[].recorder. Errors if none active.
 """
-function _get_recorder()::Core.SessionRecorder
-    sim = Core._get_sim()
+function _get_recorder()::Kernel.SessionRecorder
+    sim = Kernel._get_sim()
     isnothing(sim.recorder) && error("No active session. Call @session_init first.")
     return sim.recorder
 end
@@ -24,14 +24,14 @@ captures metadata, and initializes the session on `SIMOS[].recorder`.
 function session_init(label::String, script_path::String)
     # Find project root by searching upward from the script's directory
     start = dirname(abspath(script_path))
-    project_root = Core.find_project_root(start)
+    project_root = Kernel.find_project_root(start)
 
     if isnothing(project_root)
         error("No Simuleos project found (no .simuleos/ directory) searching upward from: $start")
     end
 
     # Guard: home directory must never be used as a session folder
-    home_path = Core.default_home_path()
+    home_path = Kernel.default_home_path()
     if abspath(project_root) == abspath(dirname(home_path))
         error("Cannot use home directory as a session folder. " *
               "Session data must be stored in a project-local .simuleos/ directory, " *
@@ -40,7 +40,7 @@ function session_init(label::String, script_path::String)
 
     # Ensure SIMOS is activated for this project
     # Note: we expect the user to have activated the project first.
-    sim = Core._get_sim()
+    sim = Kernel._get_sim()
 
     # Clear any previous recorder
     sim.recorder = nothing
@@ -55,9 +55,9 @@ function session_init(label::String, script_path::String)
     end
 
     # Create and set the recorder on sim
-    recorder = Core.SessionRecorder(
+    recorder = Kernel.SessionRecorder(
         label = label,
-        stage = Core.Stage(),
+        stage = Kernel.Stage(),
         meta = meta
     )
     sim.recorder = recorder
@@ -78,7 +78,7 @@ Capture metadata for a recorder session: timestamp, Julia version, hostname, git
 """
 function _capture_recorder_session_metadata(
         script_path,
-        git_handler = Core.GitHandler(dirname(script_path))
+        git_handler = Kernel.GitHandler(dirname(script_path))
     )::Dict{String,Any}
     meta = Dict{String,Any}()
 
@@ -97,8 +97,8 @@ function _capture_recorder_session_metadata(
     # Git information
     if !isnothing(git_handler)
         try
-            meta["git_commit"] = Core.git_hash(git_handler)
-            meta["git_dirty"] = Core.git_dirty(git_handler)
+            meta["git_commit"] = Kernel.git_hash(git_handler)
+            meta["git_dirty"] = Kernel.git_dirty(git_handler)
         catch
             meta["git_commit"] = nothing
             meta["git_dirty"] = nothing

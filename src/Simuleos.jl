@@ -4,12 +4,12 @@
 module Simuleos
 
 # ==================================
-# Core Module (must be first - all types defined here)
+# Kernel Module (must be first - all types defined here)
 # ==================================
-include("Core/Core.jl")
+include("Kernel/Kernel.jl")
 
 # ==================================
-# App Modules (depend on Core)
+# App Modules (depend on Kernel)
 # ==================================
 include("Recorder/Recorder.jl")
 include("Reader/Reader.jl")
@@ -33,7 +33,7 @@ export @session_init, @session_store, @session_context, @session_capture, @sessi
 # Auto-detection on load
 # ==================================
 function __init__()
-    Core.sim_activate()
+    Kernel.sim_activate()
 end
 
 end # module Simuleos

@@ -6,8 +6,8 @@ import LibGit2
     # Create temporary git repo for testing
     mktempdir() do dir
         # Initialize repo
-        gh = Simuleos.Core.GitHandler(dir)
-        Simuleos.Core.git_init(gh)
+        gh = Simuleos.Kernel.GitHandler(dir)
+        Simuleos.Kernel.git_init(gh)
 
         @testset "hash" begin
             # Initial commit is needed for hash to work
@@ -19,25 +19,25 @@ import LibGit2
             LibGit2.commit(repo, "Initial commit"; author=sig, committer=sig)
             close(repo)
 
-            h = Simuleos.Core.git_hash(gh)
+            h = Simuleos.Kernel.git_hash(gh)
             @test length(h) == 40  # SHA-1 hex string
             @test all(c -> c in "0123456789abcdef", h)
         end
 
         @testset "dirty" begin
             # After commit, repo should be clean
-            @test Simuleos.Core.git_dirty(gh) == false
+            @test Simuleos.Kernel.git_dirty(gh) == false
 
             # Create uncommitted change
             test_file = joinpath(dir, "test.txt")
             write(test_file, "modified content")
 
             # Repo should now be dirty
-            @test Simuleos.Core.git_dirty(gh) == true
+            @test Simuleos.Kernel.git_dirty(gh) == true
         end
 
         @testset "branch" begin
-            b = Simuleos.Core.git_branch(gh)
+            b = Simuleos.Kernel.git_branch(gh)
             @test !isnothing(b)
             @test length(b) > 0
         end
@@ -48,7 +48,7 @@ import LibGit2
             LibGit2.tag_create(repo, "v0.1.0", LibGit2.head_oid(repo))
             close(repo)
 
-            d = Simuleos.Core.git_describe(gh)
+            d = Simuleos.Kernel.git_describe(gh)
             @test !isnothing(d)
             @test length(d) > 0
         end
@@ -58,15 +58,15 @@ import LibGit2
         mktempdir() do dir1
             mktempdir() do dir2
                 # Initialize two separate repos
-                gh1 = Simuleos.Core.GitHandler(dir1)
-                Simuleos.Core.git_init(gh1)
+                gh1 = Simuleos.Kernel.GitHandler(dir1)
+                Simuleos.Kernel.git_init(gh1)
 
                 # Create a handler for dir2 but initialize dir1
                 # This should fail the identity check if we try to use gh1 on dir2's repo
-                gh_mixed = Simuleos.Core.GitHandler(dir1)
+                gh_mixed = Simuleos.Kernel.GitHandler(dir1)
 
                 # First operation should work
-                Simuleos.Core.git_init(gh_mixed)
+                Simuleos.Kernel.git_init(gh_mixed)
 
                 # Setup commits
                 repo = LibGit2.GitRepo(dir1)
@@ -77,7 +77,7 @@ import LibGit2
                 close(repo)
 
                 # Operations should work fine
-                @test length(Simuleos.Core.git_hash(gh_mixed)) == 40
+                @test length(Simuleos.Kernel.git_hash(gh_mixed)) == 40
             end
         end
     end

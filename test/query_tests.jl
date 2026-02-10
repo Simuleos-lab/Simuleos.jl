@@ -4,26 +4,26 @@ using Dates
 using Serialization
 
 # Convenience aliases for Core query types/functions
-const RootHandler = Simuleos.Core.RootHandler
-const SessionHandler = Simuleos.Core.SessionHandler
-const TapeHandler = Simuleos.Core.TapeHandler
-const BlobHandler = Simuleos.Core.BlobHandler
-const BlobRecord = Simuleos.Core.BlobRecord
-const CommitRecord = Simuleos.Core.CommitRecord
-const ScopeRecord = Simuleos.Core.ScopeRecord
-const VariableRecord = Simuleos.Core.VariableRecord
-const sessions = Simuleos.Core.sessions
-const tape = Simuleos.Core.tape
-const blob = Simuleos.Core.blob
-const exists = Simuleos.Core.exists
-const iterate_raw_tape = Simuleos.Core.iterate_raw_tape
-const iterate_tape = Simuleos.Core.iterate_tape
-const load_raw_blob = Simuleos.Core.load_raw_blob
-const load_blob = Simuleos.Core.load_blob
+const RootHandler = Simuleos.Kernel.RootHandler
+const SessionHandler = Simuleos.Kernel.SessionHandler
+const TapeHandler = Simuleos.Kernel.TapeHandler
+const BlobHandler = Simuleos.Kernel.BlobHandler
+const BlobRecord = Simuleos.Kernel.BlobRecord
+const CommitRecord = Simuleos.Kernel.CommitRecord
+const ScopeRecord = Simuleos.Kernel.ScopeRecord
+const VariableRecord = Simuleos.Kernel.VariableRecord
+const sessions = Simuleos.Kernel.sessions
+const tape = Simuleos.Kernel.tape
+const blob = Simuleos.Kernel.blob
+const exists = Simuleos.Kernel.exists
+const iterate_raw_tape = Simuleos.Kernel.iterate_raw_tape
+const iterate_tape = Simuleos.Kernel.iterate_tape
+const load_raw_blob = Simuleos.Kernel.load_raw_blob
+const load_blob = Simuleos.Kernel.load_blob
 # Canonical path helpers (SSOT for .simuleos/ directory layout)
-const _session_dir = Simuleos.Core._session_dir
-const _tape_path = Simuleos.Core._tape_path
-const _blob_path = Simuleos.Core._blob_path
+const _session_dir = Simuleos.Kernel._session_dir
+const _tape_path = Simuleos.Kernel._tape_path
+const _blob_path = Simuleos.Kernel._blob_path
 
 @testset "Query System" begin
     # Create temporary .simuleos structure for testing

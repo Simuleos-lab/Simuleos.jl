@@ -1,10 +1,10 @@
 # Recorder module - Session recording, macros, simignore
-# Consumer of Core's data I/O layer
+# Consumer of Kernel's data I/O layer
 
 module Recorder
 
 import Dates
-import ..Core
+import ..Kernel
 
 # Session management (must be first - other files depend on _get_recorder)
 include("session.jl")

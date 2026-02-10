@@ -1,4 +1,4 @@
-# Core type definitions for Simuleos
+# Kernel type definitions for Simuleos
 # All types are defined here - app modules have access to all types
 
 # ==================================
@@ -20,7 +20,7 @@ to all subsystems. Access via `Simuleos.SIMOS[]`.
 """
 @kwdef mutable struct SimOs
     # Bootstrap data (provided at creation)
-    home_path::String = Core.default_home_path()  # ~/.simuleos
+    home_path::String = default_home_path()  # ~/.simuleos
     project_root::Union{Nothing, String} = nothing  # auto-detect or explicit
     bootstrap::Dict{String, Any} = Dict{String, Any}()  # bootstrap settings
 
@@ -115,7 +115,7 @@ end
 """
     SessionReader
 
-Manages reading state on `sim.reader`. Minimal for now — delegates to handlers in Core.
+Manages reading state on `sim.reader`. Minimal for now — delegates to handlers in Kernel.
 """
 @kwdef mutable struct SessionReader
     session_label::Union{Nothing, String} = nothing

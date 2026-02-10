@@ -11,7 +11,7 @@ Validate that `path` is a Simuleos project.
 Checks that `.simuleos/project.json` exists.
 """
 function validate_project_folder(path::String)
-    pjpath = Core.project_json_path(path)
+    pjpath = project_json_path(path)
     if !isfile(pjpath)
         error("Not a Simuleos project (no .simuleos/project.json): $path\n" *
               "Run `Simuleos.sim_init(\"$path\")` first.")
@@ -30,8 +30,8 @@ Initialize a Simuleos project at `path`.
 - Calls `sim_activate(path, args)` at the end.
 """
 function sim_init(path::String; args::Dict{String, Any} = Dict{String, Any}())
-    sd = Core.simuleos_dir(path)
-    pjpath = Core.project_json_path(path)
+    sd = simuleos_dir(path)
+    pjpath = project_json_path(path)
 
     if isfile(pjpath)
         @info "Project already initialized, activating..." path
@@ -43,7 +43,7 @@ function sim_init(path::String; args::Dict{String, Any} = Dict{String, Any}())
         @info "Simuleos project initialized at $path"
     end
 
-    Core.sim_activate(path, args)
+    sim_activate(path, args)
     return nothing
 end
 
@@ -55,5 +55,5 @@ I3x — via `sim_init(path)`
 Initialize a Simuleos project at the current working directory.
 """
 function sim_init(; args::Dict{String, Any} = Dict{String, Any}())
-    Core.sim_init(pwd(); args)
+    sim_init(pwd(); args)
 end

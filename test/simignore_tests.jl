@@ -4,9 +4,9 @@ using Simuleos
 @testset "Simignore" begin
     @testset "Rule validation" begin
         # Create a minimal recorder for testing
-        recorder = Simuleos.Core.SessionRecorder(
+        recorder = Simuleos.Kernel.SessionRecorder(
             label = "test",
-            stage = Simuleos.Core.Stage(),
+            stage = Simuleos.Kernel.Stage(),
             meta = Dict{String, Any}()
         )
 
@@ -43,9 +43,9 @@ using Simuleos
     end
 
     @testset "_should_ignore - type filtering" begin
-        recorder = Simuleos.Core.SessionRecorder(
+        recorder = Simuleos.Kernel.SessionRecorder(
             label = "test",
-            stage = Simuleos.Core.Stage(),
+            stage = Simuleos.Kernel.Stage(),
             meta = Dict{String, Any}()
         )
 
@@ -61,9 +61,9 @@ using Simuleos
     end
 
     @testset "_should_ignore - global rules" begin
-        recorder = Simuleos.Core.SessionRecorder(
+        recorder = Simuleos.Kernel.SessionRecorder(
             label = "test",
-            stage = Simuleos.Core.Stage(),
+            stage = Simuleos.Kernel.Stage(),
             meta = Dict{String, Any}()
         )
 
@@ -83,9 +83,9 @@ using Simuleos
     end
 
     @testset "_should_ignore - scope-specific rules" begin
-        recorder = Simuleos.Core.SessionRecorder(
+        recorder = Simuleos.Kernel.SessionRecorder(
             label = "test",
-            stage = Simuleos.Core.Stage(),
+            stage = Simuleos.Kernel.Stage(),
             meta = Dict{String, Any}()
         )
 
@@ -105,9 +105,9 @@ using Simuleos
     end
 
     @testset "_should_ignore - last rule wins" begin
-        recorder = Simuleos.Core.SessionRecorder(
+        recorder = Simuleos.Kernel.SessionRecorder(
             label = "test",
-            stage = Simuleos.Core.Stage(),
+            stage = Simuleos.Kernel.Stage(),
             meta = Dict{String, Any}()
         )
 
@@ -131,9 +131,9 @@ using Simuleos
     end
 
     @testset "_should_ignore - mixed global and scope rules" begin
-        recorder = Simuleos.Core.SessionRecorder(
+        recorder = Simuleos.Kernel.SessionRecorder(
             label = "test",
-            stage = Simuleos.Core.Stage(),
+            stage = Simuleos.Kernel.Stage(),
             meta = Dict{String, Any}()
         )
 

@@ -3,8 +3,8 @@
 
 module Registry
 
-# Access sibling Core module
-import ..Core
+# Access sibling Kernel module
+import ..Kernel
 
 # Home directory management
 include("home.jl")

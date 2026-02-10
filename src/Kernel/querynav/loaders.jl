@@ -5,8 +5,8 @@
 # Record constructors from raw Dict data
 # ==================================
 
-function _raw_to_variable_record(name::String, raw::Dict{String, Any})::Core.VariableRecord
-    Core.VariableRecord(
+function _raw_to_variable_record(name::String, raw::Dict{String, Any})::VariableRecord
+    VariableRecord(
         name,
         get(raw, "src_type", ""),
         get(raw, "value", nothing),
@@ -15,7 +15,7 @@ function _raw_to_variable_record(name::String, raw::Dict{String, Any})::Core.Var
     )
 end
 
-function _raw_to_scope_record(raw::Dict{String, Any})::Core.ScopeRecord
+function _raw_to_scope_record(raw::Dict{String, Any})::ScopeRecord
     raw_vars = get(raw, "variables", Dict{String, Any}())
     vars = [_raw_to_variable_record(name, v) for (name, v) in raw_vars]
 
@@ -27,7 +27,7 @@ function _raw_to_scope_record(raw::Dict{String, Any})::Core.ScopeRecord
 
     raw_data = get(raw, "data", Dict{String, Any}())
 
-    Core.ScopeRecord(
+    ScopeRecord(
         get(raw, "label", ""),
         ts,
         vars,
@@ -36,14 +36,14 @@ function _raw_to_scope_record(raw::Dict{String, Any})::Core.ScopeRecord
     )
 end
 
-function _raw_to_commit_record(raw::Dict{String, Any})::Core.CommitRecord
+function _raw_to_commit_record(raw::Dict{String, Any})::CommitRecord
     raw_scopes = get(raw, "scopes", Any[])
     scope_records = [_raw_to_scope_record(s) for s in raw_scopes]
 
     raw_refs = get(raw, "blob_refs", Any[])
     refs = String[string(r) for r in raw_refs]
 
-    Core.CommitRecord(
+    CommitRecord(
         get(raw, "session_label", ""),
         get(raw, "commit_label", ""),
         get(raw, "metadata", Dict{String, Any}()),
@@ -62,7 +62,7 @@ end
 Returns a lazy iterator that yields one Dict per JSONL line.
 Each Dict represents a commit record.
 """
-function iterate_raw_tape(handler::Core.TapeHandler)
+function iterate_raw_tape(handler::TapeHandler)
     path = _tape_path(handler)
     isfile(path) || return Dict{String, Any}[]
     _TapeIterator(path)
@@ -103,33 +103,33 @@ Base.eltype(::Type{_TapeIterator}) = Dict{String, Any}
 
 Returns a lazy iterator that yields `CommitRecord` objects.
 """
-function iterate_tape(handler::Core.TapeHandler)
+function iterate_tape(handler::TapeHandler)
     (_raw_to_commit_record(raw) for raw in iterate_raw_tape(handler))
 end
 
 import Base.collect
-function Base.collect(::Type{Vector{Core.CommitRecord}}, handler::Core.TapeHandler)
+function Base.collect(::Type{Vector{CommitRecord}}, handler::TapeHandler)
     collect(iterate_tape(handler))
 end
 
 # TapeHandler convenience iteration (defaults to typed CommitRecord)
 
-function Base.iterate(handler::Core.TapeHandler)
+function Base.iterate(handler::TapeHandler)
     iter = iterate_tape(handler)
     result = iterate(iter)
     isnothing(result) && return nothing
     (result[1], (iter, result[2]))
 end
 
-function Base.iterate(::Core.TapeHandler, state)
+function Base.iterate(::TapeHandler, state)
     iter, inner_state = state
     result = iterate(iter, inner_state)
     isnothing(result) && return nothing
     (result[1], (iter, result[2]))
 end
 
-Base.IteratorSize(::Type{Core.TapeHandler}) = Base.SizeUnknown()
-Base.eltype(::Type{Core.TapeHandler}) = Core.CommitRecord
+Base.IteratorSize(::Type{TapeHandler}) = Base.SizeUnknown()
+Base.eltype(::Type{TapeHandler}) = CommitRecord
 
 # ==================================
 # Raw blob loading
@@ -140,7 +140,7 @@ Base.eltype(::Type{Core.TapeHandler}) = Core.CommitRecord
 
 Deserializes and returns the blob data as a Julia object.
 """
-function load_raw_blob(handler::Core.BlobHandler)
+function load_raw_blob(handler::BlobHandler)
     path = _blob_path(handler)
     open(path, "r") do io
         Serialization.deserialize(io)
@@ -156,6 +156,6 @@ end
 
 Loads and wraps the blob data.
 """
-function load_blob(handler::Core.BlobHandler)::Core.BlobRecord
-    Core.BlobRecord(load_raw_blob(handler))
+function load_blob(handler::BlobHandler)::BlobRecord
+    BlobRecord(load_raw_blob(handler))
 end

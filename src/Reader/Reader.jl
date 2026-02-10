@@ -1,9 +1,9 @@
 # Reader module - SessionReader management
-# Thin wrapper for now — delegates to handlers in Core
+# Thin wrapper for now — delegates to handlers in Kernel
 
 module Reader
 
-import ..Core
+import ..Kernel
 
 """
     _get_reader()
@@ -12,10 +12,10 @@ I3x — reads `SIMOS[]` via `_get_sim()`; writes `SIMOS[].reader` on first call
 
 Get the active SessionReader from SIMOS[].reader. Creates one if needed.
 """
-function _get_reader()::Core.SessionReader
-    sim = Core._get_sim()
+function _get_reader()::Kernel.SessionReader
+    sim = Kernel._get_sim()
     if isnothing(sim.reader)
-        sim.reader = Core.SessionReader()
+        sim.reader = Kernel.SessionReader()
     end
     return sim.reader
 end

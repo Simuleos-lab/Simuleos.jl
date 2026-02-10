@@ -15,7 +15,7 @@ const MAX_TAPE_SIZE_BYTES = 200_000_000  # 200 MB threshold for tape file warnin
 
 # I1x — operates on `scope` (Scope object), writes scope.variables
 function _process_var!(
-        scope::Core.Scope,
+        scope::Kernel.Scope,
         sym::Symbol, val::Any, src::Symbol,
         root_dir::String
     )
@@ -23,18 +23,18 @@ function _process_var!(
     src_type = first(string(typeof(val)), 25)  # truncate to 25 chars
 
     if sym in scope.blob_set
-        hash = Core._write_blob(root_dir, val)
-        scope.variables[name] = Core.ScopeVariable(
+        hash = Kernel._write_blob(root_dir, val)
+        scope.variables[name] = Kernel.ScopeVariable(
             name=name, src_type=src_type,
             value=nothing, blob_ref=hash, src=src
         )
-    elseif Core._is_lite(val)
-        scope.variables[name] = Core.ScopeVariable(
+    elseif Kernel._is_lite(val)
+        scope.variables[name] = Kernel.ScopeVariable(
             name=name, src_type=src_type,
-            value=Core._liteify(val), blob_ref=nothing, src=src
+            value=Kernel._liteify(val), blob_ref=nothing, src=src
         )
     else
-        scope.variables[name] = Core.ScopeVariable(
+        scope.variables[name] = Kernel.ScopeVariable(
             name=name, src_type=src_type,
             value=nothing, blob_ref=nothing, src=src
         )
@@ -65,17 +65,17 @@ Applies simignore filtering, writes blobs, liteifies values.
 - `simos::SimOs`: Core system state (for project root, settings)
 """
 function _fill_scope!(
-    scope::Core.Scope,
-    stage::Core.Stage,
+    scope::Kernel.Scope,
+    stage::Kernel.Stage,
     locals::Dict{Symbol,Any},
     globals::Dict{Symbol,Any},
     src_file::String,
     src_line::Int,
     label::String;
     simignore_rules::Vector,
-    simos::Core.SimOs
+    simos::Kernel.SimOs
 )
-    root_dir = Core.project(simos).simuleos_dir
+    root_dir = Kernel.project(simos).simuleos_dir
 
     # Process globals first (can be overridden by locals)
     for (sym, val) in globals
@@ -156,17 +156,17 @@ Write a commit record from the stage to the session's tape file.
 function write_commit_to_tape(
     session_label::String,
     commit_label::String,
-    stage::Core.Stage,
+    stage::Kernel.Stage,
     meta::Dict;
-    simos::Core.SimOs
+    simos::Kernel.SimOs
 )
-    root_dir = Core.project(simos).simuleos_dir
+    root_dir = Kernel.project(simos).simuleos_dir
 
     # Build tape path via Core handlers (SSOT for .simuleos/ layout)
-    root = Core.RootHandler(root_dir)
-    session = Core.SessionHandler(root, session_label)
-    tape = Core.TapeHandler(session)
-    tape_path = Core._tape_path(tape)
+    root = Kernel.RootHandler(root_dir)
+    session = Kernel.SessionHandler(root, session_label)
+    tape = Kernel.TapeHandler(session)
+    tape_path = Kernel._tape_path(tape)
     mkpath(dirname(tape_path))
 
     open(tape_path, "a") do io
@@ -190,30 +190,30 @@ function _write_commit_record(
     io::IO,
     session_label::String,
     commit_label::String,
-    stage::Core.Stage,
+    stage::Kernel.Stage,
     meta::Dict,
     root_dir::String
 )
     print(io, "{\"type\":\"commit\",\"session_label\":")
-    Core._write_json(io, session_label)
+    Kernel._write_json(io, session_label)
     print(io, ",\"metadata\":")
-    Core._write_json(io, meta)
+    Kernel._write_json(io, meta)
     print(io, ",\"scopes\":[")
     for (i, scope) in enumerate(stage.scopes)
         i > 1 && print(io, ",")
-        Core._write_json(io, scope)
+        Kernel._write_json(io, scope)
     end
     print(io, "],\"blob_refs\":")
-    Core._write_json(io, _collect_blob_refs(stage.scopes))
+    Kernel._write_json(io, _collect_blob_refs(stage.scopes))
     if !isempty(commit_label)
         print(io, ",\"commit_label\":")
-        Core._write_json(io, commit_label)
+        Kernel._write_json(io, commit_label)
     end
     print(io, "}")
 end
 
 # I0x — pure data extraction
-function _collect_blob_refs(scopes::Vector{Core.Scope})::Vector{String}
+function _collect_blob_refs(scopes::Vector{Kernel.Scope})::Vector{String}
     refs = Set{String}()
     for scope in scopes
         for (_, sv) in scope.variables

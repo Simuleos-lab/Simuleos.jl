@@ -13,7 +13,7 @@ end
 
 # Module references for use in macro-generated code
 const _Recorder = Recorder
-const _Core = Core
+const _Kernel = Kernel
 
 # ==================================
 # @session_init - Initialize session with metadata and directory structure
@@ -162,7 +162,7 @@ Programmatic form of @session_capture. Caller must provide locals/globals.
 """
 function session_capture(label::String, locals::Dict{Symbol, Any}, globals::Dict{Symbol, Any}, src_file::String, src_line::Int)
     r = _get_recorder()
-    simos = Core._get_sim()
+    simos = Kernel._get_sim()
 
     _fill_scope!(
         r.stage.current_scope, r.stage, locals, globals,
@@ -172,7 +172,7 @@ function session_capture(label::String, locals::Dict{Symbol, Any}, globals::Dict
     )
 
     push!(r.stage.scopes, r.stage.current_scope)
-    r.stage.current_scope = Core.Scope()
+    r.stage.current_scope = Kernel.Scope()
     return r.stage.scopes[end]
 end
 
@@ -185,7 +185,7 @@ Programmatic form of @session_commit. Persists stage and clears recorder.
 """
 function session_commit(label::String="")
     r = _get_recorder()
-    simos = Core._get_sim()
+    simos = Kernel._get_sim()
 
     cs = r.stage.current_scope
     if !isempty(cs.labels) || !isempty(cs.data) || !isempty(cs.blob_set)
@@ -195,7 +195,7 @@ function session_commit(label::String="")
 
     if !isempty(r.stage.scopes)
         write_commit_to_tape(r.label, label, r.stage, r.meta; simos = simos)
-        r.stage = Core.Stage()
+        r.stage = Kernel.Stage()
     end
 
     # Clear recorder

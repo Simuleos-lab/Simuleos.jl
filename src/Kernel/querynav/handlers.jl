@@ -1,6 +1,6 @@
 # Handler navigation for .simuleos/ directory structure (all I1x — takes handler objects as arguments)
-# Handler types are declared in Core/types.jl
-# Path helpers are in Core/project.jl
+# Handler types are declared in Kernel/core/types.jl
+# Path helpers are in Kernel/core/project.jl
 
 # ==================================
 # Navigation methods
@@ -12,14 +12,14 @@
 Returns an iterator of `SessionHandler` for all sessions in the root.
 Sessions are discovered lazily by reading the sessions/ directory.
 """
-function sessions(root::Core.RootHandler)
+function sessions(root::RootHandler)
     sessions_path = _sessions_dir(root)
-    isdir(sessions_path) || return Core.SessionHandler[]
+    isdir(sessions_path) || return SessionHandler[]
 
     [
-        Core.SessionHandler(root, name)
+        SessionHandler(root, name)
         for name in readdir(sessions_path)
-        if isdir(_session_dir(Core.SessionHandler(root, name)))
+        if isdir(_session_dir(SessionHandler(root, name)))
     ]
 end
 
@@ -28,8 +28,8 @@ end
 
 Returns a `TapeHandler` for the session's tape file.
 """
-function tape(session::Core.SessionHandler)
-    Core.TapeHandler(session)
+function tape(session::SessionHandler)
+    TapeHandler(session)
 end
 
 """
@@ -37,8 +37,8 @@ end
 
 Returns a `BlobHandler` for the blob with the given SHA1 hash.
 """
-function blob(root::Core.RootHandler, sha1::String)
-    Core.BlobHandler(root, sha1)
+function blob(root::RootHandler, sha1::String)
+    BlobHandler(root, sha1)
 end
 
 """
@@ -46,7 +46,7 @@ end
 
 Check if the tape file exists on disk.
 """
-function exists(handler::Core.TapeHandler)
+function exists(handler::TapeHandler)
     isfile(_tape_path(handler))
 end
 
@@ -55,6 +55,6 @@ end
 
 Check if the blob file exists on disk.
 """
-function exists(handler::Core.BlobHandler)
+function exists(handler::BlobHandler)
     isfile(_blob_path(handler))
 end

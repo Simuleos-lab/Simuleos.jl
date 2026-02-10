@@ -7,7 +7,7 @@ const RuleType = Dict{Symbol, T} where T
 # Helper to stringify rule to a json-like string
 function _rule_str(rule::RuleType)
     try
-        return Core.JSON3.write(rule)
+        return Kernel.JSON3.write(rule)
     catch
         return string(rule)
     end
@@ -37,7 +37,7 @@ function check_rules(rule::RuleType)
 end
 
 """
-    set_simignore_rules!(recorder::Core.SessionRecorder, rules::Vector{Dict{Symbol, Any}})
+    set_simignore_rules!(recorder::Kernel.SessionRecorder, rules::Vector{Dict{Symbol, Any}})
 
 I1x — writes `recorder.simignore_rules`
 
@@ -52,7 +52,7 @@ Variables are INCLUDED by default if no rules match.
 Last matching rule determines the action.
 """
 function set_simignore_rules!(
-        recorder::Core.SessionRecorder,
+        recorder::Kernel.SessionRecorder,
         rules::Vector{T} where T<:RuleType
     )
     validated_rules = Dict{Symbol, Any}[]
@@ -80,7 +80,7 @@ end
 
 # I1x — writes `recorder.simignore_rules`
 function append_simignore_rule!(
-        recorder::Core.SessionRecorder, rule::RuleType
+        recorder::Kernel.SessionRecorder, rule::RuleType
     )
     check_rules(rule)
     push!(recorder.simignore_rules, rule)
@@ -88,7 +88,7 @@ function append_simignore_rule!(
 end
 
 """
-    _should_ignore(recorder::Core.SessionRecorder, name::Symbol, val::Any, scope_label::String)::Bool
+    _should_ignore(recorder::Kernel.SessionRecorder, name::Symbol, val::Any, scope_label::String)::Bool
 
 I1x — reads `recorder.simignore_rules`
 
@@ -96,7 +96,7 @@ Check if a variable should be ignored based on simignore rules.
 Delegates to the pure `_should_ignore_var` in pipeline.jl.
 """
 function _should_ignore(
-        recorder::Core.SessionRecorder, name::Symbol,
+        recorder::Kernel.SessionRecorder, name::Symbol,
         val::Any, scope_label::String
     )::Bool
     return _should_ignore_var(name, val, scope_label, recorder.simignore_rules)

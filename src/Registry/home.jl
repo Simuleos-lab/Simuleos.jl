@@ -3,50 +3,50 @@
 const REGISTRY_DIRNAME = "registry"
 
 """
-    init_home(path::String=Core.default_home_path())
+    init_home(path::String=Kernel.default_home_path())
 
 I0x — pure directory initialization (no SimOs integration)
 
 Initialize or load the Simuleos home directory.
 Creates the directory structure if it doesn't exist.
 """
-function init_home(path::String=Core.default_home_path())::Core.SimuleosHome
+function init_home(path::String=Kernel.default_home_path())::Kernel.SimuleosHome
     if !isdir(path)
         mkpath(path)
         mkpath(joinpath(path, REGISTRY_DIRNAME))
     end
-    return Core.SimuleosHome(path=path)
+    return Kernel.SimuleosHome(path=path)
 end
 
 """
-    home_path(home::Core.SimuleosHome)
+    home_path(home::Kernel.SimuleosHome)
 
 I0x — pure accessor
 
 Get the path to the Simuleos home directory.
 """
-function home_path(home::Core.SimuleosHome)::String
+function home_path(home::Kernel.SimuleosHome)::String
     home.path
 end
 
 """
-    registry_path(home::Core.SimuleosHome)
+    registry_path(home::Kernel.SimuleosHome)
 
 I0x — pure accessor
 
 Get the path to the registry directory.
 """
-function registry_path(home::Core.SimuleosHome)::String
+function registry_path(home::Kernel.SimuleosHome)::String
     joinpath(home.path, REGISTRY_DIRNAME)
 end
 
 """
-    config_path(home::Core.SimuleosHome)
+    config_path(home::Kernel.SimuleosHome)
 
 I0x — pure accessor
 
 Get the path to the config directory.
 """
-function config_path(home::Core.SimuleosHome)::String
+function config_path(home::Kernel.SimuleosHome)::String
     joinpath(home.path, "config")
 end

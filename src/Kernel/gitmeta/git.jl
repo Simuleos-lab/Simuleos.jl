@@ -11,7 +11,7 @@ stored gitdir to prevent accidentally operating on wrong repositories.
 
 Returns a LibGit2.GitRepo object (caller responsible for closing).
 """
-function _verify_repo(gh::Core.GitHandler)
+function _verify_repo(gh::GitHandler)
     repo = LibGit2.GitRepo(gh.path)
 
     # Get the actual .git directory path from the repo
@@ -37,7 +37,7 @@ Equivalent to: `git rev-parse HEAD`
 Returns a 40-character SHA-1 hash string.
 Throws LibGit2 exception if operation fails.
 """
-function git_hash(gh::Core.GitHandler)::String
+function git_hash(gh::GitHandler)::String
     repo = _verify_repo(gh)
     try
         oid = LibGit2.head_oid(repo)
@@ -55,7 +55,7 @@ Check if repository has uncommitted changes.
 Returns `true` if there are uncommitted changes, `false` otherwise.
 Throws LibGit2 exception if operation fails.
 """
-function git_dirty(gh::Core.GitHandler)::Bool
+function git_dirty(gh::GitHandler)::Bool
     repo = _verify_repo(gh)
     try
         return LibGit2.isdirty(repo)
@@ -74,7 +74,7 @@ Equivalent to: `git describe`
 Returns a description string (e.g., "v1.0-5-gabc1234").
 Throws LibGit2 exception if operation fails.
 """
-function git_describe(gh::Core.GitHandler)::String
+function git_describe(gh::GitHandler)::String
     repo = _verify_repo(gh)
     try
         result = LibGit2.GitDescribeResult(repo)
@@ -94,7 +94,7 @@ Equivalent to: `git branch --show-current`
 Returns the branch name as a string.
 Throws LibGit2 exception if operation fails.
 """
-function git_branch(gh::Core.GitHandler)::String
+function git_branch(gh::GitHandler)::String
     repo = _verify_repo(gh)
     try
         return LibGit2.headname(repo)
@@ -113,7 +113,7 @@ Equivalent to: `git remote get-url origin`
 Returns the remote URL as a string.
 Throws LibGit2 exception if operation fails.
 """
-function git_remote(gh::Core.GitHandler)::String
+function git_remote(gh::GitHandler)::String
     repo = _verify_repo(gh)
     try
         r = LibGit2.lookup_remote(repo, "origin")
@@ -133,7 +133,7 @@ Equivalent to: `git init`
 This is an exception to the repository identity check - it creates a new repository.
 Throws LibGit2 exception if operation fails.
 """
-function git_init(gh::Core.GitHandler)
+function git_init(gh::GitHandler)
     repo = LibGit2.init(gh.path)
     close(repo)
     return nothing

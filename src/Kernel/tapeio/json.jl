@@ -47,7 +47,7 @@ function _write_json(io::IO, s::Set)
 end
 
 # ScopeVariable - manual field writing, skip nothing/empty
-function _write_json(io::IO, sv::Core.ScopeVariable)
+function _write_json(io::IO, sv::ScopeVariable)
     print(io, "{\"src_type\":")
     _write_json(io, sv.src_type)
     print(io, ",\"src\":")
@@ -64,7 +64,7 @@ function _write_json(io::IO, sv::Core.ScopeVariable)
 end
 
 # Scope - manual field writing, skip empty collections
-function _write_json(io::IO, scope::Core.Scope)
+function _write_json(io::IO, scope::Scope)
     print(io, "{\"label\":")
     _write_json(io, scope.label)
     print(io, ",\"timestamp\":")

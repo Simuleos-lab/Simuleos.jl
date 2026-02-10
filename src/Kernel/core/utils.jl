@@ -1,4 +1,4 @@
-# Core utilities shared across modules
+# Kernel utilities shared across modules
 # Includes lite data detection and metadata capture
 
 # ==================================
