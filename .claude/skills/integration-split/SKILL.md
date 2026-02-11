@@ -43,7 +43,7 @@ If `$ARGUMENTS` is provided, use it as the target path. Otherwise, ask the user:
 Which module or folder should I process?
 Examples:
 - src/Recorder
-- src/Kernel/querynav
+- src/Kernel/scopenav
 - src/Reader
 ```
 
@@ -72,7 +72,7 @@ For each `.jl` file in the target:
 Create a refactoring plan showing:
 
 ```
-Target: src/Kernel/querynav
+Target: src/Kernel/scopenav
 
 Files to rename (pure, single level):
   handlers.jl → handlers-I1x.jl (all functions are I1x)
@@ -84,16 +84,16 @@ Files to split (mixed levels):
 
 Module updates:
   src/Kernel/Kernel.jl
-    - include("querynav/loaders.jl") → delete
-    + include("querynav/loaders-I0x.jl")
-    + include("querynav/handlers-I1x.jl")
-    + include("querynav/loaders-I1x.jl")
+    - include("scopenav/loaders.jl") → delete
+    + include("scopenav/loaders-I0x.jl")
+    + include("scopenav/handlers-I1x.jl")
+    + include("scopenav/loaders-I1x.jl")
 
 Ambiguous functions (manual review needed):
   [list any functions you couldn't classify]
 
 Files to delete:
-  - src/Kernel/querynav/loaders.jl
+  - src/Kernel/scopenav/loaders.jl
 ```
 
 ### Step 5: Get Approval
@@ -130,7 +130,7 @@ Report execution results:
 ✓ No stale references found
 
 Ambiguous functions requiring manual review:
-  - src/Kernel/querynav/loaders.jl:45 _maybe_serialize_thing()
+  - src/Kernel/scopenav/loaders.jl:45 _maybe_serialize_thing()
 ```
 
 ## Rules
@@ -166,7 +166,7 @@ include("subfolder/other-I0x.jl")
 include("subfolder/other-I1x.jl")
 ```
 
-Preserve logical grouping (e.g., all querynav includes together), but order by I-level within groups.
+Preserve logical grouping (e.g., all scopenav includes together), but order by I-level within groups.
 
 ## Notes
 

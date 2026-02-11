@@ -42,9 +42,9 @@ include("blobstore/blob-I0x.jl")
 include("tapeio/json-I0x.jl")
 
 # Query system
-include("querynav/loaders-I0x.jl")
-include("querynav/handlers-I1x.jl")
-include("querynav/loaders-I1x.jl")
+include("scopenav/loaders-I0x.jl")
+include("scopenav/handlers-I1x.jl")
+include("scopenav/loaders-I1x.jl")
 
 # AGENT: IMPORTANT
 # DO NOT ADD EXPORT STATEMENTS

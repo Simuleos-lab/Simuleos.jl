@@ -15,7 +15,7 @@
 **A**: Referenced at runtime — skill reads `notes/index/the-integration-axis.md` when invoked
 
 **Q**: Target discovery behavior when no arguments provided?
-**A**: Ask the user interactively which module/folder to process (e.g., "src/Recorder", "src/Kernel/querynav")
+**A**: Ask the user interactively which module/folder to process (e.g., "src/Recorder", "src/Kernel/scopenav")
 
 **Q**: Analysis depth — what operations should the skill perform?
 **A**: Rename pure files (e.g., `blob.jl` → `blob-I0x.jl`) + split mixed-level files (e.g., `loaders.jl` → `loaders-I0x.jl` + `loaders-I1x.jl`)

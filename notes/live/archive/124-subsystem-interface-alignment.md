@@ -12,7 +12,7 @@ Summary Table
 | ScopeRecorder (Recorder) | Yes | Yes | src/Recorder/pipeline.jl, src/Recorder/settings.jl, src/Recorder/simignore.jl for I1x; src/Recorder/session.jl, src/Recorder/macros.jl for I3x |
 | ScopeReader (Reader) | No | Yes | src/Reader/Reader.jl is I3x only |
 | Registry | No | No (I0x only) | src/Registry/home.jl is I0x only |
-| QueryNav (Kernel) | Yes | No (I1x only) | src/Kernel/querynav/handlers.jl, src/Kernel/querynav/loaders.jl |
+| QueryNav (Kernel) | Yes | No (I1x only) | src/Kernel/scopenav/handlers.jl, src/Kernel/scopenav/loaders.jl |
 | BlobStore (Kernel) | No (I0x only) | No | src/Kernel/blobstore/blob.jl |
 | TapeIO (Kernel) | No (I0x only) | No | src/Kernel/tapeio/json.jl |
 | GitMeta (Kernel) | No (I0x only) | No | src/Kernel/gitmeta/git.jl |
