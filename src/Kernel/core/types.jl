@@ -54,45 +54,31 @@ Contains sessions and provides access to project-level operations.
 end
 
 # ==================================
-# Context I/O Types (Session, Scope, etc.)
+# Context I/O Types (CaptureContext, Stage, etc.)
+# NOTE: ScopeVariable and Scope are now defined in Scoperias (scoperias/types-I0x.jl)
 # ==================================
 
 """
-    ScopeVariable
+    CaptureContext
 
-A captured variable within a scope.
+Pairs a Scope with recorder-specific metadata (timestamp, capture data, blob requests).
+The Scope holds pure runtime data; CaptureContext adds recording concerns.
 """
-@kwdef struct ScopeVariable
-    name::String
-    src_type::String                          # string repr for JSON, truncated to 25 chars
-    value::Union{Nothing, Any} = nothing      # only if lite
-    blob_ref::Union{Nothing, String} = nothing # SHA1 hash if stored
-    src::Symbol = :local                      # :local or :global
-end
-
-"""
-    Scope
-
-A snapshot of variables at a point in time.
-"""
-@kwdef mutable struct Scope
-    label::String = ""
+@kwdef mutable struct CaptureContext
+    scope::Scope = Scope()
     timestamp::Dates.DateTime = Dates.now()
-    isopen::Bool = true                       # lifecycle tracking
-    variables::Dict{String, ScopeVariable} = Dict{String, ScopeVariable}()
-    labels::Vector{String} = String[]         # context labels from @session_context
-    data::Dict{Symbol, Any} = Dict{Symbol, Any}()  # context data from @session_context
-    blob_set::Set{Symbol} = Set{Symbol}()     # per-scope blob requests
+    data::Dict{Symbol, Any} = Dict{Symbol, Any}()   # src_file, src_line, threadid
+    blob_set::Set{Symbol} = Set{Symbol}()            # per-scope blob requests
 end
 
 """
     Stage
 
-Collection of scopes pending commit.
+Collection of captures pending commit.
 """
 @kwdef mutable struct Stage
-    scopes::Vector{Scope} = Scope[]
-    current_scope::Scope = Scope()            # explicit open scope
+    captures::Vector{CaptureContext} = CaptureContext[]
+    current::CaptureContext = CaptureContext()
 end
 
 """

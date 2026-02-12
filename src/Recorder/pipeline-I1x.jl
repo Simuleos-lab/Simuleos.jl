@@ -1,62 +1,28 @@
 # ==================================
-# Variable Processing (helper)
-# ==================================
-
-# I1x — operates on `scope` (Scope object), writes scope.variables
-function _process_var!(
-        scope::Kernel.Scope,
-        sym::Symbol, val::Any, src::Symbol,
-        root_dir::String
-    )
-    name = string(sym)
-    src_type = Kernel._get_type_string(val)
-
-    if sym in scope.blob_set
-        hash = Kernel._write_blob(root_dir, val)
-        scope.variables[name] = Kernel.ScopeVariable(
-            name=name, src_type=src_type,
-            value=nothing, blob_ref=hash, src=src
-        )
-    elseif Kernel._is_lite(val)
-        scope.variables[name] = Kernel.ScopeVariable(
-            name=name, src_type=src_type,
-            value=Kernel._liteify(val), blob_ref=nothing, src=src
-        )
-    else
-        scope.variables[name] = Kernel.ScopeVariable(
-            name=name, src_type=src_type,
-            value=nothing, blob_ref=nothing, src=src
-        )
-    end
-end
-
-# ==================================
-# _fill_scope! — Populate scope from raw variables
+# _fill_scope! — Build scope from raw variables into CaptureContext
 # ==================================
 
 """
-    _fill_scope!(simos, scope, stage, locals, globals, src_file, src_line, label; simignore_rules)
+    _fill_scope!(simos, ctx, locals, globals, src_file, src_line, label; simignore_rules)
 
-I1x — reads `simos` (via `project(simos).simuleos_dir`), operates on `scope`, `stage`
+I1x — reads `simos` (via `project(simos).simuleos_dir`), operates on `ctx` (CaptureContext)
 
-Fill a Scope object from raw locals/globals dictionaries.
-Applies simignore filtering, writes blobs, liteifies values.
+Build a Scope from raw locals/globals dictionaries into a CaptureContext.
+Applies simignore filtering. Blob/lite classification is deferred to serialization.
 
 # Arguments
 - `simos::SimOs`: Core system state (for project root, settings)
-- `scope::Scope`: The scope object to fill
-- `stage::Stage`: The current stage (for blob_set tracking)
+- `ctx::CaptureContext`: The capture context to fill
 - `locals::Dict{Symbol,Any}`: Local variables captured from caller
 - `globals::Dict{Symbol,Any}`: Global variables captured from Main
 - `src_file::String`: Source file path
 - `src_line::Int`: Source line number
-- `label::String`: Scope label
+- `label::String`: Capture label
 - `simignore_rules::Vector`: Simignore rules (from SessionRecorder)
 """
 function _fill_scope!(
     simos::Kernel.SimOs,
-    scope::Kernel.Scope,
-    stage::Kernel.Stage,
+    ctx::Kernel.CaptureContext,
     locals::Dict{Symbol,Any},
     globals::Dict{Symbol,Any},
     src_file::String,
@@ -64,29 +30,24 @@ function _fill_scope!(
     label::String;
     simignore_rules::Vector
 )
-    root_dir = Kernel.project(simos).simuleos_dir
+    # Combine capture label with any existing context labels (from @session_context)
+    labels = vcat([label], ctx.scope.labels)
 
-    # Process globals first (can be overridden by locals)
-    for (sym, val) in globals
-        _should_ignore_var(sym, val, label, simignore_rules) && continue
-        _process_var!(scope, sym, val, :global, root_dir)
+    # Build scope from dicts (locals override globals on collision)
+    ctx.scope = Kernel.Scope(labels, locals, globals)
+
+    # Apply simignore filtering
+    Kernel.filter_vars!(ctx.scope) do name, sv
+        !_should_ignore_var(name, sv.val, label, simignore_rules)
     end
 
-    # Process locals (override globals if same name)
-    for (sym, val) in locals
-        _should_ignore_var(sym, val, label, simignore_rules) && continue
-        _process_var!(scope, sym, val, :local, root_dir)
-    end
+    # Set capture metadata
+    ctx.timestamp = Dates.now()
+    ctx.data[:src_file] = src_file
+    ctx.data[:src_line] = src_line
+    ctx.data[:threadid] = Threads.threadid()
 
-    # Set scope metadata
-    scope.label = label
-    scope.timestamp = Dates.now()
-    scope.isopen = false
-    scope.data[:src_file] = src_file
-    scope.data[:src_line] = src_line
-    scope.data[:threadid] = Threads.threadid()
-
-    return scope
+    return ctx
 end
 
 # ==================================
@@ -96,15 +57,16 @@ end
 """
     write_commit_to_tape(simos, session_label, commit_label, stage, meta)
 
-I1x — reads `simos` (via `project(simos).simuleos_dir`), reads `stage.scopes`
+I1x — reads `simos` (via `project(simos).simuleos_dir`), reads `stage.captures`
 
 Write a commit record from the stage to the session's tape file.
+Blob/lite classification happens at this point during serialization.
 
 # Arguments
 - `simos::SimOs`: Core system state (for project root)
 - `session_label::String`: Session identifier
 - `commit_label::String`: Commit label (can be empty)
-- `stage::Stage`: The stage containing scopes to commit
+- `stage::Stage`: The stage containing captures to commit
 - `meta::Dict`: Session metadata
 """
 function write_commit_to_tape(

@@ -46,47 +46,6 @@ function _write_json(io::IO, s::Set)
     print(io, "]")
 end
 
-# ScopeVariable - manual field writing, skip nothing/empty
-function _write_json(io::IO, sv::ScopeVariable)
-    print(io, "{\"src_type\":")
-    _write_json(io, sv.src_type)
-    print(io, ",\"src\":")
-    _write_json(io, sv.src)
-    if !isnothing(sv.value)
-        print(io, ",\"value\":")
-        _write_json(io, sv.value)
-    end
-    if !isnothing(sv.blob_ref)
-        print(io, ",\"blob_ref\":")
-        _write_json(io, sv.blob_ref)
-    end
-    print(io, "}")
-end
-
-# Scope - manual field writing, skip empty collections
-function _write_json(io::IO, scope::Scope)
-    print(io, "{\"label\":")
-    _write_json(io, scope.label)
-    print(io, ",\"timestamp\":")
-    _write_json(io, scope.timestamp)
-    print(io, ",\"variables\":{")
-    first = true
-    for (name, sv) in scope.variables
-        first || print(io, ",")
-        first = false
-        _write_json(io, name)
-        print(io, ":")
-        _write_json(io, sv)
-    end
-    print(io, "}")
-    if !isempty(scope.labels)
-        print(io, ",\"labels\":")
-        _write_json(io, scope.labels)
-    end
-    if !isempty(scope.data)
-        print(io, ",\"data\":")
-        _write_json(io, scope.data)
-    end
-    print(io, "}")
-end
+# NOTE: ScopeVariable and Scope serialization is now handled by Recorder
+# (pipeline-I0x.jl) where blob/lite classification happens at write time.
 

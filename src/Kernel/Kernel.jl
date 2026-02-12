@@ -14,8 +14,14 @@ import LibGit2
 # Home utilities (needed by types)
 include("core/home.jl")
 
-# Types first (no dependencies except home)
+# Scoperias — Scope runtime types (needed by core types for CaptureContext)
+include("scoperias/types-I0x.jl")
+
+# Types first (no dependencies except home + scoperias types)
 include("core/types.jl")
+
+# Scoperias — Scope runtime operations
+include("scoperias/ops-I0x.jl")
 
 # Project structure: path helpers, project root discovery
 include("core/project.jl")

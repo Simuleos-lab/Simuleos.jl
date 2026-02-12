@@ -46,3 +46,15 @@
     - use of `SIMOS` internal global
     - eg: uses `SIMOS[]`, `SIMOS[].recorder`
 - each level can have sub-levels (e.g., `I11`, `I12`) for finer granularity if needed
+
+## Integration Axis File Naming Convention
+- Files are named with their primary integration level suffix to indicate their interaction with the `SimOs` context:
+    - `*-I0x.jl`: Pure utilities, no `SimOs` integration.
+    - `*-I1x.jl`: Explicit `SimOs` dependencies as arguments.
+    - `*-I2x.jl`: Explicit `SimOs` object passed, accesses its internal fields.
+    - `*-I3x.jl`: Resolves `SimOs` dependencies internally via global `SIMOS[]`.
+
+
+## Integration Classification Constraints
+- If a function `F` (classified `Ix`) calls another classified function `G` (classified `Iy`), then `Ix` *must be equal to or greater than* `Iy`
+    - otherwise, `F` or `G` are **misclassified** and should be revised

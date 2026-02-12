@@ -11,7 +11,7 @@ end
 
 # ==================================
 # @session_store - Mark variables for blob storage (per-scope)
-# I3x — via `_get_recorder()` → reads `SIMOS[].recorder.stage.current_scope.blob_set`
+# I3x — via `_get_recorder()` → reads `SIMOS[].recorder.stage.current.blob_set`
 # ==================================
 macro session_store(vars...)
     symbols = Symbol[]
@@ -22,7 +22,7 @@ macro session_store(vars...)
         r = $(_Recorder)._get_recorder()
         $(
             [
-                :(push!(r.stage.current_scope.blob_set, $(QuoteNode(sym))))
+                :(push!(r.stage.current.blob_set, $(QuoteNode(sym))))
                 for sym in symbols
             ]...
         )
@@ -31,8 +31,8 @@ macro session_store(vars...)
 end
 
 # ==================================
-# @session_context - Add context labels and data to current scope
-# I3x — via `_get_recorder()` → reads/writes `SIMOS[].recorder.stage.current_scope`
+# @session_context - Add context labels and data to current capture
+# I3x — via `_get_recorder()` → reads/writes `SIMOS[].recorder.stage.current`
 # Usage: @session_context "label"
 #        @session_context :key => value
 #        @session_context "label" :key1 => val1 :key2 => val2
@@ -41,16 +41,16 @@ macro session_context(args...)
     exprs = []
     for arg in args
         if arg isa String
-            # String literal label
-            push!(exprs, :(push!(r.stage.current_scope.labels, $arg)))
+            # String literal label — goes on scope.labels
+            push!(exprs, :(push!(r.stage.current.scope.labels, $arg)))
         elseif arg isa Expr && arg.head == :string
-            # Interpolated string label
-            push!(exprs, :(push!(r.stage.current_scope.labels, $(esc(arg)))))
+            # Interpolated string label — goes on scope.labels
+            push!(exprs, :(push!(r.stage.current.scope.labels, $(esc(arg)))))
         elseif arg isa Expr && arg.head == :call && arg.args[1] == :(=>)
-            # Key => value pair
+            # Key => value pair — goes on capture data
             key = arg.args[2]
             val = arg.args[3]
-            push!(exprs, :(r.stage.current_scope.data[$(QuoteNode(key))] = $(esc(val))))
+            push!(exprs, :(r.stage.current.data[$(QuoteNode(key))] = $(esc(val))))
         end
     end
     quote
@@ -69,7 +69,7 @@ macro session_capture(label)
     src_line = __source__.line
     quote
         r = $(_Recorder)._get_recorder()
-        _simos = $(_Core)._get_sim()
+        _simos = $(_Kernel)._get_sim()
 
         # Capture locals
         _locals = Base.@locals()
@@ -83,21 +83,21 @@ macro session_capture(label)
             end
         end
 
-        # Finalize current_scope with captured variables
+        # Fill CaptureContext from captured variables
         $(_Recorder)._fill_scope!(
             _simos,
-            r.stage.current_scope, r.stage, _locals, _globals,
+            r.stage.current, _locals, _globals,
             $(src_file), $(src_line), $(esc(label));
             simignore_rules = r.simignore_rules
         )
 
-        # Push finalized scope to stage.scopes
-        push!(r.stage.scopes, r.stage.current_scope)
+        # Push finalized capture to stage.captures
+        push!(r.stage.captures, r.stage.current)
 
-        # Create new current_scope for next capture
-        r.stage.current_scope = $(_Core).Scope()
+        # Create new CaptureContext for next capture
+        r.stage.current = $(_Kernel).CaptureContext()
 
-        r.stage.scopes[end]
+        r.stage.captures[end]
     end
 end
 
@@ -108,21 +108,21 @@ end
 macro session_commit(label="")
     quote
         r = $(_Recorder)._get_recorder()
-        _simos = $(_Core)._get_sim()
+        _simos = $(_Kernel)._get_sim()
 
-        # Check for pending context in current_scope
-        cs = r.stage.current_scope
-        if !isempty(cs.labels) || !isempty(cs.data) || !isempty(cs.blob_set)
-            error("Cannot commit: current_scope has pending context (labels, data, or blob_set). " *
+        # Check for pending context in current capture
+        cc = r.stage.current
+        if !isempty(cc.scope.labels) || !isempty(cc.data) || !isempty(cc.blob_set)
+            error("Cannot commit: current capture has pending context (labels, data, or blob_set). " *
                   "Use @session_capture first to finalize the scope.")
         end
 
-        if !isempty(r.stage.scopes)
+        if !isempty(r.stage.captures)
             $(_Recorder).write_commit_to_tape(
                 _simos,
                 r.label, $(esc(label)), r.stage, r.meta
             )
-            r.stage = $(_Core).Stage()
+            r.stage = $(_Kernel).Stage()
         end
 
         # Clear recorder on SIMOS
@@ -149,14 +149,14 @@ function session_capture(label::String, locals::Dict{Symbol, Any}, globals::Dict
 
     _fill_scope!(
         simos,
-        r.stage.current_scope, r.stage, locals, globals,
+        r.stage.current, locals, globals,
         src_file, src_line, label;
         simignore_rules = r.simignore_rules
     )
 
-    push!(r.stage.scopes, r.stage.current_scope)
-    r.stage.current_scope = Kernel.Scope()
-    return r.stage.scopes[end]
+    push!(r.stage.captures, r.stage.current)
+    r.stage.current = Kernel.CaptureContext()
+    return r.stage.captures[end]
 end
 
 """
@@ -170,13 +170,13 @@ function session_commit(label::String="")
     r = _get_recorder()
     simos = Kernel._get_sim()
 
-    cs = r.stage.current_scope
-    if !isempty(cs.labels) || !isempty(cs.data) || !isempty(cs.blob_set)
-        error("Cannot commit: current_scope has pending context (labels, data, or blob_set). " *
+    cc = r.stage.current
+    if !isempty(cc.scope.labels) || !isempty(cc.data) || !isempty(cc.blob_set)
+        error("Cannot commit: current capture has pending context (labels, data, or blob_set). " *
               "Use session_capture first to finalize the scope.")
     end
 
-    if !isempty(r.stage.scopes)
+    if !isempty(r.stage.captures)
         write_commit_to_tape(simos, r.label, label, r.stage, r.meta)
         r.stage = Kernel.Stage()
     end
