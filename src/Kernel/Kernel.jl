@@ -22,6 +22,7 @@ include("core/types.jl")
 
 # Scoperias — Scope runtime operations
 include("scoperias/ops-I0x.jl")
+include("scoperias/macros-I0x.jl")
 
 # Project structure: path helpers, project root discovery
 include("core/project.jl")

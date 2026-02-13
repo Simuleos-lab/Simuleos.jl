@@ -71,3 +71,30 @@ function merge_scopes(scopes::Scope...)::Scope
     end
     Scope(labels, vars)
 end
+
+# ==================================
+# Rule filtering (simignore-style)
+# ==================================
+
+"""
+    filter_rules(scope::Scope, rules::Vector{Dict{Symbol, Any}})::Scope
+
+Return a new scope filtered by simignore-style rules.
+Rules use `:regex`, optional `:scope`, and `:action` (`:include`/`:exclude`).
+If multiple rules match, last match wins.
+"""
+function filter_rules(scope::Scope, rules::Vector{Dict{Symbol, Any}})::Scope
+    primary_label = isempty(scope.labels) ? "" : scope.labels[1]
+
+    return filter_vars((name, _sv) -> begin
+        name_str = string(name)
+        last_action = nothing
+        for rule in rules
+            occursin(rule[:regex], name_str) || continue
+            rule_scope = get(rule, :scope, nothing)
+            isnothing(rule_scope) || rule_scope == primary_label || continue
+            last_action = get(rule, :action, nothing)
+        end
+        isnothing(last_action) ? true : last_action != :exclude
+    end, scope)
+end
