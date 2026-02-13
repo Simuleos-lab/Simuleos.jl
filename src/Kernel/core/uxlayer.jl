@@ -64,7 +64,7 @@ Bootstrap and defaults are set separately via update_bootstrap!() and update_def
 """
 function _buildux!(sim::SimOs, args::Dict{String, Any})
     # Create UXLayerView root
-    ux = UXLayers._uxLayerView("simuleos")
+    ux = UXLayers.UXLayerView("simuleos")
 
     # Load sources in priority order (highest to lowest)
     # Priority 2: local project settings

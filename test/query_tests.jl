@@ -1,31 +1,27 @@
 using Simuleos
 using Test
 using Dates
-using Serialization
 
-# Convenience aliases for Core query types/functions
+# Convenience aliases for Kernel ScopeTapes + BlobStorage APIs
 const RootHandler = Simuleos.Kernel.RootHandler
 const SessionHandler = Simuleos.Kernel.SessionHandler
 const TapeHandler = Simuleos.Kernel.TapeHandler
-const BlobHandler = Simuleos.Kernel.BlobHandler
-const BlobRecord = Simuleos.Kernel.BlobRecord
+const BlobRef = Simuleos.Kernel.BlobRef
 const CommitRecord = Simuleos.Kernel.CommitRecord
 const ScopeRecord = Simuleos.Kernel.ScopeRecord
 const VariableRecord = Simuleos.Kernel.VariableRecord
 const sessions = Simuleos.Kernel.sessions
 const tape = Simuleos.Kernel.tape
-const blob = Simuleos.Kernel.blob
 const exists = Simuleos.Kernel.exists
 const iterate_raw_tape = Simuleos.Kernel.iterate_raw_tape
 const iterate_tape = Simuleos.Kernel.iterate_tape
-const load_raw_blob = Simuleos.Kernel.load_raw_blob
-const load_blob = Simuleos.Kernel.load_blob
+const blob_ref = Simuleos.Kernel.blob_ref
+const blob_write = Simuleos.Kernel.blob_write
+const blob_read = Simuleos.Kernel.blob_read
 # Canonical path helpers (SSOT for .simuleos/ directory layout)
-const _session_dir = Simuleos.Kernel._session_dir
 const _tape_path = Simuleos.Kernel._tape_path
-const _blob_path = Simuleos.Kernel._blob_path
 
-@testset "Query System" begin
+@testset "ScopeTapes + BlobStorage Query System" begin
     # Create temporary .simuleos structure for testing
     mktempdir() do tmpdir
         simuleos_dir = joinpath(tmpdir, ".simuleos")
@@ -42,21 +38,33 @@ const _blob_path = Simuleos.Kernel._blob_path
         tapes_dir = dirname(tape_path)
         mkpath(tapes_dir)
 
-        # Write a test blob using canonical path
+        # Write test blob through BlobStorage subsystem
+        blob_key = ("test-blob", 1)
         test_data = Dict("foo" => 42, "bar" => [1, 2, 3])
-        blob_hash = "abc123def456"
-        blob_path = _blob_path(simuleos_dir, blob_hash)
-        mkpath(dirname(blob_path))
-        open(blob_path, "w") do io
-            serialize(io, test_data)
-        end
+        blob_ref_obj = blob_write(simuleos_dir, blob_key, test_data)
+        blob_hash = blob_ref_obj.hash
 
         # Write test tape with two commits (JSONL = one JSON object per line)
         open(tape_path, "w") do io
             # First commit - must be a single line
-            println(io, """{"type":"commit","session_label":"test_session","metadata":{"git_branch":"main"},"scopes":[{"label":"scope1","timestamp":"2024-01-15T10:30:00","variables":{"x":{"src_type":"Int64","src":"local","value":42},"y":{"src_type":"Vector{Float64}","src":"local","blob_ref":"abc123def456"}},"labels":["iteration","step1"],"data":{"step":1}}],"blob_refs":["abc123def456"],"commit_label":"first_commit"}""")
+            println(io, """{"type":"commit","session_label":"test_session","metadata":{"git_branch":"main"},"scopes":[{"label":"scope1","timestamp":"2024-01-15T10:30:00","variables":{"x":{"src_type":"Int64","src":"local","value":42},"y":{"src_type":"Vector{Float64}","src":"local","blob_ref":"$blob_hash"}},"labels":["iteration","step1"],"data":{"step":1}}],"blob_refs":["$blob_hash"],"commit_label":"first_commit"}""")
             # Second commit - must be a single line
             println(io, """{"type":"commit","session_label":"test_session","metadata":{"git_branch":"main"},"scopes":[{"label":"scope2","timestamp":"2024-01-15T10:31:00","variables":{"z":{"src_type":"String","src":"global","value":"hello"}}}],"blob_refs":[]}""")
+        end
+
+        @testset "BlobStorage" begin
+            @test blob_ref(blob_key) isa BlobRef
+            @test blob_ref(blob_key).hash == blob_hash
+            @test exists(simuleos_dir, blob_ref_obj)
+            @test exists(simuleos_dir, blob_key)
+            @test blob_read(simuleos_dir, blob_ref_obj) == test_data
+            @test blob_read(simuleos_dir, blob_key) == test_data
+
+            @test_throws Exception blob_write(simuleos_dir, blob_key, Dict("foo" => 99))
+            overwritten = Dict("foo" => 99)
+            force_ref = blob_write(simuleos_dir, blob_key, overwritten; overwrite=true)
+            @test force_ref.hash == blob_hash
+            @test blob_read(simuleos_dir, force_ref) == overwritten
         end
 
         @testset "Handlers" begin
@@ -78,17 +86,6 @@ const _blob_path = Simuleos.Kernel._blob_path
                 @test t.session === sess
                 @test exists(t)
             end
-
-            @testset "blob()" begin
-                b = blob(root, blob_hash)
-                @test b isa BlobHandler
-                @test b.sha1 == blob_hash
-                @test exists(b)
-
-                # Non-existent blob
-                b2 = blob(root, "nonexistent")
-                @test !exists(b2)
-            end
         end
 
         @testset "Raw Loaders" begin
@@ -102,12 +99,6 @@ const _blob_path = Simuleos.Kernel._blob_path
                 @test commits[1]["commit_label"] == "first_commit"
                 @test commits[2]["session_label"] == "test_session"
                 @test !haskey(commits[2], "commit_label") || isempty(commits[2]["commit_label"])
-            end
-
-            @testset "load_raw_blob()" begin
-                b = blob(root, blob_hash)
-                raw_data = load_raw_blob(b)
-                @test raw_data == test_data
             end
         end
 
@@ -124,7 +115,7 @@ const _blob_path = Simuleos.Kernel._blob_path
                 @test c1.session_label == "test_session"
                 @test c1.commit_label == "first_commit"
                 @test c1.metadata["git_branch"] == "main"
-                @test c1.blob_refs == ["abc123def456"]
+                @test c1.blob_refs == [blob_hash]
 
                 c2 = commits[2]
                 @test c2.session_label == "test_session"
@@ -177,14 +168,7 @@ const _blob_path = Simuleos.Kernel._blob_path
                 @test var_y.src_type == "Vector{Float64}"
                 @test var_y.src == :local
                 @test isnothing(var_y.value)
-                @test var_y.blob_ref == "abc123def456"
-            end
-
-            @testset "BlobRecord" begin
-                b = blob(root, blob_hash)
-                br = load_blob(b)
-                @test br isa BlobRecord
-                @test br.data == test_data
+                @test var_y.blob_ref == blob_hash
             end
         end
 
@@ -204,5 +188,26 @@ const _blob_path = Simuleos.Kernel._blob_path
                 @test isempty(collect(sessions(root)))
             end
         end
+    end
+end
+
+@testset "BlobStorage SimOs wrappers" begin
+    mktempdir() do project_root
+        simuleos_dir = joinpath(project_root, ".simuleos")
+        mkpath(simuleos_dir)
+        sim = Simuleos.Kernel.SimOs(project_root = project_root)
+        sim._project = Simuleos.Kernel.Project(
+            id = "test-project",
+            root_path = project_root,
+            simuleos_dir = simuleos_dir
+        )
+
+        key = ("simos", :blob)
+        value = Dict(:a => 1, :b => [2, 3])
+        ref = blob_write(sim, key, value)
+
+        @test ref isa BlobRef
+        @test blob_read(sim, key) == value
+        @test blob_read(sim, ref) == value
     end
 end

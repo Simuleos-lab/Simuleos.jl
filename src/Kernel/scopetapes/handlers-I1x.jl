@@ -29,28 +29,10 @@ function tape(session::SessionHandler)
 end
 
 """
-    blob(root::RootHandler, sha1::String)
-
-Returns a `BlobHandler` for the blob with the given SHA1 hash.
-"""
-function blob(root::RootHandler, sha1::String)
-    BlobHandler(root, sha1)
-end
-
-"""
     exists(handler::TapeHandler)
 
 Check if the tape file exists on disk.
 """
 function exists(handler::TapeHandler)
     isfile(_tape_path(handler))
-end
-
-"""
-    exists(handler::BlobHandler)
-
-Check if the blob file exists on disk.
-"""
-function exists(handler::BlobHandler)
-    isfile(_blob_path(handler))
 end

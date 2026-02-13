@@ -39,9 +39,9 @@ function load_lv_data(simuleos_path::String)
     end
 
     # Load blob data for time series
-    ts = SKernel.load_blob(SKernel.blob(root, vars["ts"].blob_ref)).data
-    X = SKernel.load_blob(SKernel.blob(root, vars["X"].blob_ref)).data
-    Y = SKernel.load_blob(SKernel.blob(root, vars["Y"].blob_ref)).data
+    ts = SKernel.blob_read(root.path, SKernel.BlobRef(vars["ts"].blob_ref))
+    X = SKernel.blob_read(root.path, SKernel.BlobRef(vars["X"].blob_ref))
+    Y = SKernel.blob_read(root.path, SKernel.BlobRef(vars["Y"].blob_ref))
 
     # Extract parameters (lite values)
     params = Dict{String, Any}()

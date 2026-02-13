@@ -45,7 +45,8 @@ include("core/sys-init.jl")
 include("core/SIMOS-settings.jl")
 
 # Data I/O primitives
-include("blobstore/blob-I0x.jl")
+include("blobstorage/blob-I0x.jl")
+include("blobstorage/blob-I2x.jl")
 include("tapeio/json-I0x.jl")
 
 # ScopeTapes low-level system (read + write)

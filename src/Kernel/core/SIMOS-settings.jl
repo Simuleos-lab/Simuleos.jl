@@ -11,7 +11,7 @@ I2x — reads `sim.ux`
 
 Get the UXLayers root view. Must call sim_activate() first.
 """
-function ux_root(sim::SimOs)::UXLayers._uxLayerView
+function ux_root(sim::SimOs)::UXLayers.UXLayerView
     if isnothing(sim.ux)
         error("Settings not initialized. Call Simuleos.sim_activate(path, args) first.")
     end

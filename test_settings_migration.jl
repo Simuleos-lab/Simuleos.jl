@@ -79,7 +79,7 @@ try
     println("\n6. Checking UXLayers integration...")
     ux = Simuleos.SIMOS.ux
     @assert !isnothing(ux) "Failed: UXLayers view should not be nothing"
-    @assert ux isa UXLayers._uxLayerView "Failed: ux should be a UXLayerView"
+    @assert ux isa UXLayers.UXLayerView "Failed: ux should be a UXLayerView"
     println("   ✓ UXLayers view created: $(typeof(ux))")
 
     @assert UXLayers.isloaded(ux) "Failed: UXLayers should be loaded"

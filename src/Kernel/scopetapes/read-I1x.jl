@@ -1,5 +1,5 @@
 # ScopeTapes loading functions (all I1x)
-# Provides lazy iteration over tapes and blob loading.
+# Provides lazy iteration over tape commits.
 
 """
     iterate_raw_tape(handler::TapeHandler)
@@ -68,24 +68,3 @@ end
 
 Base.IteratorSize(::Type{TapeHandler}) = Base.SizeUnknown()
 Base.eltype(::Type{TapeHandler}) = CommitRecord
-
-"""
-    load_raw_blob(handler::BlobHandler) -> Any
-
-Deserializes and returns the blob data as a Julia object.
-"""
-function load_raw_blob(handler::BlobHandler)
-    path = _blob_path(handler)
-    open(path, "r") do io
-        Serialization.deserialize(io)
-    end
-end
-
-"""
-    load_blob(handler::BlobHandler) -> BlobRecord
-
-Loads and wraps the blob data.
-"""
-function load_blob(handler::BlobHandler)::BlobRecord
-    BlobRecord(load_raw_blob(handler))
-end

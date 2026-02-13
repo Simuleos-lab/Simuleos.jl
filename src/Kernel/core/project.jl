@@ -24,8 +24,8 @@ function _blob_path(root_dir::String, sha1::String)
     joinpath(root_dir, "blobs", "$(sha1)$(BLOB_EXT)")
 end
 
-function _blob_path(bh::BlobHandler)
-    _blob_path(bh.root.path, bh.sha1)
+function _blob_path(root::RootHandler, sha1::String)
+    _blob_path(root.path, sha1)
 end
 
 # ==================================

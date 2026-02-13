@@ -179,13 +179,12 @@ struct TapeHandler
 end
 
 """
-    BlobHandler
+    BlobRef
 
-Points to a blob file under blobs/<sha1>.jls.
+Content-addressed reference to a blob file under blobs/<sha1>.jls.
 """
-struct BlobHandler
-    root::RootHandler
-    sha1::String
+struct BlobRef
+    hash::String
 end
 
 # ==================================
@@ -229,13 +228,4 @@ struct VariableRecord
     value::Any
     blob_ref::Union{Nothing, String}
     src::Symbol
-end
-
-"""
-    BlobRecord
-
-A typed blob record loaded from disk. Replaces BlobWrapper.
-"""
-struct BlobRecord
-    data::Any
 end

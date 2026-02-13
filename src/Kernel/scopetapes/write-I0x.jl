@@ -39,8 +39,8 @@ function _compute_blob_refs(ctx::CaptureContext, root_dir::String)::Dict{Symbol,
     refs = Dict{Symbol, String}()
     for (name, sv) in ctx.scope.variables
         if name in ctx.blob_set
-            hash = _write_blob(root_dir, sv.val)
-            refs[name] = hash
+            ref = blob_write(root_dir, sv.val, sv.val)
+            refs[name] = ref.hash
         end
     end
     refs

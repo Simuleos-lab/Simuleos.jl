@@ -7,6 +7,7 @@
     using Dates
     using Serialization
     using Simuleos
+    Simuleos.Kernel.sim_init(@__DIR__)
 end
 
 ## --- Lotka–Volterra with noise (Euler–Maruyama) ---

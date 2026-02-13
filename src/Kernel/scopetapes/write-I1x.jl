@@ -44,7 +44,6 @@ function write_commit_to_tape(
     meta::Dict
 )
     root_dir = project(simos).simuleos_dir
-
     root = RootHandler(root_dir)
     session = SessionHandler(root, session_label)
     tape_handler = TapeHandler(session)
