@@ -1,25 +1,25 @@
-# Session management — uses SIMOS[].recorder instead of separate global
+# Session management — uses SIMOS[].worksession
 
 """
-    _get_recorder()
+    _get_worksession()
 
-I3x — reads `SIMOS[].recorder` via `_get_sim()`
+I3x — reads `SIMOS[].worksession` via `_get_sim()`
 
-Get the active SessionRecorder from SIMOS[].recorder. Errors if none active.
+Get the active WorkSession from SIMOS[].worksession. Errors if none active.
 """
-function _get_recorder()::Kernel.SessionRecorder
+function _get_worksession()::Kernel.WorkSession
     sim = Kernel._get_sim()
-    isnothing(sim.recorder) && error("No active session. Call @session_init first.")
-    return sim.recorder
+    isnothing(sim.worksession) && error("No active session. Call @session_init first.")
+    return sim.worksession
 end
 
 """
     session_init(label::String, script_path::String)
 
-I3x — reads `SIMOS[]` via `_get_sim()`; writes `SIMOS[].recorder`
+I3x — reads `SIMOS[]` via `_get_sim()`; writes `SIMOS[].worksession`
 
 Internal session creation: locates project root, validates environment,
-captures metadata, and initializes the session on `SIMOS[].recorder`.
+captures metadata, and initializes the session on `SIMOS[].worksession`.
 """
 function session_init(label::String, script_path::String)
     # Find project root by searching upward from the script's directory
@@ -42,11 +42,11 @@ function session_init(label::String, script_path::String)
     # Note: we expect the user to have activated the project first.
     sim = Kernel._get_sim()
 
-    # Clear any previous recorder
-    sim.recorder = nothing
+    # Clear any previous work session
+    sim.worksession = nothing
 
     # Capture metadata
-    meta = _capture_recorder_session_metadata(script_path)
+    meta = _capture_worksession_metadata(script_path)
 
     # Error if git repo is dirty
     if get(meta, "git_dirty", false) === true
@@ -54,13 +54,13 @@ function session_init(label::String, script_path::String)
               "Please commit or stash your changes before recording.")
     end
 
-    # Create and set the recorder on sim
-    recorder = Kernel.SessionRecorder(
+    # Create and set the work session on sim
+    worksession = Kernel.WorkSession(
         label = label,
         stage = Kernel.Stage(),
         meta = meta
     )
-    sim.recorder = recorder
+    sim.worksession = worksession
 
-    return recorder
+    return worksession
 end

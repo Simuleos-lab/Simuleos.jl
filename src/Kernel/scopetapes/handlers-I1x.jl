@@ -1,16 +1,12 @@
-# Handler navigation for .simuleos/ directory structure (all I1x — takes handler objects as arguments)
-# Handler types are declared in Kernel/core/types.jl
-# Path helpers are in Kernel/core/project.jl
-
-# ==================================
-# Navigation methods
-# ==================================
+# ScopeTapes handler navigation for .simuleos/ structure (all I1x)
+# Handler types are declared in Kernel/core/types.jl.
+# Path helpers are in Kernel/core/project.jl.
 
 """
     sessions(root::RootHandler)
 
 Returns an iterator of `SessionHandler` for all sessions in the root.
-Sessions are discovered lazily by reading the sessions/ directory.
+Sessions are discovered by reading the sessions/ directory.
 """
 function sessions(root::RootHandler)
     sessions_path = _sessions_dir(root)

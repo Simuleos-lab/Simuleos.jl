@@ -1,17 +1,17 @@
-# Session management — pure metadata capture (no SimOs integration)
+# WorkSession metadata capture (no SimOs integration)
 
 # ==================================
 # Metadata Capture
 # ==================================
 
 """
-    _capture_recorder_session_metadata(script_path, git_handler=nothing)
+    _capture_worksession_metadata(script_path, git_handler=nothing)
 
 I0x — pure metadata capture (no SimOs integration)
 
-Capture metadata for a recorder session: timestamp, Julia version, hostname, git info.
+Capture metadata for a work session: timestamp, Julia version, hostname, git info.
 """
-function _capture_recorder_session_metadata(
+function _capture_worksession_metadata(
         script_path,
         git_handler = Kernel.GitHandler(dirname(script_path))
     )::Dict{String,Any}

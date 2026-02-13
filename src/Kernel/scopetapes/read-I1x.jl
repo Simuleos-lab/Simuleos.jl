@@ -1,9 +1,5 @@
-# Loading functions for tape and blob data (all I1x — takes handler objects as arguments)
-# Provides lazy iteration over tapes and blob loading
-
-# ==================================
-# Raw tape iteration
-# ==================================
+# ScopeTapes loading functions (all I1x)
+# Provides lazy iteration over tapes and blob loading.
 
 """
     iterate_raw_tape(handler::TapeHandler)
@@ -17,7 +13,6 @@ function iterate_raw_tape(handler::TapeHandler)
     _TapeIterator(path)
 end
 
-# Custom iterator for lazy line-by-line reading
 struct _TapeIterator
     path::String
 end
@@ -43,10 +38,6 @@ end
 Base.IteratorSize(::Type{_TapeIterator}) = Base.SizeUnknown()
 Base.eltype(::Type{_TapeIterator}) = Dict{String, Any}
 
-# ==================================
-# Typed tape iteration (CommitRecord)
-# ==================================
-
 """
     iterate_tape(handler::TapeHandler)
 
@@ -60,8 +51,6 @@ import Base.collect
 function Base.collect(::Type{Vector{CommitRecord}}, handler::TapeHandler)
     collect(iterate_tape(handler))
 end
-
-# TapeHandler convenience iteration (defaults to typed CommitRecord)
 
 function Base.iterate(handler::TapeHandler)
     iter = iterate_tape(handler)
@@ -80,10 +69,6 @@ end
 Base.IteratorSize(::Type{TapeHandler}) = Base.SizeUnknown()
 Base.eltype(::Type{TapeHandler}) = CommitRecord
 
-# ==================================
-# Raw blob loading
-# ==================================
-
 """
     load_raw_blob(handler::BlobHandler) -> Any
 
@@ -95,10 +80,6 @@ function load_raw_blob(handler::BlobHandler)
         Serialization.deserialize(io)
     end
 end
-
-# ==================================
-# Typed blob loading (BlobRecord)
-# ==================================
 
 """
     load_blob(handler::BlobHandler) -> BlobRecord

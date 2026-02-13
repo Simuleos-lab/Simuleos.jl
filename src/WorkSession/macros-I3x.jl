@@ -1,17 +1,17 @@
 # ==================================
 # @session_init - Initialize session with metadata and directory structure
-# I3x — expands to `session_init(label, src_file)` → uses `SIMOS[]`, writes `SIMOS[].recorder`
+# I3x — expands to `session_init(label, src_file)` → uses `SIMOS[]`, writes `SIMOS[].worksession`
 # ==================================
 macro session_init(label)
     src_file = string(__source__.file)
     quote
-        $(_Recorder).session_init($(esc(label)), $(src_file))
+        $(_WorkSession).session_init($(esc(label)), $(src_file))
     end
 end
 
 # ==================================
 # @session_store - Mark variables for blob storage (per-scope)
-# I3x — via `_get_recorder()` → reads `SIMOS[].recorder.stage.current.blob_set`
+# I3x — via `_get_worksession()` → reads `SIMOS[].worksession.stage.current.blob_set`
 # ==================================
 macro session_store(vars...)
     symbols = Symbol[]
@@ -19,10 +19,10 @@ macro session_store(vars...)
         append!(symbols, _extract_symbols(v))
     end
     quote
-        r = $(_Recorder)._get_recorder()
+        ws = $(_WorkSession)._get_worksession()
         $(
             [
-                :(push!(r.stage.current.blob_set, $(QuoteNode(sym))))
+                :(push!(ws.stage.current.blob_set, $(QuoteNode(sym))))
                 for sym in symbols
             ]...
         )
@@ -32,7 +32,7 @@ end
 
 # ==================================
 # @session_context - Add context labels and data to current capture
-# I3x — via `_get_recorder()` → reads/writes `SIMOS[].recorder.stage.current`
+# I3x — via `_get_worksession()` → reads/writes `SIMOS[].worksession.stage.current`
 # Usage: @session_context "label"
 #        @session_context :key => value
 #        @session_context "label" :key1 => val1 :key2 => val2
@@ -42,19 +42,19 @@ macro session_context(args...)
     for arg in args
         if arg isa String
             # String literal label — goes on scope.labels
-            push!(exprs, :(push!(r.stage.current.scope.labels, $arg)))
+            push!(exprs, :(push!(ws.stage.current.scope.labels, $arg)))
         elseif arg isa Expr && arg.head == :string
             # Interpolated string label — goes on scope.labels
-            push!(exprs, :(push!(r.stage.current.scope.labels, $(esc(arg)))))
+            push!(exprs, :(push!(ws.stage.current.scope.labels, $(esc(arg)))))
         elseif arg isa Expr && arg.head == :call && arg.args[1] == :(=>)
             # Key => value pair — goes on capture data
             key = arg.args[2]
             val = arg.args[3]
-            push!(exprs, :(r.stage.current.data[$(QuoteNode(key))] = $(esc(val))))
+            push!(exprs, :(ws.stage.current.data[$(QuoteNode(key))] = $(esc(val))))
         end
     end
     quote
-        r = $(_Recorder)._get_recorder()
+        ws = $(_WorkSession)._get_worksession()
         $(exprs...)
         nothing
     end |> esc
@@ -62,13 +62,13 @@ end
 
 # ==================================
 # @session_capture - Snapshot local scope + globals
-# I3x — via `_get_recorder()`, `_get_sim()` → reads `SIMOS[].recorder`, `SIMOS[]`
+# I3x — via `_get_worksession()`, `_get_sim()` → reads `SIMOS[].worksession`, `SIMOS[]`
 # ==================================
 macro session_capture(label)
     src_file = string(__source__.file)
     src_line = __source__.line
     quote
-        r = $(_Recorder)._get_recorder()
+        ws = $(_WorkSession)._get_worksession()
         _simos = $(_Kernel)._get_sim()
 
         # Capture locals
@@ -84,49 +84,45 @@ macro session_capture(label)
         end
 
         # Fill CaptureContext from captured variables
-        $(_Recorder)._fill_scope!(
+        $(_Kernel)._fill_scope!(
             _simos,
-            r.stage.current, _locals, _globals,
+            ws.stage.current, _locals, _globals,
             $(src_file), $(src_line), $(esc(label));
-            simignore_rules = r.simignore_rules
+            simignore_rules = ws.simignore_rules
         )
 
         # Push finalized capture to stage.captures
-        push!(r.stage.captures, r.stage.current)
+        push!(ws.stage.captures, ws.stage.current)
 
         # Create new CaptureContext for next capture
-        r.stage.current = $(_Kernel).CaptureContext()
+        ws.stage.current = $(_Kernel).CaptureContext()
 
-        r.stage.captures[end]
+        ws.stage.captures[end]
     end
 end
 
 # ==================================
-# @session_commit - Persist stage to JSONL tape (optional label), clears recorder
-# I3x — via `_get_recorder()`, `_get_sim()` → reads `SIMOS[].recorder`, `SIMOS[]`; writes tape, clears `SIMOS[].recorder`
+# @session_commit - Persist stage to JSONL tape (optional label), clears staged data
+# I3x — via `_get_worksession()`, `_get_sim()` → reads `SIMOS[].worksession`, `SIMOS[]`; writes tape
 # ==================================
 macro session_commit(label="")
     quote
-        r = $(_Recorder)._get_recorder()
+        ws = $(_WorkSession)._get_worksession()
         _simos = $(_Kernel)._get_sim()
 
         # Check for pending context in current capture
-        cc = r.stage.current
+        cc = ws.stage.current
         if !isempty(cc.scope.labels) || !isempty(cc.data) || !isempty(cc.blob_set)
             error("Cannot commit: current capture has pending context (labels, data, or blob_set). " *
                   "Use @session_capture first to finalize the scope.")
         end
 
-        if !isempty(r.stage.captures)
-            $(_Recorder).write_commit_to_tape(
-                _simos,
-                r.label, $(esc(label)), r.stage, r.meta
+        if !isempty(ws.stage.captures)
+            $(_Kernel).write_commit_to_tape(
+                _simos, ws.label, $(esc(label)), ws.stage, ws.meta
             )
-            r.stage = $(_Kernel).Stage()
+            ws.stage = $(_Kernel).Stage()
         end
-
-        # Clear recorder on SIMOS
-        _simos.recorder = nothing
 
         nothing
     end
@@ -139,49 +135,47 @@ end
 """
     session_capture(label::String, locals::Dict{Symbol, Any}, globals::Dict{Symbol, Any}, src_file::String, src_line::Int)
 
-I3x — via `_get_recorder()`, `_get_sim()` → reads `SIMOS[].recorder`, `SIMOS[]`
+I3x — via `_get_worksession()`, `_get_sim()` → reads `SIMOS[].worksession`, `SIMOS[]`
 
 Programmatic form of @session_capture. Caller must provide locals/globals.
 """
 function session_capture(label::String, locals::Dict{Symbol, Any}, globals::Dict{Symbol, Any}, src_file::String, src_line::Int)
-    r = _get_recorder()
+    ws = _get_worksession()
     simos = Kernel._get_sim()
 
-    _fill_scope!(
+    Kernel._fill_scope!(
         simos,
-        r.stage.current, locals, globals,
+        ws.stage.current, locals, globals,
         src_file, src_line, label;
-        simignore_rules = r.simignore_rules
+        simignore_rules = ws.simignore_rules
     )
 
-    push!(r.stage.captures, r.stage.current)
-    r.stage.current = Kernel.CaptureContext()
-    return r.stage.captures[end]
+    push!(ws.stage.captures, ws.stage.current)
+    ws.stage.current = Kernel.CaptureContext()
+    return ws.stage.captures[end]
 end
 
 """
     session_commit(label::String="")
 
-I3x — via `_get_recorder()`, `_get_sim()` → reads `SIMOS[].recorder`, `SIMOS[]`; clears `SIMOS[].recorder`
+I3x — via `_get_worksession()`, `_get_sim()` → reads `SIMOS[].worksession`, `SIMOS[]`
 
-Programmatic form of @session_commit. Persists stage and clears recorder.
+Programmatic form of @session_commit. Persists stage and clears staged data.
 """
 function session_commit(label::String="")
-    r = _get_recorder()
+    ws = _get_worksession()
     simos = Kernel._get_sim()
 
-    cc = r.stage.current
+    cc = ws.stage.current
     if !isempty(cc.scope.labels) || !isempty(cc.data) || !isempty(cc.blob_set)
         error("Cannot commit: current capture has pending context (labels, data, or blob_set). " *
               "Use session_capture first to finalize the scope.")
     end
 
-    if !isempty(r.stage.captures)
-        write_commit_to_tape(simos, r.label, label, r.stage, r.meta)
-        r.stage = Kernel.Stage()
+    if !isempty(ws.stage.captures)
+        Kernel.write_commit_to_tape(simos, ws.label, label, ws.stage, ws.meta)
+        ws.stage = Kernel.Stage()
     end
 
-    # Clear recorder
-    simos.recorder = nothing
     return nothing
 end

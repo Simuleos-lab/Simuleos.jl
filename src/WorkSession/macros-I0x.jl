@@ -1,4 +1,4 @@
-# Macro implementations for Simuleos Recorder
+# Macro implementations for Simuleos WorkSession
 
 # I0x — pure macro helper
 function _extract_symbols(expr)
@@ -12,5 +12,5 @@ function _extract_symbols(expr)
 end
 
 # Module references for use in macro-generated code
-const _Recorder = Recorder
+const _WorkSession = WorkSession
 const _Kernel = Kernel

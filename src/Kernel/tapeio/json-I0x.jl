@@ -46,6 +46,5 @@ function _write_json(io::IO, s::Set)
     print(io, "]")
 end
 
-# NOTE: ScopeVariable and Scope serialization is now handled by Recorder
-# (pipeline-I0x.jl) where blob/lite classification happens at write time.
-
+# NOTE: ScopeVariable and Scope serialization is handled by ScopeTapes
+# (scopetapes/write-I0x.jl) where blob/lite classification happens at write time.

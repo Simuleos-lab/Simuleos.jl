@@ -58,19 +58,19 @@ If a subsystem needs upper-layer functionality, it must add components to the lo
   │                      APP-SUBSYSTEMS                             │
   │                      (I2x-I3x, user-facing)                     │
   │                                                                 │
-  │  ScopeRecorder (Recorder/)  ScopeReader (Reader/)  Registry     │
-  │  - macros/session/staging   - high-level query API              │
-  │  - commit pipeline to tape                                      │
-  └───────────────┬───────────────────────────────┬─────────────────┘
-                  │                               │
-                  ▼ only downward                 ▼
+  │  WorkSession (WorkSession/)   Registry                         │
+  │  - session lifecycle + staging + commit                        │
+  │  - @session_* user workflow macros                             │
+  └───────────────────────────────┬────────────────────────────────┘
+                                  │
+                                  ▼ only downward
   ┌─────────────────────────────────────────────────────────────────┐
   │                    KERNEL-SUBSYSTEMS                           │
   │                    (I0x-I1x, flat)                             │
   │                                                                 │
-  │  Scoperias     QueryNav      BlobStore      TapeIO    GitMeta   │
-  │  - types       - handlers    - blob write   - jsonl   - git md  │
-  │  - ops         - loaders                                  read   │
+  │  Scoperias     ScopeTapes     BlobStore      TapeIO    GitMeta   │
+  │  - types       - handlers    - blob write   - json    - git md  │
+  │  - ops         - read/write                               read   │
   │  - @scope_capture (I0x wrt SimOs)                                │
   │  - filter_rules(scope, rules)                                   │
   └───────────────┬──────────────┬──────────────┬──────────┬────────┘
@@ -94,12 +94,11 @@ Kernel-SubSystems (complete within Core, I0x-I1x):
 - BlobStore — content-addressed value storage (blob.jl)
 - TapeIO — JSONL tape serialization (json.jl)
 - GitMeta — git repository metadata extraction (git.jl)
-- QueryNav — handler-based navigation of .simuleos structure (query/)
+- ScopeTapes — unified low-level scope tape read/write over .simuleos tapes
 - Scoperias — Scope runtime types and operations
 
 App-SubSystems (Kernel part + App part, span I0x-I3x):
-- ScopeRecorder — captures simulation state into tapes and blobs
-- ScopeReader — structured access to recorded sessions
+- WorkSession — unified session workflow (init/context/store/capture/commit)
 - Registry — cross-project resolution (deferred)
 
 ### Kernel.Core

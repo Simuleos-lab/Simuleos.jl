@@ -1,5 +1,5 @@
 # Simignore: variable filtering (like .gitignore for Simuleos)
-# Rules are stored in SessionRecorder.simignore_rules
+# Rules are stored in WorkSession.simignore_rules
 
 const RuleType = Dict{Symbol, T} where T
 

@@ -48,10 +48,12 @@ include("core/SIMOS-settings.jl")
 include("blobstore/blob-I0x.jl")
 include("tapeio/json-I0x.jl")
 
-# Query system
-include("scopenav/loaders-I0x.jl")
-include("scopenav/handlers-I1x.jl")
-include("scopenav/loaders-I1x.jl")
+# ScopeTapes low-level system (read + write)
+include("scopetapes/handlers-I1x.jl")
+include("scopetapes/read-I0x.jl")
+include("scopetapes/read-I1x.jl")
+include("scopetapes/write-I0x.jl")
+include("scopetapes/write-I1x.jl")
 
 # AGENT: IMPORTANT
 # DO NOT ADD EXPORT STATEMENTS

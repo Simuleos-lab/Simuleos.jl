@@ -1,9 +1,5 @@
-# Record constructors from raw Dict data (all I0x — pure data transformation)
-# Constructs typed Record objects from raw data
-
-# ==================================
-# Record constructors from raw Dict data
-# ==================================
+# ScopeTapes record constructors from raw Dict data (all I0x)
+# Constructs typed record objects from raw data.
 
 function _raw_to_variable_record(name::String, raw::Dict{String, Any})::VariableRecord
     VariableRecord(

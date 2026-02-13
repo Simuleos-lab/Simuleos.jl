@@ -1,6 +1,6 @@
 # Scoperias — Scope runtime types (all I0x — pure data types)
 # Scopes as runtime containers of raw Julia values.
-# No blob classification, no disk I/O — those are Recorder concerns.
+# No blob classification, no disk I/O — those are WorkSession concerns.
 
 # ==================================
 # ScopeVariable — a captured variable (raw value + source tag)

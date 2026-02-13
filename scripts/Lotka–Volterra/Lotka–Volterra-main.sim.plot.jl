@@ -11,31 +11,37 @@
 end
 
 # Bring query API into scope
-const SCore = Simuleos.Core
+const SKernel = Simuleos.Kernel
 
 ## ..--. --. .- --. .- .- -.. - .--. -. -.
 # Load data from .simuleos recording
 function load_lv_data(simuleos_path::String)
-    root = SCore.RootHandler(simuleos_path)
+    root = SKernel.RootHandler(simuleos_path)
 
-    # Get the first (and only) session
-    sess = rand(SCore.sessions(root))
-    t = SCore.tape(sess)
+    # Get one available session
+    sess_iter = SKernel.sessions(root)
+    sess_state = iterate(sess_iter)
+    isnothing(sess_state) && error("No recorded sessions found under: $simuleos_path")
+    sess = sess_state[1]
+    t = SKernel.tape(sess)
 
-    # Get the latest commit
-    commit = rand(collect(t))
-    @time scope = rand(commit.scopes)
+    # Get latest available commit/scope
+    commits = collect(t)
+    isempty(commits) && error("No commits found in tape for session: $(sess.label)")
+    commit = last(commits)
+    isempty(commit.scopes) && error("No scopes found in selected commit")
+    scope = last(commit.scopes)
 
     # Extract variables
-    vars = Dict{String, SCore.VariableRecord}()
+    vars = Dict{String, SKernel.VariableRecord}()
     for var in scope.variables
         vars[var.name] = var
     end
 
     # Load blob data for time series
-    ts = SCore.load_blob(SCore.blob(root, vars["ts"].blob_ref)).data
-    X = SCore.load_blob(SCore.blob(root, vars["X"].blob_ref)).data
-    Y = SCore.load_blob(SCore.blob(root, vars["Y"].blob_ref)).data
+    ts = SKernel.load_blob(SKernel.blob(root, vars["ts"].blob_ref)).data
+    X = SKernel.load_blob(SKernel.blob(root, vars["X"].blob_ref)).data
+    Y = SKernel.load_blob(SKernel.blob(root, vars["Y"].blob_ref)).data
 
     # Extract parameters (lite values)
     params = Dict{String, Any}()

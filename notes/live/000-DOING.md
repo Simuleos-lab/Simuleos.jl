@@ -1,3 +1,9 @@
+## DOING 
+- I want to mine my previous Simulations to extract usage cases patterns for SimuleOs...
+- This way I can define the core features and design of SimuleOs based on real needs and use cases, rather than just theoretical ideas.
+- I can also identify common workflows, pain points, and opportunities for automation that SimuleOs can address.
+- I must create a skill and collect new data for this purpose, and then analyze it to derive insights for SimuleOs design.
+
 ## DOING: Connect setttings with stack system
 - for instance `config.json` files..
 

@@ -32,8 +32,7 @@ to all subsystems. Access via `Simuleos.SIMOS[]`.
     ux::Any = nothing  # Will be UXLayerView once loaded
 
     # Subsystem references
-    recorder::Any = nothing  # Will be SessionRecorder when recording
-    reader::Any = nothing    # Will be SessionReader when reading
+    worksession::Any = nothing  # Will be WorkSession while an app session is active
 end
 
 # ==================================
@@ -61,7 +60,7 @@ end
 """
     CaptureContext
 
-Pairs a Scope with recorder-specific metadata (timestamp, capture data, blob requests).
+Pairs a Scope with work-session metadata (timestamp, capture data, blob requests).
 The Scope holds pure runtime data; CaptureContext adds recording concerns.
 """
 @kwdef mutable struct CaptureContext
@@ -82,12 +81,12 @@ Collection of captures pending commit.
 end
 
 """
-    SessionRecorder
+    WorkSession
 
-A recording session with metadata and staged scopes.
+A work session with metadata and staged scopes.
 References `SIMOS[].project` for project-level data instead of storing root_dir.
 """
-@kwdef mutable struct SessionRecorder
+@kwdef mutable struct WorkSession
     label::String
     stage::Stage
     meta::Dict{String, Any}    # git, julia version, etc.
@@ -96,15 +95,6 @@ References `SIMOS[].project` for project-level data instead of storing root_dir.
     # Settings cache (reset at @session_init start, populated lazily)
     # Uses :__MISSING__ sentinel for UXLayers misses to avoid repeated calls
     _settings_cache::Dict{String, Any} = Dict{String, Any}()
-end
-
-"""
-    SessionReader
-
-Manages reading state on `sim.reader`. Minimal for now — delegates to handlers in Kernel.
-"""
-@kwdef mutable struct SessionReader
-    session_label::Union{Nothing, String} = nothing
 end
 
 # ==================================

@@ -11,14 +11,13 @@ include("Kernel/Kernel.jl")
 # ==================================
 # App Modules (depend on Kernel)
 # ==================================
-include("Recorder/Recorder.jl")
-include("Reader/Reader.jl")
+include("WorkSession/WorkSession.jl")
 include("Registry/Registry.jl")
 
 # ==================================
 # Bring macros into module scope
 # ==================================
-using .Recorder: @session_init, @session_store, @session_context, @session_capture, @session_commit
+using .WorkSession: @session_init, @session_store, @session_context, @session_capture, @session_commit
 
 # ==================================
 # Exports
@@ -26,7 +25,7 @@ using .Recorder: @session_init, @session_store, @session_context, @session_captu
 # AGENT: IMPORTANT
 # PUT EXPORT STATEMENTS HERE
 
-# Recorder macros
+# WorkSession macros (names kept stable for now)
 export @session_init, @session_store, @session_context, @session_capture, @session_commit
 
 # ==================================
