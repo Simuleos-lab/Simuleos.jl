@@ -116,23 +116,23 @@ end
 The central state object for Simuleos. Holds bootstrap data and active subsystem
 references. Access via `Simuleos.SIMOS[]`.
 """
-@kwdef mutable struct SimOs
+mutable struct SimOs
     # Bootstrap data (provided at creation)
-    home_path::String = default_home_path()  # ~/.simuleos
-    project_root::Union{Nothing, String} = nothing  # auto-detect or explicit
-    bootstrap::Dict{String, Any} = Dict{String, Any}()  # bootstrap settings
+    home_path::String  # ~/.simuleos
+    project_root::Union{Nothing, String}  # auto-detect or explicit
+    bootstrap::Dict{String, Any}  # bootstrap settings
 
     # Active project reference (set at sim_init/sim_activate)
-    project::Any = nothing  # Will be Project once activated
+    project::Any  # Will be Project once activated
 
     # Home driver cache
-    _home::Any = nothing     # Will be SimuleosHome once loaded
+    _home::Any     # Will be SimuleosHome once loaded
 
     # UXLayers integration (built at sim_activate() time)
-    ux::Any = nothing  # Will be UXLayerView once loaded
+    ux::Any  # Will be UXLayerView once loaded
 
     # Subsystem references
-    worksession::Any = nothing  # Will be WorkSession while an app session is active
+    worksession::Any  # Will be WorkSession while an app session is active
 end
 
 # ==================================
@@ -145,12 +145,12 @@ end
 Represents a Simuleos project (a directory with .simuleos/).
 Contains sessions and provides access to project-level operations.
 """
-@kwdef mutable struct Project
+mutable struct Project
     id::String                           # Project UUID (from project.json)
     root_path::String                    # Project root directory
     simuleos_dir::String                 # .simuleos/ path
     blobstorage::BlobStorage             # project blob storage driver
-    git_handler::Any = nothing           # GitHandler if git repo
+    git_handler::Any           # GitHandler if git repo
 end
 
 # ==================================
@@ -162,10 +162,10 @@ end
 
 Recording-only stage with finalized captures and one open current scope.
 """
-@kwdef mutable struct ScopeStage
-    captures::Vector{Scope} = Scope[]
-    current_scope::Scope = Scope()
-    blob_refs::Dict{Symbol, BlobRef} = Dict{Symbol, BlobRef}()
+mutable struct ScopeStage
+    captures::Vector{Scope}
+    current_scope::Scope
+    blob_refs::Dict{Symbol, BlobRef}
 end
 
 """
@@ -174,15 +174,15 @@ end
 A work session with metadata and staged scopes.
 References `SIMOS[].project` for project-level data instead of storing root_dir.
 """
-@kwdef mutable struct WorkSession
+mutable struct WorkSession
     label::String
     stage::ScopeStage
     meta::Dict{String, Any}    # git, julia version, etc.
-    simignore_rules::Vector{Dict{Symbol, Any}} = Dict{Symbol, Any}[]
+    simignore_rules::Vector{Dict{Symbol, Any}}
 
     # Settings cache (reset at @session_init start, populated lazily)
     # Uses :__MISSING__ sentinel for UXLayers misses to avoid repeated calls
-    _settings_cache::Dict{String, Any} = Dict{String, Any}()
+    _settings_cache::Dict{String, Any}
 end
 
 # ==================================
@@ -208,7 +208,7 @@ end
 
 Represents the ~/.simuleos home directory with registry and config.
 """
-@kwdef mutable struct SimuleosHome
+mutable struct SimuleosHome
     path::String
     # Future: registry, config, etc.
 end
@@ -222,9 +222,9 @@ end
 
 Links an output artifact (hash/path) to its generation context.
 """
-@kwdef struct ContextLink
+struct ContextLink
     artifact_hash::String
-    artifact_path::Union{Nothing, String} = nothing
+    artifact_path::Union{Nothing, String}
     session_label::String
     commit_label::String
     timestamp::Dates.DateTime

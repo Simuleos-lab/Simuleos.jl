@@ -8,6 +8,7 @@ import ..Kernel
 
 # Session management (must be first - other files depend on _get_worksession)
 include("session-I0x.jl")
+include("base-I0x.jl")
 include("session-I3x.jl")
 
 # Settings (UXLayers integration for WorkSession)
