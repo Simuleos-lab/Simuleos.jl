@@ -13,7 +13,7 @@ Get the UXLayers root view. Must call sim_activate() first.
 """
 function ux_root(sim::SimOs)::UXLayers.UXLayerView
     if isnothing(sim.ux)
-        error("Settings not initialized. Call Simuleos.sim_activate(path, args) first.")
+        error("Settings not initialized. Call Simuleos.sim_activate(proj_path, bootstrap) first.")
     end
     return sim.ux
 end

@@ -11,7 +11,8 @@ import UXLayers
 import JSON3
 import LibGit2
 
-# Home utilities (needed by types)
+# Filesystem and home bootstrap utilities (needed by types)
+include("core/fs-I0x.jl")
 include("core/home-I0x.jl")
 
 # Types first (all struct definitions are centralized here)
@@ -40,6 +41,7 @@ include("core/SIMOS-I0x.jl")
 
 # Core explicit-object APIs
 include("core/project-I1x.jl")
+include("core/home-I1x.jl")
 include("core/SIMOS-I2x.jl")
 include("core/project-I2x.jl")
 include("core/uxlayer-I2x.jl")

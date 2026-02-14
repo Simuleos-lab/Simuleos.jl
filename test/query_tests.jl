@@ -158,7 +158,7 @@ end
             simuleos_dir = simuleos_dir,
             blobstorage = storage
         )
-        sim = Simuleos.Kernel.SimOs(project_root = project_root, project = project)
+        sim = Simuleos.Kernel.SimOs(project = project)
 
         key = ("simos", :blob)
         value = Dict(:a => 1, :b => [2, 3])

@@ -1,7 +1,7 @@
 # SIMOS helpers (all I0x - explicit path loading)
 
-function _load_project(path::String)::Project
-    pjpath = project_json_path(path)
+function _load_project(proj_path::String)::Project
+    pjpath = _proj_json_path(proj_path)
     pjdata = open(pjpath, "r") do io
         JSON3.read(io, Dict{String, Any})
     end
@@ -9,10 +9,10 @@ function _load_project(path::String)::Project
     id = get(pjdata, "id", nothing)
     isnothing(id) && error("project.json is missing 'id' field: $pjpath")
 
-    sd = simuleos_dir(path)
+    sd = _simuleos_dir(proj_path)
     return Project(
-        id = id,
-        root_path = path,
+        id = string(id),
+        root_path = proj_path,
         simuleos_dir = sd,
         blobstorage = BlobStorage(sd)
     )

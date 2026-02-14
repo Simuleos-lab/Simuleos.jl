@@ -31,7 +31,7 @@ function session_init(label::String, script_path::String)
     end
 
     # Guard: home directory must never be used as a session folder
-    home_path = Kernel.default_home_path()
+    home_path = Kernel.simuleos_home_default_path()
     if abspath(project_root) == abspath(dirname(home_path))
         error("Cannot use home directory as a session folder. " *
               "Session data must be stored in a project-local .simuleos/ directory, " *

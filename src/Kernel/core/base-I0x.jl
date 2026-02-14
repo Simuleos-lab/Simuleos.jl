@@ -7,24 +7,21 @@ const BLOB_EXT = ".jls"
 # Convenience constructor for callers that only pass repository path.
 GitHandler(path::String) = GitHandler(path, nothing)
 
-# Backward-compatible keyword constructors (formerly provided by @kwdef).
 function SimOs(;
-        home_path = default_home_path(),
-        project_root = nothing,
         bootstrap = Dict{String, Any}(),
         project = nothing,
-        _home = nothing,
+        home = nothing,
         ux = nothing,
         worksession = nothing
     )
-    return SimOs(home_path, project_root, bootstrap, project, _home, ux, worksession)
+    return SimOs(bootstrap, project, home, ux, worksession)
 end
 
 function Project(;
-        id,
         root_path,
-        simuleos_dir,
-        blobstorage,
+        id = nothing,
+        simuleos_dir = _simuleos_dir(root_path),
+        blobstorage = BlobStorage(simuleos_dir),
         git_handler = nothing
     )
     return Project(id, root_path, simuleos_dir, blobstorage, git_handler)

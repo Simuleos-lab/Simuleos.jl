@@ -17,6 +17,7 @@ include("Registry/Registry.jl")
 # ==================================
 # Bring macros into module scope
 # ==================================
+import .Kernel: sim_init, sim_activate
 using .WorkSession: @session_init, @session_store, @session_context, @session_capture, @session_commit
 
 # ==================================
@@ -26,6 +27,7 @@ using .WorkSession: @session_init, @session_store, @session_context, @session_ca
 # PUT EXPORT STATEMENTS HERE
 
 # WorkSession macros (names kept stable for now)
+export sim_init, sim_activate
 export @session_init, @session_store, @session_context, @session_capture, @session_commit
 
 # ==================================

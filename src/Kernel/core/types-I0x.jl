@@ -117,16 +117,14 @@ The central state object for Simuleos. Holds bootstrap data and active subsystem
 references. Access via `Simuleos.SIMOS[]`.
 """
 mutable struct SimOs
-    # Bootstrap data (provided at creation)
-    home_path::String  # ~/.simuleos
-    project_root::Union{Nothing, String}  # auto-detect or explicit
-    bootstrap::Dict{String, Any}  # bootstrap settings
+    # Activation/bootstrap overrides.
+    bootstrap::Dict{String, Any}
 
     # Active project reference (set at sim_init/sim_activate)
     project::Any  # Will be Project once activated
 
     # Home driver cache
-    _home::Any     # Will be SimuleosHome once loaded
+    home::Any     # Will be SimuleosHome once loaded
 
     # UXLayers integration (built at sim_activate() time)
     ux::Any  # Will be UXLayerView once loaded
@@ -146,11 +144,11 @@ Represents a Simuleos project (a directory with .simuleos/).
 Contains sessions and provides access to project-level operations.
 """
 mutable struct Project
-    id::String                           # Project UUID (from project.json)
+    id::Union{Nothing, String}           # Project UUID (from project.json)
     root_path::String                    # Project root directory
     simuleos_dir::String                 # .simuleos/ path
     blobstorage::BlobStorage             # project blob storage driver
-    git_handler::Any           # GitHandler if git repo
+    git_handler::Any                     # GitHandler if git repo
 end
 
 # ==================================

@@ -41,22 +41,22 @@ function _get_sim()::SimOs
 end
 
 """
-    sim_activate(path::String, args::Dict{String, Any})
+    sim_activate(proj_path::String, bootstrap::Dict{String, Any})
 
-I3x - reads/writes `SIMOS[]`, `SIMOS[].project_root`, `SIMOS[].project`, `SIMOS[].ux`
+I3x - reads/writes `SIMOS[]`, `SIMOS[].bootstrap`, `SIMOS[].project`, `SIMOS[].home`, `SIMOS[].ux`
 
-Activate a project at the given path with settings args.
+Activate a project at `proj_path` with bootstrap overrides.
 Sets `SIMOS[]`, builds active `Project`, and builds settings sources.
 
 # Arguments
-- `path`: Path to the project directory (must contain .simuleos/project.json)
-- `args`: Settings overrides (highest priority source)
+- `proj_path`: Path to the project directory (must contain .simuleos/project.json)
+- `bootstrap`: Settings/bootstrap overrides (highest priority source)
 """
-function sim_activate(path::String, args::Dict{String, Any})
-    path = abspath(path)
-    isfile(path) && error("Project path must not be a file: $path")
+function sim_activate(proj_path::String, bootstrap::Dict{String, Any})
+    proj_path = abspath(proj_path)
+    isfile(proj_path) && error("Project path must not be a file: $proj_path")
 
-    proj_validate_folder(path)
+    proj_validate_folder(proj_path)
 
     # Create or update SimOs
     sim = SIMOS[]
@@ -65,17 +65,24 @@ function sim_activate(path::String, args::Dict{String, Any})
         SIMOS[] = sim
     end
 
-    sim.project_root = path
-    sim.project = _load_project(path)
+    sim.bootstrap = bootstrap
+    sim.project = _load_project(proj_path)
+    sim.home = init_home(
+        SimuleosHome(path = get(bootstrap, "homePath", simuleos_home_default_path()))
+    )
 
     # Build settings sources
-    _buildux!(sim, args)
+    _buildux!(sim, bootstrap)
 
     return nothing
 end
 
+function sim_activate(proj_path::String)
+    sim_activate(proj_path, Dict{String, Any}())
+end
+
 """
-    sim_activate_jl(args::Dict{String, Any})
+    sim_activate_jl(bootstrap::Dict{String, Any})
 
 I3x - via `sim_activate`
 
@@ -83,11 +90,11 @@ Activate a project based on the currently active Julia environment.
 - Uses `Base.activate_project()` to get the active environment path.
 - Validates that it's not a global environment.
 """
-function sim_activate_jl(args::Dict{String, Any})
+function sim_activate_jl(bootstrap::Dict{String, Any})
     jl_proj = Base.activate_project()
     jl_proj in Base.DEPOT_PATH && error("Global environment cannot be used as a Simuleos project. Please activate a local project with a .simuleos/ directory.")
     path = dirname(jl_proj)
-    sim_activate(path, args)
+    sim_activate(path, bootstrap)
 end
 
 """
@@ -96,7 +103,7 @@ end
 I3x - via `sim_activate`
 
 Auto-detect and activate a project from the current working directory.
-Searches upward for a .simuleos directory. Uses empty args.
+Searches upward for a .simuleos directory. Uses empty bootstrap overrides.
 """
 function sim_activate()
     root = find_project_root(pwd())

@@ -1,42 +1,47 @@
 # Project initialization entrypoints (all I3x - uses SIMOS via sim_activate)
 
 """
-    sim_init(path::String; args::Dict{String, Any} = Dict{String, Any}())
+    sim_init(proj_path::String; bootstrap::Dict{String, Any} = Dict{String, Any}())
 
 I3x - via `sim_activate` -> writes `SIMOS[]`
 
-Initialize a Simuleos project at `path`.
+Initialize a Simuleos project at `proj_path`.
 - Creates `.simuleos/project.json` with a unique project UUID.
 - Idempotent: if `project.json` already exists, preserves it.
-- Calls `sim_activate(path, args)` at the end.
+- Calls `sim_activate(proj_path, bootstrap)` at the end.
 """
-function sim_init(path::String; args::Dict{String, Any} = Dict{String, Any}())
-    init_home(SimuleosHome(path=default_home_path()))
+function sim_init(proj_path::String; bootstrap::Dict{String, Any} = Dict{String, Any}())
+    proj_root = abspath(proj_path)
+    isfile(proj_root) && error("Project path must not be a file: $proj_root")
 
-    sd = simuleos_dir(path)
-    pjpath = project_json_path(path)
+    # init home
+    home = SimuleosHome(
+        path = get(bootstrap, "homePath", simuleos_home_default_path())
+    )
+    init_home(home)
 
-    if isfile(pjpath)
-        @info "Project already initialized, activating..." path
+    # init project
+    proj = Project(root_path = proj_root)
+    already_init = proj_is_init(proj)
+    proj_init!(proj)
+
+    if already_init
+        @info "Project already initialized, activating..." proj_json=proj_json_path(proj)
     else
-        mkpath(sd)
-        open(pjpath, "w") do io
-            JSON3.pretty(io, Dict("id" => string(UUIDs.uuid4())))
-        end
-        @info "Simuleos project initialized at $path"
+        @info "Simuleos project initialized at" proj_path=proj_path(proj)
     end
 
-    sim_activate(path, args)
+    sim_activate(proj_root, bootstrap)
     return nothing
 end
 
 """
-    sim_init(; args::Dict{String, Any} = Dict{String, Any}())
+    sim_init(; bootstrap::Dict{String, Any} = Dict{String, Any}())
 
-I3x - via `sim_init(path)`
+I3x - via `sim_init(proj_path)`
 
 Initialize a Simuleos project at the current working directory.
 """
-function sim_init(; args::Dict{String, Any} = Dict{String, Any}())
-    sim_init(pwd(); args)
+function sim_init(; bootstrap::Dict{String, Any} = Dict{String, Any}())
+    sim_init(pwd(); bootstrap)
 end
