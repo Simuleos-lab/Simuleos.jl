@@ -77,24 +77,47 @@ end
 # ==================================
 
 """
+    _should_ignore_var(name::Symbol, val::Any, scope_label::String, rules::Vector{Dict{Symbol, Any}})::Bool
+
+Return whether a variable should be excluded by baseline filtering plus simignore rules.
+- Baseline filtering always excludes `Module` and `Function` values.
+- Rules use `:regex`, optional `:scope`, and `:action` (`:include`/`:exclude`).
+- If multiple rules match, last match wins.
+"""
+function _should_ignore_var(
+        name::Symbol,
+        val::Any,
+        scope_label::String,
+        rules::Vector{Dict{Symbol, Any}}
+    )::Bool
+    val isa Module && return true
+    val isa Function && return true
+
+    name_str = string(name)
+    last_action = nothing
+    for rule in rules
+        occursin(rule[:regex], name_str) || continue
+        rule_scope = get(rule, :scope, nothing)
+        isnothing(rule_scope) || rule_scope == scope_label || continue
+        last_action = get(rule, :action, nothing)
+    end
+
+    return !isnothing(last_action) && last_action == :exclude
+end
+
+"""
     filter_rules(scope::Scope, rules::Vector{Dict{Symbol, Any}})::Scope
 
 Return a new scope filtered by simignore-style rules.
+Baseline filtering always excludes `Module` and `Function` values.
 Rules use `:regex`, optional `:scope`, and `:action` (`:include`/`:exclude`).
 If multiple rules match, last match wins.
 """
 function filter_rules(scope::Scope, rules::Vector{Dict{Symbol, Any}})::Scope
     primary_label = isempty(scope.labels) ? "" : scope.labels[1]
 
-    return filter_vars((name, _sv) -> begin
-        name_str = string(name)
-        last_action = nothing
-        for rule in rules
-            occursin(rule[:regex], name_str) || continue
-            rule_scope = get(rule, :scope, nothing)
-            isnothing(rule_scope) || rule_scope == primary_label || continue
-            last_action = get(rule, :action, nothing)
-        end
-        isnothing(last_action) ? true : last_action != :exclude
-    end, scope)
+    return filter_vars(
+        (name, sv) -> !_should_ignore_var(name, sv.val, primary_label, rules),
+        scope
+    )
 end

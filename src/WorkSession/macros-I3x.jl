@@ -62,14 +62,13 @@ end
 
 # ==================================
 # @session_capture - Snapshot local scope + globals
-# I3x — via `_get_worksession()`, `_get_sim()` → reads `SIMOS[].worksession`, `SIMOS[]`
+# I3x — via `_get_worksession()` → reads/writes `SIMOS[].worksession`
 # ==================================
 macro session_capture(label)
     src_file = string(__source__.file)
     src_line = __source__.line
     quote
         ws = $(_WorkSession)._get_worksession()
-        _simos = $(_Kernel)._get_sim()
 
         # Capture locals
         _locals = Base.@locals()
@@ -85,7 +84,6 @@ macro session_capture(label)
 
         # Fill CaptureContext from captured variables
         $(_Kernel)._fill_scope!(
-            _simos,
             ws.stage.current, _locals, _globals,
             $(src_file), $(src_line), $(esc(label));
             simignore_rules = ws.simignore_rules
@@ -118,10 +116,7 @@ macro session_commit(label="")
         end
 
         if !isempty(ws.stage.captures)
-            $(_Kernel).write_commit_to_tape(
-                _simos, ws.label, $(esc(label)), ws.stage, ws.meta
-            )
-            ws.stage = $(_Kernel).Stage()
+            $(_WorkSession)._commit_worksession!(_simos, ws, $(esc(label)))
         end
 
         nothing
@@ -135,16 +130,14 @@ end
 """
     session_capture(label::String, locals::Dict{Symbol, Any}, globals::Dict{Symbol, Any}, src_file::String, src_line::Int)
 
-I3x — via `_get_worksession()`, `_get_sim()` → reads `SIMOS[].worksession`, `SIMOS[]`
+I3x — via `_get_worksession()` → reads/writes `SIMOS[].worksession`
 
 Programmatic form of @session_capture. Caller must provide locals/globals.
 """
 function session_capture(label::String, locals::Dict{Symbol, Any}, globals::Dict{Symbol, Any}, src_file::String, src_line::Int)
     ws = _get_worksession()
-    simos = Kernel._get_sim()
 
     Kernel._fill_scope!(
-        simos,
         ws.stage.current, locals, globals,
         src_file, src_line, label;
         simignore_rules = ws.simignore_rules
@@ -173,8 +166,7 @@ function session_commit(label::String="")
     end
 
     if !isempty(ws.stage.captures)
-        Kernel.write_commit_to_tape(simos, ws.label, label, ws.stage, ws.meta)
-        ws.stage = Kernel.Stage()
+        _commit_worksession!(simos, ws, label)
     end
 
     return nothing

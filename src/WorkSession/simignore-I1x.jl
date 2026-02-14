@@ -43,7 +43,7 @@ end
 I1x — reads `worksession.simignore_rules`
 
 Check if a variable should be ignored based on simignore rules.
-Delegates to the pure `Kernel._should_ignore_var` in ScopeTapes write primitives.
+Delegates to the pure `Kernel._should_ignore_var` in Scoperias.
 """
 function _should_ignore(
         worksession::Kernel.WorkSession, name::Symbol,

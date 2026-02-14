@@ -1,6 +1,4 @@
-# ==================================
-# Global State — SIMOS
-# ==================================
+# SIMOS global state and entrypoints (all I3x - uses SIMOS[])
 
 # Single global: SIMOS[].
 const SIMOS = Ref{Union{Nothing, SimOs}}(nothing)
@@ -8,7 +6,7 @@ const SIMOS = Ref{Union{Nothing, SimOs}}(nothing)
 """
     set_sim!(new_sim::SimOs)
 
-I3x — writes `SIMOS[]`
+I3x - writes `SIMOS[]`
 
 Replace the global SimOs instance. Used for testing.
 """
@@ -20,7 +18,7 @@ end
 """
     reset_sim!()
 
-I3x — writes `SIMOS[]`
+I3x - writes `SIMOS[]`
 
 Reset the global SimOs instance to nothing.
 """
@@ -32,7 +30,7 @@ end
 """
     _get_sim()
 
-I3x — reads `SIMOS[]`
+I3x - reads `SIMOS[]`
 
 Get the current SimOs instance, error if not activated.
 """
@@ -45,19 +43,20 @@ end
 """
     sim_activate(path::String, args::Dict{String, Any})
 
-I3x — reads/writes `SIMOS[]`, `SIMOS[].project_root`, `SIMOS[]._project`, `SIMOS[].ux`
+I3x - reads/writes `SIMOS[]`, `SIMOS[].project_root`, `SIMOS[].project`, `SIMOS[].ux`
 
 Activate a project at the given path with settings args.
-Sets `SIMOS[]`, invalidates lazy state, and builds settings sources.
+Sets `SIMOS[]`, builds active `Project`, and builds settings sources.
 
 # Arguments
 - `path`: Path to the project directory (must contain .simuleos/project.json)
 - `args`: Settings overrides (highest priority source)
 """
 function sim_activate(path::String, args::Dict{String, Any})
+    path = abspath(path)
     isfile(path) && error("Project path must not be a file: $path")
 
-    validate_project_folder(path)
+    proj_validate_folder(path)
 
     # Create or update SimOs
     sim = SIMOS[]
@@ -67,7 +66,7 @@ function sim_activate(path::String, args::Dict{String, Any})
     end
 
     sim.project_root = path
-    sim._project = nothing  # Invalidate lazy project
+    sim.project = _load_project(path)
 
     # Build settings sources
     _buildux!(sim, args)
@@ -78,7 +77,7 @@ end
 """
     sim_activate_jl(args::Dict{String, Any})
 
-I3x — via `sim_activate`
+I3x - via `sim_activate`
 
 Activate a project based on the currently active Julia environment.
 - Uses `Base.activate_project()` to get the active environment path.
@@ -94,7 +93,7 @@ end
 """
     sim_activate()
 
-I3x — via `sim_activate`
+I3x - via `sim_activate`
 
 Auto-detect and activate a project from the current working directory.
 Searches upward for a .simuleos directory. Uses empty args.
@@ -110,40 +109,12 @@ function sim_activate()
 end
 
 """
-    project(sim::SimOs)
+    sim_project()
 
-I2x — reads `sim._project`, `sim.project_root`
+I3x - via `_get_sim()`, `sim_project(sim)`
 
-Get the Project for an explicit SimOs instance. Lazily initializes if needed.
+Get the current active Project.
 """
-function project(sim::SimOs)::Project
-    isnothing(sim._project) || return sim._project
-    isnothing(sim.project_root) && error("No project activated. Use Simuleos.sim_activate(path) first.")
-
-    # Load project id from project.json
-    pjpath = project_json_path(sim.project_root)
-    pjdata = open(pjpath, "r") do io
-        JSON3.read(io, Dict{String, Any})
-    end
-    id = get(pjdata, "id", nothing)
-    isnothing(id) && error("project.json is missing 'id' field: $pjpath")
-
-    sim._project = Project(
-        id = id,
-        root_path = sim.project_root,
-        simuleos_dir = simuleos_dir(sim.project_root)
-    )
-    return sim._project
+function sim_project()::Project
+    sim_project(_get_sim())
 end
-
-"""
-    project()
-
-I3x — via `_get_sim()`, `project(sim)`
-
-Get the current active Project. Lazily initializes if needed.
-"""
-function project()::Project
-    project(_get_sim())
-end
-

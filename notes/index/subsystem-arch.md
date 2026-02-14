@@ -1,36 +1,21 @@
 ## Current architecture
 
-### Introduction — Key architecture patterns
+### Key architecture patterns
 
-- **Subsystems are workflows, not boxes.**
-  A subsystem is everything required to carry a workflow.
-  It is not confined to a single module or directory — it's a vertical slice across integration layers.
-  Subsystems can share components, they are defined by workflow responsibility, not code ownership.
-
-- **Layers emerge from the dependency graph.**
-  Layers are not designed top-down — they are contour lines on the dependency DAG.
-  The only hard rule: **edges point downward, never upward.**
-  Within a layer, the graph is flat — any component can depend on any other in the same layer.
-  If a subsystem needs something from a higher layer, it must push that component down.
-
-- **Three layers** (ordered by integration level):
-  - **Kernel.Core** — shared foundation: types, global state, settings, paths, utilities.
-  - **Kernel-SubSystems** — core workflow subsystems, complete within Core (I0x-I1x).
-  - **App-SubSystems** — extended workflow subsystems with user-facing integration (I2x-I3x).
-  Layer names are cosmetic. The real constraint is the downward-only dependency rule.
-
-- **Every subsystem can span layers.**
-  A subsystem may have a Kernel part (flat, long names, I0x-I1x, no user-facing concerns)
-  and an App part (own directory, I2x-I3x, user-facing lifecycle and macros).
-  Core-only subsystems simply have no App part.
-
-- **All types are centralized in Kernel.Core.**
-  `types.jl` holds type definitions for all subsystems.
-  Subsystem modules are for code organization, not type ownership.
-
-- **Kernel.Core is not a subsystem.**
-  It is the shared base: types, global state, settings, project paths, utilities.
-  Every subsystem depends on it.
+- Subsystems are workflow slices, not module/directory boxes.
+    - A subsystem can span layers and share components.
+    - Responsibility is defined by workflow, not ownership.
+- Layers are derived from the dependency DAG.
+    - Across layers: dependencies only point downward.
+    - Within a layer: flat graph (all-to-all allowed).
+    - If lower code needs upper behavior, move components downward.
+- Layer set (by integration):
+    - Kernel.Core: shared types/state/settings/paths/utils.
+    - Kernel-SubSystems: core workflows (I0x-I1x).
+    - App-SubSystems: user-facing workflows (I2x-I3x).
+- Subsystems may have Kernel and App parts; Core-only subsystems have no App part.
+- types.jl in Kernel.Core is the type SSOT for all subsystems.
+- Kernel.Core is shared foundation, not a subsystem.
 
 ### Layer rules
 
@@ -106,3 +91,8 @@ App-SubSystems (Kernel part + App part, span I0x-I3x):
 - Not a subsystem. The shared foundation all subsystems depend on.
 - Contains all type definitions (types.jl), global state (SIMOS), settings resolution,
   project paths, and pure utilities.
+
+
+### Julia Include Order
+- All `Core.*` calls resolve at runtime, so include order only matters for type/const definitions
+- `home.jl` → `types.jl` → `project.jl` must be early (types depend on home paths)

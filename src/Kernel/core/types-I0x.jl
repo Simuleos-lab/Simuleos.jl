@@ -9,14 +9,28 @@ const TAPE_FILENAME = "context.tape.jsonl"
 const BLOB_EXT = ".jls"
 
 # ==================================
+# Blob Storage
+# ==================================
+
+"""
+    BlobStorage
+
+Driver object for project-local blob storage under `{project_root}/.simuleos/blobs`.
+Holds only the `.simuleos` root directory.
+"""
+struct BlobStorage
+    root_dir::String
+end
+
+# ==================================
 # SimOs - The App Object
 # ==================================
 
 """
     SimOs
 
-The central state object for Simuleos. Holds bootstrap data and lazy references
-to all subsystems. Access via `Simuleos.SIMOS[]`.
+The central state object for Simuleos. Holds bootstrap data and active subsystem
+references. Access via `Simuleos.SIMOS[]`.
 """
 @kwdef mutable struct SimOs
     # Bootstrap data (provided at creation)
@@ -24,8 +38,10 @@ to all subsystems. Access via `Simuleos.SIMOS[]`.
     project_root::Union{Nothing, String} = nothing  # auto-detect or explicit
     bootstrap::Dict{String, Any} = Dict{String, Any}()  # bootstrap settings
 
-    # Lazy subsystem references (initialized on first access)
-    _project::Any = nothing  # Will be Project once loaded
+    # Active project reference (set at sim_init/sim_activate)
+    project::Any = nothing  # Will be Project once activated
+
+    # Home driver cache
     _home::Any = nothing     # Will be SimuleosHome once loaded
 
     # UXLayers integration (built at sim_activate() time)
@@ -49,11 +65,12 @@ Contains sessions and provides access to project-level operations.
     id::String                           # Project UUID (from project.json)
     root_path::String                    # Project root directory
     simuleos_dir::String                 # .simuleos/ path
+    blobstorage::BlobStorage             # project blob storage driver
     git_handler::Any = nothing           # GitHandler if git repo
 end
 
 # ==================================
-# Context I/O Types (CaptureContext, Stage, etc.)
+# Context I/O Types (CaptureContext, ScopeStage, etc.)
 # NOTE: ScopeVariable and Scope are now defined in Scoperias (scoperias/types-I0x.jl)
 # ==================================
 
@@ -71,11 +88,11 @@ The Scope holds pure runtime data; CaptureContext adds recording concerns.
 end
 
 """
-    Stage
+    ScopeStage
 
 Collection of captures pending commit.
 """
-@kwdef mutable struct Stage
+@kwdef mutable struct ScopeStage
     captures::Vector{CaptureContext} = CaptureContext[]
     current::CaptureContext = CaptureContext()
 end
@@ -88,7 +105,7 @@ References `SIMOS[].project` for project-level data instead of storing root_dir.
 """
 @kwdef mutable struct WorkSession
     label::String
-    stage::Stage
+    stage::ScopeStage
     meta::Dict{String, Any}    # git, julia version, etc.
     simignore_rules::Vector{Dict{Symbol, Any}} = Dict{Symbol, Any}[]
 
@@ -146,38 +163,6 @@ Links an output artifact (hash/path) to its generation context.
     timestamp::Dates.DateTime
 end
 
-# ==================================
-# Handler Types (for lazy navigation of .simuleos/ directory structure)
-# ==================================
-
-"""
-    RootHandler(path::String)
-
-Entry point for querying a .simuleos/ directory.
-"""
-struct RootHandler
-    path::String  # path to .simuleos/
-end
-
-"""
-    SessionHandler
-
-Points to a session directory under sessions/<label>/.
-"""
-struct SessionHandler
-    root::RootHandler
-    label::String
-end
-
-"""
-    TapeHandler
-
-Points to a context.tape.jsonl file within a session.
-"""
-struct TapeHandler
-    session::SessionHandler
-end
-
 """
     BlobRef
 
@@ -185,47 +170,4 @@ Content-addressed reference to a blob file under blobs/<sha1>.jls.
 """
 struct BlobRef
     hash::String
-end
-
-# ==================================
-# Record Types (typed, loaded from tape/blobs)
-# ==================================
-
-"""
-    CommitRecord
-
-A typed commit record loaded from the tape. Replaces CommitWrapper.
-"""
-struct CommitRecord
-    session_label::String
-    commit_label::String
-    metadata::Dict{String, Any}
-    scopes::Vector{Any}       # Will hold ScopeRecord objects
-    blob_refs::Vector{String}
-end
-
-"""
-    ScopeRecord
-
-A typed scope record loaded from the tape. Replaces ScopeWrapper.
-"""
-struct ScopeRecord
-    label::String
-    timestamp::Dates.DateTime
-    variables::Vector{Any}    # Will hold VariableRecord objects
-    labels::Vector{String}
-    data::Dict{String, Any}
-end
-
-"""
-    VariableRecord
-
-A typed variable record loaded from the tape. Replaces VariableWrapper.
-"""
-struct VariableRecord
-    name::String
-    src_type::String
-    value::Any
-    blob_ref::Union{Nothing, String}
-    src::Symbol
 end

@@ -1,0 +1,104 @@
+# Path Interface Function Inventory (User/Project `.simuleos`)
+
+- `default_home_path()::String`: Build the canonical user home root path `~/.simuleos`.
+    - #FEEDBACK
+        - Perfect
+- `simuleos_dir(project_root::String)::String`: Build the project-local `.simuleos` directory path from a project root path string.
+    - #FEEDBACK
+        - Ok, for project paths I think we whould always use `blabla(proj::Project)` signature
+        - I mean, we need `blabla(project_root::String)` to setup the Project object itself
+            - but we should made so only to the minimal Project bootstraping paths
+            - `simuleos_dir(project_root::String)::String` is one
+            - but we need `simuleos_dir(Project::String)::String` also
+- `project_json_path(project_root::String)::String`: Build the path to `{project_root}/.simuleos/project.json`.
+    - #FEEDBACK
+        - keeping it
+        - this is a Project bootstraping 
+        - but we need `project_json_path(Project::String)::String` also
+- `global_settings_path(home_path::String)::String`: Build the path to `{home_path}/settings.json` for user-global settings.
+    - #FEEDBACK
+        - rename to `home_settings_path`
+        - this is a similar situation than Project derived path
+        - We can use a Kernel.SimuleosHome object which represents simuleos home folder
+        - we need bootstraping versions (home_path based) 
+        - But subsystems use `blabla(home::Kernel.SimuleosHome)` versions
+        - of course we can also have `blabla(simos::SimOs)` versions
+            - which use an internal simos.home::Kernel.SimuleosHome object
+- `local_settings_path(project_root::String)::String`: Build the path to `{project_root}/.simuleos/settings.json` for project-local settings.
+    - #FEEDBACK
+        - rename to `proj_settings_path`
+- `tape_path(root_dir::String)::String`: Build the context tape path under a `.simuleos` root directory.
+- `_blob_path(root_dir::String, sha1::String)`: Build the blob file path `{root_dir}/blobs/<sha1>.jls` under a `.simuleos` root directory.
+    - #FEEDBACK
+        - we need a `Kernel.BlobStorage` object to represent the blob storage of the project
+        - I mean, each subsystem would have a driver object
+            - cheap container of the minimal information required to work with the subsystem
+        - we should move to use `blob_path(bst::Kernel.BlobStorage, sha1::String)`
+- `find_project_root(start_path::String)::Union{String, Nothing}`: Resolve the nearest ancestor directory that contains a `.simuleos` folder.
+    - #FEEDBACK
+        - Nice, this is a bootstrap function
+- `validate_project_folder(path::String)`: Validate that a project root contains `.simuleos/project.json`.
+    - #FEEDBACK
+        - Nice also
+        - rename to `proj_validate_folder`
+- `sim_init(path::String; args::Dict{String, Any}=Dict{String, Any}())`: Initialize `.simuleos/project.json` at an explicit project root and then activate it.
+    - #FEEDBACK
+        - Nice
+        - very important bootstraping fuction
+- `sim_init(; args::Dict{String, Any}=Dict{String, Any}())`: Initialize the current working directory as a Simuleos project and then activate it.
+- `sim_activate(path::String, args::Dict{String, Any})`: Activate an explicit project root path and rebuild settings layers for that project/home pair.
+- `sim_activate_jl(args::Dict{String, Any})`: Activate using the currently active Julia environment directory as project root.
+- `sim_activate()`: Auto-detect a project root from `pwd()` upward and activate it if found.
+- `_load_settings_json(path::String)::Dict{String, Any}`: Load a settings JSON file from a specific path and return empty data when missing or blank.
+    - #FEEDBACK
+        - nice
+- `project(sim::SimOs)::Project`: Materialize and return a `Project` object with `root_path` and `simuleos_dir` derived from active `SimOs`.
+    - #FEEDBACK
+        - Ok, this functionn should not materialize
+        - it should return the current project
+            - SimOs sould have a field with the current_project
+                - `simos.project`
+        - rename to `sim_project`
+        - to materialize a new Project object you should use the constructor
+- `project()::Project`: Return the active `Project` object from global `SIMOS[]`.
+- `init_home(path::String=Kernel.default_home_path())::Kernel.SimuleosHome`: Initialize and return a `SimuleosHome` object rooted at a user `.simuleos` directory path.
+    - #FEEBACK
+        - No, this is not a bootstraping method
+        - It should be `init_home(::Kernel.SimuleosHome)`
+- `home_path(home::Kernel.SimuleosHome)::String`: Return the root path string of a `SimuleosHome` object.
+    - #FEEBACK
+        - nice
+- `registry_path(home::Kernel.SimuleosHome)::String`: Build the registry directory path under a `SimuleosHome` root.
+    - #FEEBACK
+        - nice
+- `config_path(home::Kernel.SimuleosHome)::String`: Build the config directory path under a `SimuleosHome` root.
+    - #FEEBACK
+        - nice
+- `exists(root_dir::String, ref::BlobRef)`: Check whether a blob file exists under a `.simuleos` root directory using a `BlobRef`.
+    - #FEEBACK
+        - no, use `Kernel.BlobStorage`
+        - `exists(bst::Kernel.BlobStorage, ref::BlobRef)`
+- `exists(root_dir::String, key)`: Check whether a blob file exists under a `.simuleos` root directory using a blob key.
+    - #FEEBACK
+        - no, use Kernel.BlobStorage
+- `blob_write(root_dir::String, key, value; overwrite::Bool=false)::BlobRef`: Persist a blob under a `.simuleos` root directory and return its content-addressed reference.
+    - #FEEBACK
+        - no, use Kernel.BlobStorage
+- `blob_read(root_dir::String, ref::BlobRef)`: Read a blob value from a `.simuleos` root directory using a `BlobRef`.
+    - #FEEBACK
+        - no, use Kernel.BlobStorage
+- `blob_read(root_dir::String, key)`: Read a blob value from a `.simuleos` root directory using a blob key.
+    - #FEEBACK
+        - no, use Kernel.BlobStorage
+- `blob_write(simos::SimOs, key, value; overwrite::Bool=false)::BlobRef`: Object-based blob write that resolves `.simuleos` root from `project(simos).simuleos_dir`.
+    - #FEEBACK
+        - should use `simos.project.blobstorage::Kernel.BlobStorage` internaly
+- `blob_read(simos::SimOs, ref::BlobRef)`: Object-based blob read that resolves `.simuleos` root from `project(simos).simuleos_dir`.
+    - #FEEBACK
+        - should use `simos.project.blobstorage::Kernel.BlobStorage` internaly
+- `blob_read(simos::SimOs, key)`: Object-based blob read by key that resolves `.simuleos` root from `project(simos).simuleos_dir`.
+    - #FEEBACK
+        - should use `simos.project.blobstorage::Kernel.BlobStorage` internaly
+- `session_init(label::String, script_path::String)`: Resolve project root from script path, enforce project/home guardrails, and start a session bound to active SimOs state.
+- `_capture_worksession_metadata(script_path, git_handler=Kernel.GitHandler(dirname(script_path)))::Dict{String, Any}`: Capture session metadata and derive git repository anchor from the script directory path.
+- `_commit_worksession!(simos::Kernel.SimOs, worksession::Kernel.WorkSession, commit_label::String)`: Resolve active project `.simuleos` root, build tape path, and commit staged captures to disk.

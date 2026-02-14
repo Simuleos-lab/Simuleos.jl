@@ -14,5 +14,5 @@ simuleos_dir(project_root::String)::String = joinpath(project_root, _simuleos_di
 # Project identity file path (used by sys-init and SIMOS)
 project_json_path(project_root::String)::String = joinpath(simuleos_dir(project_root), "project.json")
 
-# Global settings
-global_settings_path(home_path::String)::String = joinpath(home_path, "settings.json")
+# Home settings path (bootstrap SSOT)
+home_settings_path(home_path::String)::String = joinpath(home_path, "settings.json")

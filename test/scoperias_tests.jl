@@ -72,4 +72,26 @@ end
     exclude_rule = [Dict{Symbol, Any}(:regex => r"^g", :action => :exclude)]
     filtered_exclude = Simuleos.Kernel.filter_rules(base_scope, exclude_rule)
     @test !Simuleos.Kernel.hasvar(filtered_exclude, :gamma)
+
+    runtime_scope = Scope(
+        ["dev"],
+        Dict{Symbol, Any}(
+            :x => 1,
+            :f => string,
+            :kmod => Simuleos.Kernel
+        ),
+        Dict{Symbol, Any}()
+    )
+    filtered_runtime = Simuleos.Kernel.filter_rules(runtime_scope, Dict{Symbol, Any}[])
+    @test Simuleos.Kernel.hasvar(filtered_runtime, :x)
+    @test !Simuleos.Kernel.hasvar(filtered_runtime, :f)
+    @test !Simuleos.Kernel.hasvar(filtered_runtime, :kmod)
+
+    include_runtime_rules = [
+        Dict{Symbol, Any}(:regex => r"^f$", :action => :include),
+        Dict{Symbol, Any}(:regex => r"^kmod$", :action => :include)
+    ]
+    filtered_runtime_include = Simuleos.Kernel.filter_rules(runtime_scope, include_runtime_rules)
+    @test !Simuleos.Kernel.hasvar(filtered_runtime_include, :f)
+    @test !Simuleos.Kernel.hasvar(filtered_runtime_include, :kmod)
 end

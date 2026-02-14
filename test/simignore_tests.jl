@@ -6,7 +6,7 @@ using Simuleos
         # Create a minimal work session for testing
         worksession = Simuleos.Kernel.WorkSession(
             label = "test",
-            stage = Simuleos.Kernel.Stage(),
+            stage = Simuleos.Kernel.ScopeStage(),
             meta = Dict{String, Any}()
         )
 
@@ -45,7 +45,7 @@ using Simuleos
     @testset "_should_ignore - type filtering" begin
         worksession = Simuleos.Kernel.WorkSession(
             label = "test",
-            stage = Simuleos.Kernel.Stage(),
+            stage = Simuleos.Kernel.ScopeStage(),
             meta = Dict{String, Any}()
         )
 
@@ -55,7 +55,16 @@ using Simuleos
         # Functions are always ignored
         @test Simuleos.WorkSession._should_ignore(worksession, :println, println, "scope1") == true
 
+        # Include rules do not override baseline Module/Function filtering
+        Simuleos.WorkSession.set_simignore_rules!(worksession, [
+            Dict(:regex => r"^Base$", :action => :include),
+            Dict(:regex => r"^println$", :action => :include)
+        ])
+        @test Simuleos.WorkSession._should_ignore(worksession, :Base, Base, "scope1") == true
+        @test Simuleos.WorkSession._should_ignore(worksession, :println, println, "scope1") == true
+
         # Regular values are not ignored by default (no rules)
+        Simuleos.WorkSession.set_simignore_rules!(worksession, Dict{Symbol, Any}[])
         @test Simuleos.WorkSession._should_ignore(worksession, :x, 42, "scope1") == false
         @test Simuleos.WorkSession._should_ignore(worksession, :data, [1, 2, 3], "scope1") == false
     end
@@ -63,7 +72,7 @@ using Simuleos
     @testset "_should_ignore - global rules" begin
         worksession = Simuleos.Kernel.WorkSession(
             label = "test",
-            stage = Simuleos.Kernel.Stage(),
+            stage = Simuleos.Kernel.ScopeStage(),
             meta = Dict{String, Any}()
         )
 
@@ -85,7 +94,7 @@ using Simuleos
     @testset "_should_ignore - scope-specific rules" begin
         worksession = Simuleos.Kernel.WorkSession(
             label = "test",
-            stage = Simuleos.Kernel.Stage(),
+            stage = Simuleos.Kernel.ScopeStage(),
             meta = Dict{String, Any}()
         )
 
@@ -107,7 +116,7 @@ using Simuleos
     @testset "_should_ignore - last rule wins" begin
         worksession = Simuleos.Kernel.WorkSession(
             label = "test",
-            stage = Simuleos.Kernel.Stage(),
+            stage = Simuleos.Kernel.ScopeStage(),
             meta = Dict{String, Any}()
         )
 
@@ -133,7 +142,7 @@ using Simuleos
     @testset "_should_ignore - mixed global and scope rules" begin
         worksession = Simuleos.Kernel.WorkSession(
             label = "test",
-            stage = Simuleos.Kernel.Stage(),
+            stage = Simuleos.Kernel.ScopeStage(),
             meta = Dict{String, Any}()
         )
 

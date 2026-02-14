@@ -20,8 +20,9 @@ macro scope_capture()
         end
 
         _scope = Scope(String[], _locals, _globals)
+        _empty_rules = Dict{Symbol, Any}[]
         filter_vars!(_scope) do _var_name, _sv
-            !(_sv.val isa Module) && !(_sv.val isa Function)
+            !_should_ignore_var(_var_name, _sv.val, "", _empty_rules)
         end
         _scope
     end

@@ -21,6 +21,7 @@ include("simignore-I3x.jl")
 
 # Macros and function forms (must be last - depends on everything else)
 include("macros-I0x.jl")
+include("macros-I2x.jl")
 include("macros-I3x.jl")
 
 # AGENT: IMPORTANT

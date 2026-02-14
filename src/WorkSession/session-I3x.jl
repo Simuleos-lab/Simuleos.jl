@@ -57,7 +57,7 @@ function session_init(label::String, script_path::String)
     # Create and set the work session on sim
     worksession = Kernel.WorkSession(
         label = label,
-        stage = Kernel.Stage(),
+        stage = Kernel.ScopeStage(),
         meta = meta
     )
     sim.worksession = worksession

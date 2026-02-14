@@ -1,19 +1,23 @@
 ## The Integration Axis (I Axis)
 
-- SimuleOs is a system with many subsystems (e.g., worksession, settings, scopetapes)
-- Every function at SimuleOs sits on an integration spectrum:
-- The integration model uses `SimOs` objects and `SIMOS` global for integration
-- `SimOs` = the type (central context object holding all system state)
-- `SIMOS` = the global instance (Ref)
-- also important, `SimOs` containing internal integration globals
-    - e.g., `SimOs.worksession` is the active session-workflow subsystem
-        - so functions that use it are integrated with that subsystem
-- So, we can evaluate each function's integration level by looking at:
-    - its arguments (does it take `SimOs` or other subsystem refs?)
-    - its use of globals (does it access `SIMOS` or `SimOs.worksession` internally?)
+### I Axis: Context and interface styles
+
+- Every SimuleOs function has an integration level on the I Axis.
+- Integration primitives:
+    - SimOs: context type holding system/subsystem state.
+    - SIMOS: global Ref to active SimOs.
+    - Accessing simos.<subsystem> is subsystem integration.
+- Classify a function by:
+    - explicit dependencies in arguments
+    - implicit dependencies via globals (SIMOS[], simos.<subsystem>)
+- Preferred subsystem API pair:
+    - Base API (~I1x): explicit dependencies, subsystem-internal use.
+    - User API (~I3x): dependencies resolved internally (SIMOS[]).
+- This is guidance, not a hard rule.
+- Each function should declare its I level and implicit objects used.
 
 
-## I Axis: Interface styles:
+### I Axis: Interface styles:
 
 - Ideally, for each SimuleOs subsystem we want to follow a similar design
     - have a lower integration base interface (around `I1x`) 
@@ -29,7 +33,7 @@
 - Functions must document its integration level
     - and the use of implicit objects (e.g., "uses `SIMOS[].worksession`")
 
-## I Axis: Levels of integration:
+### I Axis: Levels of integration:
 - Level `I0x` — zero integration, utilities: `f(...)`
     - no access to any `SimOs` object
     - Pure utilities (e.g., `_is_lite(val)`) don't take it, `I0x` = pure
@@ -47,7 +51,7 @@
     - eg: uses `SIMOS[]`, `SIMOS[].worksession`
 - each level can have sub-levels (e.g., `I11`, `I12`) for finer granularity if needed
 
-## Integration Axis File Naming Convention
+### Integration Axis File Naming Convention
 - Files are named with their primary integration level suffix to indicate their interaction with the `SimOs` context:
     - `*-I0x.jl`: Pure utilities, no `SimOs` integration.
     - `*-I1x.jl`: Explicit `SimOs` dependencies as arguments.
@@ -55,6 +59,14 @@
     - `*-I3x.jl`: Resolves `SimOs` dependencies internally via global `SIMOS[]`.
 
 
-## Integration Classification Constraints
+### Integration Classification Constraints
 - If a function `F` (classified `Ix`) calls another classified function `G` (classified `Iy`), then `Ix` *must be equal to or greater than* `Iy`
     - otherwise, `F` or `G` are **misclassified** and should be revised
+
+
+### The flotation line
+- Moving down the integration axis is easier than moving up.
+- Upward moves are harder because higher-level code has fewer dependents.
+- Practical strategy: start with integrated APIs, then refactor downward when reuse/
+flexibility is needed.
+    - Example: start at I2x, then split toward I1x or I0x.

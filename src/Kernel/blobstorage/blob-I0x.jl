@@ -28,21 +28,21 @@ function blob_ref(key)::BlobRef
     BlobRef(_hash_key(key))
 end
 
-function exists(root_dir::String, ref::BlobRef)
-    isfile(_blob_path(root_dir, ref.hash))
+function exists(storage::BlobStorage, ref::BlobRef)
+    isfile(blob_path(storage, ref.hash))
 end
 
-function exists(root_dir::String, key)
-    exists(root_dir, blob_ref(key))
+function exists(storage::BlobStorage, key)
+    exists(storage, blob_ref(key))
 end
 
 function blob_write(
-        root_dir::String, 
+        storage::BlobStorage,
         key, value; 
         overwrite::Bool=false
     )::BlobRef
     ref = blob_ref(key)
-    path = _blob_path(root_dir, ref.hash)
+    path = blob_path(storage, ref.hash)
     mkpath(dirname(path))
 
     serialized_value = _serialize_bytes(value)
@@ -64,14 +64,14 @@ function blob_write(
     return ref
 end
 
-function blob_read(root_dir::String, ref::BlobRef)
-    path = _blob_path(root_dir, ref.hash)
+function blob_read(storage::BlobStorage, ref::BlobRef)
+    path = blob_path(storage, ref.hash)
     isfile(path) || error("Blob not found for hash $(ref.hash): $path")
     open(path, "r") do io
         Serialization.deserialize(io)
     end
 end
 
-function blob_read(root_dir::String, key)
-    blob_read(root_dir, blob_ref(key))
+function blob_read(storage::BlobStorage, key)
+    blob_read(storage, blob_ref(key))
 end
