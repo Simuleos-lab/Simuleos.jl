@@ -2,10 +2,10 @@
 # Runtime constructors for `Scope` now that struct definitions live in Core types.
 
 # Empty scope
-Scope() = Scope(String[], Dict{Symbol, ScopeVariable}())
+Scope() = Scope(String[], Dict{Symbol, ScopeVariable}(), Dict{Symbol, Any}())
 
 # Scope with labels only
-Scope(labels::Vector{String}) = Scope(labels, Dict{Symbol, ScopeVariable}())
+Scope(labels::Vector{String}) = Scope(labels, Dict{Symbol, ScopeVariable}(), Dict{Symbol, Any}())
 
 # Single-label convenience
 Scope(label::String) = Scope([label])
@@ -18,10 +18,10 @@ function Scope(
     )
     vars = Dict{Symbol, ScopeVariable}()
     for (k, v) in globals
-        vars[k] = ScopeVariable(v, :global)
+        vars[k] = InMemoryScopeVariable(:global, _type_short(v), v)
     end
     for (k, v) in locals
-        vars[k] = ScopeVariable(v, :local)  # overrides globals
+        vars[k] = InMemoryScopeVariable(:local, _type_short(v), v)  # overrides globals
     end
-    return Scope(labels, vars)
+    return Scope(labels, vars, Dict{Symbol, Any}())
 end

@@ -11,7 +11,7 @@ end
 
 # ==================================
 # @session_store - Mark variables for blob storage (per-scope)
-# I3x — via `_get_worksession()` → reads `SIMOS[].worksession.stage.current.blob_set`
+# I3x — via `_get_worksession()` and `_get_sim()` → writes `SIMOS[].worksession.stage.blob_refs`
 # ==================================
 macro session_store(vars...)
     symbols = Symbol[]
@@ -20,9 +20,21 @@ macro session_store(vars...)
     end
     quote
         ws = $(_WorkSession)._get_worksession()
+        _simos = $(_Kernel)._get_sim()
+        _storage = $(_Kernel).sim_project(_simos).blobstorage
         $(
             [
-                :(push!(ws.stage.current.blob_set, $(QuoteNode(sym))))
+                quote
+                    if haskey(ws.stage.blob_refs, $(QuoteNode(sym)))
+                        error("Variable $(string($(QuoteNode(sym)))) is already marked for blob storage in current capture.")
+                    end
+                    _value = $(esc(sym))
+                    ws.stage.blob_refs[$(QuoteNode(sym))] = $(_Kernel).blob_write(
+                        _storage,
+                        _value,
+                        _value
+                    )
+                end
                 for sym in symbols
             ]...
         )
@@ -32,7 +44,7 @@ end
 
 # ==================================
 # @session_context - Add context labels and data to current capture
-# I3x — via `_get_worksession()` → reads/writes `SIMOS[].worksession.stage.current`
+# I3x — via `_get_worksession()` → reads/writes `SIMOS[].worksession.stage.current_scope`
 # Usage: @session_context "label"
 #        @session_context :key => value
 #        @session_context "label" :key1 => val1 :key2 => val2
@@ -42,15 +54,15 @@ macro session_context(args...)
     for arg in args
         if arg isa String
             # String literal label — goes on scope.labels
-            push!(exprs, :(push!(ws.stage.current.scope.labels, $arg)))
+            push!(exprs, :(push!(ws.stage.current_scope.labels, $arg)))
         elseif arg isa Expr && arg.head == :string
             # Interpolated string label — goes on scope.labels
-            push!(exprs, :(push!(ws.stage.current.scope.labels, $(esc(arg)))))
+            push!(exprs, :(push!(ws.stage.current_scope.labels, $(esc(arg)))))
         elseif arg isa Expr && arg.head == :call && arg.args[1] == :(=>)
             # Key => value pair — goes on capture data
             key = arg.args[2]
             val = arg.args[3]
-            push!(exprs, :(ws.stage.current.data[$(QuoteNode(key))] = $(esc(val))))
+            push!(exprs, :(ws.stage.current_scope.data[$(QuoteNode(key))] = $(esc(val))))
         end
     end
     quote
@@ -82,18 +94,12 @@ macro session_capture(label)
             end
         end
 
-        # Fill CaptureContext from captured variables
+        # Finalize current staged capture from captured variables
         $(_Kernel)._fill_scope!(
-            ws.stage.current, _locals, _globals,
+            ws.stage, _locals, _globals,
             $(src_file), $(src_line), $(esc(label));
             simignore_rules = ws.simignore_rules
         )
-
-        # Push finalized capture to stage.captures
-        push!(ws.stage.captures, ws.stage.current)
-
-        # Create new CaptureContext for next capture
-        ws.stage.current = $(_Kernel).CaptureContext()
 
         ws.stage.captures[end]
     end
@@ -109,9 +115,9 @@ macro session_commit(label="")
         _simos = $(_Kernel)._get_sim()
 
         # Check for pending context in current capture
-        cc = ws.stage.current
-        if !isempty(cc.scope.labels) || !isempty(cc.data) || !isempty(cc.blob_set)
-            error("Cannot commit: current capture has pending context (labels, data, or blob_set). " *
+        cc = ws.stage.current_scope
+        if !isempty(cc.labels) || !isempty(cc.data) || !isempty(ws.stage.blob_refs)
+            error("Cannot commit: current capture has pending context (labels, data, or blob_refs). " *
                   "Use @session_capture first to finalize the scope.")
         end
 
@@ -137,15 +143,13 @@ Programmatic form of @session_capture. Caller must provide locals/globals.
 function session_capture(label::String, locals::Dict{Symbol, Any}, globals::Dict{Symbol, Any}, src_file::String, src_line::Int)
     ws = _get_worksession()
 
-    Kernel._fill_scope!(
-        ws.stage.current, locals, globals,
+    captured = Kernel._fill_scope!(
+        ws.stage, locals, globals,
         src_file, src_line, label;
         simignore_rules = ws.simignore_rules
     )
 
-    push!(ws.stage.captures, ws.stage.current)
-    ws.stage.current = Kernel.CaptureContext()
-    return ws.stage.captures[end]
+    return captured
 end
 
 """
@@ -159,9 +163,9 @@ function session_commit(label::String="")
     ws = _get_worksession()
     simos = Kernel._get_sim()
 
-    cc = ws.stage.current
-    if !isempty(cc.scope.labels) || !isempty(cc.data) || !isempty(cc.blob_set)
-        error("Cannot commit: current capture has pending context (labels, data, or blob_set). " *
+    cc = ws.stage.current_scope
+    if !isempty(cc.labels) || !isempty(cc.data) || !isempty(ws.stage.blob_refs)
+        error("Cannot commit: current capture has pending context (labels, data, or blob_refs). " *
               "Use session_capture first to finalize the scope.")
     end
 

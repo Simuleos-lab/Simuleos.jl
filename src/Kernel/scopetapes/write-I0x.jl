@@ -1,55 +1,50 @@
 # ScopeTapes write primitives (all I0x)
-# Blob/lite classification happens while building commit Dict payloads.
+# Scope variables are materialized at capture time.
 
 const MAX_TAPE_SIZE_BYTES = 200_000_000  # 200 MB threshold for tape file warnings
 
-function _get_type_string(val)::String
-    first(string(typeof(val)), 25)
-end
-
-function _compute_blob_refs(ctx::CaptureContext, storage::BlobStorage)::Dict{Symbol, String}
-    refs = Dict{Symbol, String}()
-    for (name, sv) in ctx.scope.variables
-        if name in ctx.blob_set
-            ref = blob_write(storage, sv.val, sv.val)
-            refs[name] = ref.hash
-        end
-    end
-    refs
-end
-
-function _scope_var_to_dict(
-        name::Symbol, sv::ScopeVariable,
-        blob_refs::Dict{Symbol, String}
-    )::Dict{String, Any}
-    src_type = _get_type_string(sv.val)
+function _scope_var_to_dict(sv::InMemoryScopeVariable)::Dict{String, Any}
     out = Dict{String, Any}(
-        "src_type" => src_type,
+        "src_type" => sv.type_short,
         "src" => sv.src
     )
-
-    if haskey(blob_refs, name)
-        out["blob_ref"] = blob_refs[name]
-    elseif _is_lite(sv.val)
-        out["value"] = _liteify(sv.val)
-    end
-
+    out["value"] = _liteify(sv.value)
     return out
 end
 
-function _capture_to_scope_dict(
-        ctx::CaptureContext,
-        blob_refs::Dict{Symbol, String}
-    )::Dict{String, Any}
-    scope = ctx.scope
+function _scope_var_to_dict(sv::BlobScopeVariable)::Dict{String, Any}
+    out = Dict{String, Any}(
+        "src_type" => sv.type_short,
+        "src" => sv.src
+    )
+    out["blob_ref"] = sv.blob_ref.hash
+    return out
+end
+
+function _scope_var_to_dict(sv::VoidScopeVariable)::Dict{String, Any}
+    out = Dict{String, Any}(
+        "src_type" => sv.type_short,
+        "src" => sv.src
+    )
+    return out
+end
+
+function _scope_data_to_dict(data::Dict{Symbol, Any})::Dict{String, Any}
+    out = Dict{String, Any}()
+    for (k, v) in data
+        out[string(k)] = v
+    end
+    return out
+end
+
+function _scope_to_dict(scope::Scope)::Dict{String, Any}
     variables = Dict{String, Any}()
     for (name, sv) in scope.variables
-        variables[string(name)] = _scope_var_to_dict(name, sv, blob_refs)
+        variables[string(name)] = _scope_var_to_dict(sv)
     end
 
     out = Dict{String, Any}(
         "label" => (isempty(scope.labels) ? "" : scope.labels[1]),
-        "timestamp" => ctx.timestamp,
         "variables" => variables
     )
 
@@ -57,40 +52,70 @@ function _capture_to_scope_dict(
     if !isempty(labels)
         out["labels"] = labels
     end
-    if !isempty(ctx.data)
-        out["data"] = ctx.data
+    if !isempty(scope.data)
+        out["data"] = _scope_data_to_dict(scope.data)
     end
 
     return out
 end
 
-function _stage_to_commit_dict(
-        commit_label::String,
-        stage::ScopeStage,
-        meta::Dict{String, Any},
-        storage::BlobStorage
-    )::Dict{String, Any}
-    capture_blob_refs = Dict{Symbol, String}[]
-    all_blob_refs = Set{String}()
-    for ctx in stage.captures
-        refs = _compute_blob_refs(ctx, storage)
-        push!(capture_blob_refs, refs)
-        union!(all_blob_refs, values(refs))
-    end
-
-    scopes = Any[
-        _capture_to_scope_dict(ctx, capture_blob_refs[i])
-        for (i, ctx) in enumerate(stage.captures)
-    ]
-
+function _scope_commit_to_dict(commit::ScopeCommit)::Dict{String, Any}
+    scopes = Any[_scope_to_dict(scope) for scope in commit.scopes]
     out = Dict{String, Any}(
         "type" => "commit",
-        "metadata" => meta,
-        "scopes" => scopes,
-        "blob_refs" => sort!(collect(all_blob_refs))
+        "metadata" => commit.metadata,
+        "scopes" => scopes
     )
-    if !isempty(commit_label)
-        out["commit_label"] = commit_label
+    if !isempty(commit.commit_label)
+        out["commit_label"] = commit.commit_label
     end
     return out
+end
+
+function _stage_to_scope_commit(
+        commit_label::String,
+        stage::ScopeStage,
+        meta::Dict{String, Any}
+    )::ScopeCommit
+    commit_meta = copy(meta)
+    commit_meta["timestamp"] = string(Dates.now())
+    scopes = Scope[
+        Scope(copy(scope.labels), copy(scope.variables), copy(scope.data))
+        for scope in stage.captures
+    ]
+    return ScopeCommit(
+        commit_label,
+        commit_meta,
+        scopes
+    )
+end
+
+function _materialize_scope_variables!(
+        scope::Scope,
+        blob_refs::Dict{Symbol, BlobRef}
+    )::Scope
+    for (name, sv) in scope.variables
+        if !(sv isa InMemoryScopeVariable)
+            continue
+        end
+        if haskey(blob_refs, name)
+            scope.variables[name] = BlobScopeVariable(
+                sv.src,
+                sv.type_short,
+                blob_refs[name]
+            )
+        elseif _is_lite(sv.value)
+            scope.variables[name] = InMemoryScopeVariable(
+                sv.src,
+                sv.type_short,
+                _liteify(sv.value)
+            )
+        else
+            scope.variables[name] = VoidScopeVariable(
+                sv.src,
+                sv.type_short
+            )
+        end
+    end
+    return scope
 end

@@ -32,7 +32,7 @@ function filter_vars(f, scope::Scope)::Scope
     for (name, sv) in scope.variables
         f(name, sv) && (new_vars[name] = sv)
     end
-    Scope(copy(scope.labels), new_vars)
+    Scope(copy(scope.labels), new_vars, copy(scope.data))
 end
 
 # Mutate in-place, remove variables where !f(name, sv)
@@ -47,7 +47,7 @@ end
 
 # Return new Scope with labels satisfying f(label)
 function filter_labels(f, scope::Scope)::Scope
-    Scope(filter(f, scope.labels), copy(scope.variables))
+    Scope(filter(f, scope.labels), copy(scope.variables), copy(scope.data))
 end
 
 # Mutate in-place, remove labels where !f(label)
@@ -63,13 +63,15 @@ end
 function merge_scopes(scopes::Scope...)::Scope
     labels = String[]
     vars = Dict{Symbol, ScopeVariable}()
+    data = Dict{Symbol, Any}()
     for scope in scopes
         for l in scope.labels
             l in labels || push!(labels, l)
         end
         merge!(vars, scope.variables)  # last-wins
+        merge!(data, scope.data)  # last-wins
     end
-    Scope(labels, vars)
+    Scope(labels, vars, data)
 end
 
 # ==================================
@@ -105,6 +107,10 @@ function _should_ignore_var(
     return !isnothing(last_action) && last_action == :exclude
 end
 
+_scopevar_runtime_value(sv::InMemoryScopeVariable) = sv.value
+_scopevar_runtime_value(::BlobScopeVariable) = nothing
+_scopevar_runtime_value(::VoidScopeVariable) = nothing
+
 """
     filter_rules(scope::Scope, rules::Vector{Dict{Symbol, Any}})::Scope
 
@@ -117,7 +123,9 @@ function filter_rules(scope::Scope, rules::Vector{Dict{Symbol, Any}})::Scope
     primary_label = isempty(scope.labels) ? "" : scope.labels[1]
 
     return filter_vars(
-        (name, sv) -> !_should_ignore_var(name, sv.val, primary_label, rules),
+        (name, sv) -> !_should_ignore_var(
+            name, _scopevar_runtime_value(sv), primary_label, rules
+        ),
         scope
     )
 end

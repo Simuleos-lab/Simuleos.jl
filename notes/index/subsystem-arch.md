@@ -105,4 +105,4 @@ App-SubSystems (Kernel part + App part, span `I0x-I3x`):
 
 ### Julia Include Order
 - All `Core.*` calls resolve at runtime, so include order only matters for type/const definitions
-- `home.jl` → `types.jl` → `project.jl` must be early (types depend on home paths)
+- `types.jl` must be early, it is the SSOT for all types.

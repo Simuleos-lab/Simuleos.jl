@@ -22,7 +22,7 @@ macro scope_capture()
         _scope = Scope(String[], _locals, _globals)
         _empty_rules = Dict{Symbol, Any}[]
         filter_vars!(_scope) do _var_name, _sv
-            !_should_ignore_var(_var_name, _sv.val, "", _empty_rules)
+            !_should_ignore_var(_var_name, _scopevar_runtime_value(_sv), "", _empty_rules)
         end
         _scope
     end

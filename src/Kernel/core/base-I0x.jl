@@ -6,3 +6,5 @@ const BLOB_EXT = ".jls"
 
 # Convenience constructor for callers that only pass repository path.
 GitHandler(path::String) = GitHandler(path, nothing)
+
+_type_short(value)::String = first(string(typeof(value)), 25)

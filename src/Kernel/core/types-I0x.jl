@@ -15,6 +15,15 @@ struct BlobStorage
     root_dir::String
 end
 
+"""
+    BlobRef
+
+Content-addressed reference to a blob file under blobs/<sha1>.jls.
+"""
+struct BlobRef
+    hash::String
+end
+
 # ==================================
 # Scoperias Types
 # ==================================
@@ -22,63 +31,66 @@ end
 """
     ScopeVariable
 
-A captured variable (raw value plus source tag).
+A captured variable payload.
 """
-struct ScopeVariable
-    val::Any
-    src::Symbol  # :local or :global
+abstract type ScopeVariable end
+
+"""
+    InMemoryScopeVariable
+
+Scope variable with inline value.
+"""
+struct InMemoryScopeVariable <: ScopeVariable
+    src::Symbol
+    type_short::String
+    value::Any
+end
+
+"""
+    BlobScopeVariable
+
+Scope variable stored in blob storage.
+"""
+struct BlobScopeVariable <: ScopeVariable
+    src::Symbol
+    type_short::String
+    blob_ref::BlobRef
+end
+
+"""
+    VoidScopeVariable
+
+Scope variable with no stored value (type metadata only).
+"""
+struct VoidScopeVariable <: ScopeVariable
+    src::Symbol
+    type_short::String
 end
 
 """
     Scope
 
-Runtime container of named variables and ordered labels.
+Runtime container of named variables, labels, and per-scope context data.
 """
 mutable struct Scope
     labels::Vector{String}
     variables::Dict{Symbol, ScopeVariable}
+    data::Dict{Symbol, Any}
 end
 
 # ==================================
-# ScopeTapes Record Types
+# ScopeTapes Commit Type
 # ==================================
 
 """
-    CommitRecord
+    ScopeCommit
 
 Typed commit record for scope tape payloads.
 """
-struct CommitRecord
+struct ScopeCommit
     commit_label::String
     metadata::Dict{String, Any}
-    scopes::Vector{Any}       # Holds ScopeRecord objects
-    blob_refs::Vector{String}
-end
-
-"""
-    ScopeRecord
-
-Typed scope record inside a commit.
-"""
-struct ScopeRecord
-    label::String
-    timestamp::Dates.DateTime
-    variables::Vector{Any}    # Holds VariableRecord objects
-    labels::Vector{String}
-    data::Dict{String, Any}
-end
-
-"""
-    VariableRecord
-
-Typed variable payload in a scope record.
-"""
-struct VariableRecord
-    name::String
-    src_type::String
-    value::Any
-    blob_ref::Union{Nothing, String}
-    src::Symbol
+    scopes::Vector{Scope}
 end
 
 # ==================================
@@ -142,30 +154,18 @@ Contains sessions and provides access to project-level operations.
 end
 
 # ==================================
-# Context I/O Types (CaptureContext, ScopeStage, etc.)
+# Context I/O Types (ScopeStage, etc.)
 # ==================================
-
-"""
-    CaptureContext
-
-Pairs a Scope with work-session metadata (timestamp, capture data, blob requests).
-The Scope holds pure runtime data; CaptureContext adds recording concerns.
-"""
-@kwdef mutable struct CaptureContext
-    scope::Scope = Scope()
-    timestamp::Dates.DateTime = Dates.now()
-    data::Dict{Symbol, Any} = Dict{Symbol, Any}()   # src_file, src_line, threadid
-    blob_set::Set{Symbol} = Set{Symbol}()            # per-scope blob requests
-end
 
 """
     ScopeStage
 
-Collection of captures pending commit.
+Recording-only stage with finalized captures and one open current scope.
 """
 @kwdef mutable struct ScopeStage
-    captures::Vector{CaptureContext} = CaptureContext[]
-    current::CaptureContext = CaptureContext()
+    captures::Vector{Scope} = Scope[]
+    current_scope::Scope = Scope()
+    blob_refs::Dict{Symbol, BlobRef} = Dict{Symbol, BlobRef}()
 end
 
 """
@@ -228,13 +228,4 @@ Links an output artifact (hash/path) to its generation context.
     session_label::String
     commit_label::String
     timestamp::Dates.DateTime
-end
-
-"""
-    BlobRef
-
-Content-addressed reference to a blob file under blobs/<sha1>.jls.
-"""
-struct BlobRef
-    hash::String
 end

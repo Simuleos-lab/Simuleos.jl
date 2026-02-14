@@ -2,13 +2,14 @@
 # Explicit dependencies are passed as arguments.
 
 """
-    _fill_scope!(ctx, locals, globals, src_file, src_line, label; simignore_rules)
+    _fill_scope!(stage, locals, globals, src_file, src_line, label; simignore_rules)
 
-Build a `Scope` from raw locals/globals dictionaries into a `CaptureContext`.
-Applies simignore filtering and fills capture metadata.
+Finalize one scope capture from locals/globals and append to `stage.captures`.
+Uses `stage.current_scope` for pending labels/context and `stage.blob_refs` for
+blob-backed variables. Resets current scope and blob refs after capture.
 """
 function _fill_scope!(
-    ctx::CaptureContext,
+    stage::ScopeStage,
     locals::Dict{Symbol, Any},
     globals::Dict{Symbol, Any},
     src_file::String,
@@ -16,33 +17,35 @@ function _fill_scope!(
     label::String;
     simignore_rules::Vector
 )
-    labels = vcat([label], ctx.scope.labels)
-    ctx.scope = Scope(labels, locals, globals)
+    labels = vcat([label], stage.current_scope.labels)
+    scope = Scope(labels, locals, globals)
+    scope.data = copy(stage.current_scope.data)
+    scope.data[:src_file] = src_file
+    scope.data[:src_line] = src_line
+    scope.data[:threadid] = Threads.threadid()
 
-    ctx.scope = filter_rules(ctx.scope, simignore_rules)
+    scope = filter_rules(scope, simignore_rules)
+    scope = _materialize_scope_variables!(scope, stage.blob_refs)
 
-    ctx.timestamp = Dates.now()
-    ctx.data[:src_file] = src_file
-    ctx.data[:src_line] = src_line
-    ctx.data[:threadid] = Threads.threadid()
-
-    return ctx
+    push!(stage.captures, scope)
+    stage.current_scope = Scope()
+    empty!(stage.blob_refs)
+    return stage.captures[end]
 end
 
 """
-    commit_stage!(tape::TapeIO, storage::BlobStorage, stage::ScopeStage, meta::Dict{String, Any}; commit_label="")
+    commit_stage!(tape::TapeIO, stage::ScopeStage, meta::Dict{String, Any}; commit_label="")
 
 Build a commit payload from the stage and append it to tape.
-Blob/lite classification happens during stage serialization.
 """
 function commit_stage!(
     tape::TapeIO,
-    storage::BlobStorage,
     stage::ScopeStage,
     meta::Dict{String, Any};
     commit_label::String = ""
 )
-    record = _stage_to_commit_dict(commit_label, stage, meta, storage)
+    commit = _stage_to_scope_commit(commit_label, stage, meta)
+    record = _scope_commit_to_dict(commit)
     append!(tape, record)
 
     tape_size = filesize(tape.path)

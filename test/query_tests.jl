@@ -1,12 +1,13 @@
 using Simuleos
 using Test
-using Dates
 
 # Convenience aliases for Kernel ScopeTapes + TapeIO + BlobStorage APIs
 const TapeIO = Simuleos.Kernel.TapeIO
-const CommitRecord = Simuleos.Kernel.CommitRecord
-const ScopeRecord = Simuleos.Kernel.ScopeRecord
-const VariableRecord = Simuleos.Kernel.VariableRecord
+const ScopeCommit = Simuleos.Kernel.ScopeCommit
+const Scope = Simuleos.Kernel.Scope
+const InMemoryScopeVariable = Simuleos.Kernel.InMemoryScopeVariable
+const BlobScopeVariable = Simuleos.Kernel.BlobScopeVariable
+const VoidScopeVariable = Simuleos.Kernel.VoidScopeVariable
 const iterate_tape = Simuleos.Kernel.iterate_tape
 const BlobStorage = Simuleos.Kernel.BlobStorage
 const blob_ref = Simuleos.Kernel.blob_ref
@@ -47,11 +48,10 @@ const exists = Simuleos.Kernel.exists
         # Append two commit records (JSONL = one JSON object per line)
         Simuleos.Kernel.append!(tape, Dict(
             "type" => "commit",
-            "metadata" => Dict("git_branch" => "main"),
+            "metadata" => Dict("git_branch" => "main", "timestamp" => "2024-01-15T10:30:00"),
             "scopes" => Any[
                 Dict(
                     "label" => "scope1",
-                    "timestamp" => "2024-01-15T10:30:00",
                     "variables" => Dict(
                         "x" => Dict("src_type" => "Int64", "src" => "local", "value" => 42),
                         "y" => Dict("src_type" => "Vector{Float64}", "src" => "local", "blob_ref" => blob_hash)
@@ -60,23 +60,21 @@ const exists = Simuleos.Kernel.exists
                     "data" => Dict("step" => 1)
                 )
             ],
-            "blob_refs" => Any[blob_hash],
             "commit_label" => "first_commit"
         ))
 
         Simuleos.Kernel.append!(tape, Dict(
             "type" => "commit",
-            "metadata" => Dict("git_branch" => "main"),
+            "metadata" => Dict("git_branch" => "main", "timestamp" => "2024-01-15T10:31:00"),
             "scopes" => Any[
                 Dict(
                     "label" => "scope2",
-                    "timestamp" => "2024-01-15T10:31:00",
                     "variables" => Dict(
-                        "z" => Dict("src_type" => "String", "src" => "global", "value" => "hello")
+                        "z" => Dict("src_type" => "String", "src" => "global", "value" => "hello"),
+                        "k" => Dict("src_type" => "Tuple{Int64, Int64}", "src" => "local")
                     )
                 )
-            ],
-            "blob_refs" => Any[]
+            ]
         ))
 
         @testset "TapeIO Raw Iteration" begin
@@ -87,40 +85,40 @@ const exists = Simuleos.Kernel.exists
             @test !haskey(commits[2], "commit_label") || isempty(commits[2]["commit_label"])
         end
 
-        @testset "ScopeTapes Typed Records" begin
+        @testset "ScopeTapes Typed Objects" begin
             commits = collect(iterate_tape(tape))
             @test length(commits) == 2
 
             c1 = commits[1]
-            @test c1 isa CommitRecord
+            @test c1 isa ScopeCommit
             @test c1.commit_label == "first_commit"
             @test c1.metadata["git_branch"] == "main"
-            @test c1.blob_refs == [blob_hash]
+            @test c1.metadata["timestamp"] == "2024-01-15T10:30:00"
 
             c2 = commits[2]
             @test c2.commit_label == ""
-            @test isempty(c2.blob_refs)
+            @test c2.metadata["timestamp"] == "2024-01-15T10:31:00"
 
             @test length(c1.scopes) == 1
             s = c1.scopes[1]
-            @test s isa ScopeRecord
-            @test s.label == "scope1"
-            @test s.timestamp == DateTime(2024, 1, 15, 10, 30, 0)
-            @test s.labels == ["iteration", "step1"]
-            @test s.data["step"] == 1
+            @test s isa Scope
+            @test s.labels == ["scope1", "iteration", "step1"]
+            @test s.data[:step] == 1
 
             @test length(s.variables) == 2
-            var_x = only(filter(v -> v.name == "x", s.variables))
-            var_y = only(filter(v -> v.name == "y", s.variables))
-            @test var_x isa VariableRecord
-            @test var_x.src_type == "Int64"
+            var_x = s.variables[:x]
+            var_y = s.variables[:y]
+            @test var_x isa InMemoryScopeVariable
+            @test var_x.type_short == "Int64"
             @test var_x.src == :local
             @test var_x.value == 42
-            @test isnothing(var_x.blob_ref)
-            @test var_y.src_type == "Vector{Float64}"
+            @test var_y isa BlobScopeVariable
+            @test var_y.type_short == "Vector{Float64}"
             @test var_y.src == :local
-            @test isnothing(var_y.value)
-            @test var_y.blob_ref == blob_hash
+            @test var_y.blob_ref.hash == blob_hash
+
+            s2 = c2.scopes[1]
+            @test s2.variables[:k] isa VoidScopeVariable
         end
 
         @testset "TapeIO Key Normalization" begin
@@ -128,8 +126,7 @@ const exists = Simuleos.Kernel.exists
             Simuleos.Kernel.append!(normalized_tape, Dict{Symbol, Any}(
                 :type => "commit",
                 :metadata => Dict(:alpha => 1),
-                :scopes => Any[],
-                :blob_refs => Any[]
+                :scopes => Any[]
             ))
             rows = collect(normalized_tape)
             @test length(rows) == 1
