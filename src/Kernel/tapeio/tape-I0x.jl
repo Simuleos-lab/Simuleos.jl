@@ -1,15 +1,6 @@
 # TapeIO subsystem (all I0x)
 # Path-based JSONL I/O with Dict records only.
 
-"""
-    TapeIO(path::String)
-
-Path-based handle to a JSONL tape file.
-"""
-struct TapeIO
-    path::String
-end
-
 function _normalize_tape_value(value)
     if value isa AbstractDict
         out = Dict{String, Any}()

@@ -14,13 +14,13 @@ import LibGit2
 # Home utilities (needed by types)
 include("core/home-I0x.jl")
 
-# Scoperias — Scope runtime types (needed by core types for CaptureContext)
-include("scoperias/types-I0x.jl")
-
-# Types first (no dependencies except home + scoperias types)
+# Types first (all struct definitions are centralized here)
 include("core/types-I0x.jl")
+include("core/base-I0x.jl")
 
-# Scoperias — Scope runtime operations
+# Scoperias — runtime constructors and operations
+include("scoperias/base-I0x.jl")
+
 include("scoperias/ops-I0x.jl")
 include("scoperias/macros-I0x.jl")
 
@@ -56,7 +56,7 @@ include("tapeio/json-I0x.jl")
 include("tapeio/tape-I0x.jl")
 
 # ScopeTapes low-level system (read + write)
-include("scopetapes/types-I0x.jl")
+include("scopetapes/base-I0x.jl")
 include("scopetapes/read-I0x.jl")
 include("scopetapes/read-I1x.jl")
 include("scopetapes/write-I0x.jl")

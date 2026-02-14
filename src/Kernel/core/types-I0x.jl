@@ -2,13 +2,6 @@
 # All types are defined here - app modules have access to all types
 
 # ==================================
-# File Format Constants
-# ==================================
-
-const TAPE_FILENAME = "context.tape.jsonl"
-const BLOB_EXT = ".jls"
-
-# ==================================
 # Blob Storage
 # ==================================
 
@@ -20,6 +13,85 @@ Holds only the `.simuleos` root directory.
 """
 struct BlobStorage
     root_dir::String
+end
+
+# ==================================
+# Scoperias Types
+# ==================================
+
+"""
+    ScopeVariable
+
+A captured variable (raw value plus source tag).
+"""
+struct ScopeVariable
+    val::Any
+    src::Symbol  # :local or :global
+end
+
+"""
+    Scope
+
+Runtime container of named variables and ordered labels.
+"""
+mutable struct Scope
+    labels::Vector{String}
+    variables::Dict{Symbol, ScopeVariable}
+end
+
+# ==================================
+# ScopeTapes Record Types
+# ==================================
+
+"""
+    CommitRecord
+
+Typed commit record for scope tape payloads.
+"""
+struct CommitRecord
+    commit_label::String
+    metadata::Dict{String, Any}
+    scopes::Vector{Any}       # Holds ScopeRecord objects
+    blob_refs::Vector{String}
+end
+
+"""
+    ScopeRecord
+
+Typed scope record inside a commit.
+"""
+struct ScopeRecord
+    label::String
+    timestamp::Dates.DateTime
+    variables::Vector{Any}    # Holds VariableRecord objects
+    labels::Vector{String}
+    data::Dict{String, Any}
+end
+
+"""
+    VariableRecord
+
+Typed variable payload in a scope record.
+"""
+struct VariableRecord
+    name::String
+    src_type::String
+    value::Any
+    blob_ref::Union{Nothing, String}
+    src::Symbol
+end
+
+# ==================================
+# TapeIO Types
+# ==================================
+
+"""
+    TapeIO
+
+Path-based handle to a JSONL tape file.
+"""
+struct TapeIO
+    path::String
 end
 
 # ==================================
@@ -71,7 +143,6 @@ end
 
 # ==================================
 # Context I/O Types (CaptureContext, ScopeStage, etc.)
-# NOTE: ScopeVariable and Scope are now defined in Scoperias (scoperias/types-I0x.jl)
 # ==================================
 
 """
@@ -126,10 +197,6 @@ A struct representing a git repository for safe git operations.
 struct GitHandler
     path::String
     gitdir::Union{String, Nothing}
-
-    function GitHandler(path::String, gitdir::Union{String, Nothing}=nothing)
-        new(path, gitdir)
-    end
 end
 
 # ==================================
