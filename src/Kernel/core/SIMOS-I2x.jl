@@ -5,9 +5,9 @@
 
 I2x - reads `sim.project`
 
-Get the active Project for an explicit SimOs instance.
+Get the active SimuleosProject for an explicit SimOs instance.
 """
-function sim_project(sim::SimOs)::Project
+function sim_project(sim::SimOs)::SimuleosProject
     isnothing(sim.project) && error("No project activated. Use Simuleos.sim_activate(proj_path) first.")
     return sim.project
 end

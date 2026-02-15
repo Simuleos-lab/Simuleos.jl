@@ -1,5 +1,6 @@
 using Simuleos
 using Test
+using UUIDs
 
 # Convenience aliases for Kernel ScopeTapes + TapeIO + BlobStorage APIs
 const TapeIO = Simuleos.Kernel.TapeIO
@@ -21,7 +22,9 @@ const exists = Simuleos.Kernel.exists
         mkpath(simuleos_dir)
         blob_storage = BlobStorage(simuleos_dir)
 
-        tape_path = Simuleos.Kernel.tape_path(simuleos_dir)
+        test_session_id = uuid4()
+        tape_path = Simuleos.Kernel.tape_path(simuleos_dir, test_session_id)
+        mkpath(dirname(tape_path))
         tape = TapeIO(tape_path)
 
         # Write test blob through BlobStorage subsystem
@@ -152,7 +155,7 @@ end
         simuleos_dir = joinpath(project_root, ".simuleos")
         mkpath(simuleos_dir)
         storage = BlobStorage(simuleos_dir)
-        project = Simuleos.Kernel.Project(
+        project = Simuleos.Kernel.SimuleosProject(
             id = "test-project",
             root_path = project_root,
             simuleos_dir = simuleos_dir,

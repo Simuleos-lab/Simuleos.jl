@@ -1,11 +1,13 @@
 using Test
 using Simuleos
+using UUIDs
 
 @testset "Simignore" begin
     @testset "Rule validation" begin
         # Create a minimal work session for testing
         worksession = Simuleos.Kernel.WorkSession(
-            label = "test",
+            session_id = uuid4(),
+            labels = ["test"],
             stage = Simuleos.Kernel.ScopeStage(),
             meta = Dict{String, Any}()
         )
@@ -44,7 +46,8 @@ using Simuleos
 
     @testset "_should_ignore - type filtering" begin
         worksession = Simuleos.Kernel.WorkSession(
-            label = "test",
+            session_id = uuid4(),
+            labels = ["test"],
             stage = Simuleos.Kernel.ScopeStage(),
             meta = Dict{String, Any}()
         )
@@ -71,7 +74,8 @@ using Simuleos
 
     @testset "_should_ignore - global rules" begin
         worksession = Simuleos.Kernel.WorkSession(
-            label = "test",
+            session_id = uuid4(),
+            labels = ["test"],
             stage = Simuleos.Kernel.ScopeStage(),
             meta = Dict{String, Any}()
         )
@@ -93,7 +97,8 @@ using Simuleos
 
     @testset "_should_ignore - scope-specific rules" begin
         worksession = Simuleos.Kernel.WorkSession(
-            label = "test",
+            session_id = uuid4(),
+            labels = ["test"],
             stage = Simuleos.Kernel.ScopeStage(),
             meta = Dict{String, Any}()
         )
@@ -115,7 +120,8 @@ using Simuleos
 
     @testset "_should_ignore - last rule wins" begin
         worksession = Simuleos.Kernel.WorkSession(
-            label = "test",
+            session_id = uuid4(),
+            labels = ["test"],
             stage = Simuleos.Kernel.ScopeStage(),
             meta = Dict{String, Any}()
         )
@@ -141,7 +147,8 @@ using Simuleos
 
     @testset "_should_ignore - mixed global and scope rules" begin
         worksession = Simuleos.Kernel.WorkSession(
-            label = "test",
+            session_id = uuid4(),
+            labels = ["test"],
             stage = Simuleos.Kernel.ScopeStage(),
             meta = Dict{String, Any}()
         )

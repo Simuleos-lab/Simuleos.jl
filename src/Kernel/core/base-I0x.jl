@@ -17,26 +17,17 @@ function SimOs(;
     return SimOs(bootstrap, project, home, ux, worksession)
 end
 
-function Project(;
+function SimuleosProject(;
         root_path,
         id = nothing,
         simuleos_dir = _simuleos_dir(root_path),
         blobstorage = BlobStorage(simuleos_dir),
         git_handler = nothing
     )
-    return Project(id, root_path, simuleos_dir, blobstorage, git_handler)
+    return SimuleosProject(id, root_path, simuleos_dir, blobstorage, git_handler)
 end
 
 SimuleosHome(; path) = SimuleosHome(path)
 
-function ContextLink(;
-        artifact_hash,
-        artifact_path = nothing,
-        session_label,
-        commit_label,
-        timestamp
-    )
-    return ContextLink(artifact_hash, artifact_path, session_label, commit_label, timestamp)
-end
 
 _type_short(value)::String = first(string(typeof(value)), 25)

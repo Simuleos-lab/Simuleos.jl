@@ -1,11 +1,12 @@
 # ==================================
 # @session_init - Initialize session with metadata and directory structure
-# I3x — expands to `session_init(label, src_file)` → uses `SIMOS[]`, writes `SIMOS[].worksession`
+# I3x — expands to `session_init(labels, src_file)` → uses `SIMOS[]`, writes `SIMOS[].worksession`
 # ==================================
-macro session_init(label)
+macro session_init(labels...)
     src_file = string(__source__.file)
+    label_exprs = [esc(l) for l in labels]
     quote
-        $(_WorkSession).session_init($(esc(label)), $(src_file))
+        $(_WorkSession).session_init(String[$(label_exprs...)], $(src_file))
     end
 end
 

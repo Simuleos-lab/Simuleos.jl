@@ -26,7 +26,10 @@
       "Bash(git -C /Users/pereiro/.julia/dev/Simuleos diff --name-status HEAD -- src/Core/)",
       "Bash(git -C /Users/pereiro/.julia/dev/Simuleos ls-files src/Core/)",
       "Bash(git -C /Users/pereiro/.julia/dev/Simuleos diff HEAD -- src/Core/Core.jl)",
-      "Bash(git -C /Users/pereiro/.julia/dev/Simuleos ls-files src/FileSystem/ src/Tools/)"
+      "Bash(git -C /Users/pereiro/.julia/dev/Simuleos ls-files src/FileSystem/ src/Tools/)",
+      "Bash(sh ~/.agents/skills/live-note-base/scripts/get_max_live_prefix.sh)",
+      "Bash(./.claude/skills/object-inventory/scripts/scan_objects.sh:*)",
+      "Bash(sh ~/.agents/skills/live-note-base/scripts/get_max_live_prefix.sh /Users/pereiro/.julia/dev/Simuleos)"
     ]
   }
 }

@@ -34,7 +34,11 @@ export @session_init, @session_store, @session_context, @session_capture, @sessi
 # Auto-detection on load
 # ==================================
 function __init__()
-    Kernel.sim_activate()
+    if get(ENV, "SIMULEOS_TEST_MODE", "false") == "true"
+        @info "SIMULEOS_TEST_MODE detected in ENV - skipping auto-detection"
+    else
+        sim_activate()
+    end
 end
 
 end # module Simuleos

@@ -46,7 +46,7 @@ end
 I3x - reads/writes `SIMOS[]`, `SIMOS[].bootstrap`, `SIMOS[].project`, `SIMOS[].home`, `SIMOS[].ux`
 
 Activate a project at `proj_path` with bootstrap overrides.
-Sets `SIMOS[]`, builds active `Project`, and builds settings sources.
+Sets `SIMOS[]`, builds active `SimuleosProject`, and builds settings sources.
 
 # Arguments
 - `proj_path`: Path to the project directory (must contain .simuleos/project.json)
@@ -56,7 +56,7 @@ function sim_activate(proj_path::String, bootstrap::Dict{String, Any})
     proj_path = abspath(proj_path)
     isfile(proj_path) && error("Project path must not be a file: $proj_path")
 
-    proj_validate_folder(proj_path)
+    _proj_validate_folder(proj_path)
 
     # Create or update SimOs
     sim = SIMOS[]
@@ -67,8 +67,8 @@ function sim_activate(proj_path::String, bootstrap::Dict{String, Any})
 
     sim.bootstrap = bootstrap
     sim.project = _load_project(proj_path)
-    sim.home = init_home(
-        SimuleosHome(path = get(bootstrap, "homePath", simuleos_home_default_path()))
+    sim.home = init_home!(
+        SimuleosHome(path = get(bootstrap, "homePath", home_simuleos_default_path()))
     )
 
     # Build settings sources
@@ -120,8 +120,8 @@ end
 
 I3x - via `_get_sim()`, `sim_project(sim)`
 
-Get the current active Project.
+Get the current active SimuleosProject.
 """
-function sim_project()::Project
+function sim_project()::SimuleosProject
     sim_project(_get_sim())
 end

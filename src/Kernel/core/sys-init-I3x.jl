@@ -16,19 +16,19 @@ function sim_init(proj_path::String; bootstrap::Dict{String, Any} = Dict{String,
 
     # init home
     home = SimuleosHome(
-        path = get(bootstrap, "homePath", simuleos_home_default_path())
+        path = get(bootstrap, "homePath", home_simuleos_default_path())
     )
-    init_home(home)
+    init_home!(home)
 
     # init project
-    proj = Project(root_path = proj_root)
+    proj = SimuleosProject(root_path = proj_root)
     already_init = proj_is_init(proj)
     proj_init!(proj)
 
     if already_init
         @info "Project already initialized, activating..." proj_json=proj_json_path(proj)
     else
-        @info "Simuleos project initialized at" proj_path=proj_path(proj)
+        @info "Simuleos project initialized at" proj_root=proj_root
     end
 
     sim_activate(proj_root, bootstrap)

@@ -14,14 +14,15 @@ function _get_worksession()::Kernel.WorkSession
 end
 
 """
-    session_init(label::String, script_path::String)
+    session_init(labels::Vector{String}, script_path::String)
 
 I3x — reads `SIMOS[]` via `_get_sim()`; writes `SIMOS[].worksession`
 
 Internal session creation: locates project root, validates environment,
-captures metadata, and initializes the session on `SIMOS[].worksession`.
+captures metadata, creates session directory structure, and initializes
+the session on `SIMOS[].worksession`.
 """
-function session_init(label::String, script_path::String)
+function session_init(labels::Vector{String}, script_path::String)
     # Find project root by searching upward from the script's directory
     start = dirname(abspath(script_path))
     project_root = Kernel.find_project_root(start)
@@ -31,7 +32,7 @@ function session_init(label::String, script_path::String)
     end
 
     # Guard: home directory must never be used as a session folder
-    home_path = Kernel.simuleos_home_default_path()
+    home_path = Kernel.home_simuleos_default_path()
     if abspath(project_root) == abspath(dirname(home_path))
         error("Cannot use home directory as a session folder. " *
               "Session data must be stored in a project-local .simuleos/ directory, " *
@@ -54,9 +55,16 @@ function session_init(label::String, script_path::String)
               "Please commit or stash your changes before recording.")
     end
 
+    # Generate session identity and create directory structure
+    session_id = Kernel.UUIDs.uuid4()
+    project = Kernel.sim_project(sim)
+    scopetapes_dir = Kernel._scopetapes_dir(project.simuleos_dir, session_id)
+    mkpath(scopetapes_dir)
+
     # Create and set the work session on sim
     worksession = Kernel.WorkSession(
-        label = label,
+        session_id = session_id,
+        labels = labels,
         stage = Kernel.ScopeStage(),
         meta = meta
     )

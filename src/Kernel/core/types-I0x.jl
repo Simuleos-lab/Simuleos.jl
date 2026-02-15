@@ -121,7 +121,7 @@ mutable struct SimOs
     bootstrap::Dict{String, Any}
 
     # Active project reference (set at sim_init/sim_activate)
-    project::Any  # Will be Project once activated
+    project::Any  # Will be SimuleosProject once activated
 
     # Home driver cache
     home::Any     # Will be SimuleosHome once loaded
@@ -134,18 +134,18 @@ mutable struct SimOs
 end
 
 # ==================================
-# Project - Entry point object
+# SimuleosProject - Entry point object
 # ==================================
 
 """
-    Project
+    SimuleosProject
 
 Represents a Simuleos project (a directory with .simuleos/).
 Contains sessions and provides access to project-level operations.
 """
-mutable struct Project
-    id::Union{Nothing, String}           # Project UUID (from project.json)
-    root_path::String                    # Project root directory
+mutable struct SimuleosProject
+    id::Union{Nothing, String}           # Simuleos project UUID (from project.json)
+    root_path::String                    # Simuleos project root directory
     simuleos_dir::String                 # .simuleos/ path
     blobstorage::BlobStorage             # project blob storage driver
     git_handler::Any                     # GitHandler if git repo
@@ -173,7 +173,8 @@ A work session with metadata and staged scopes.
 References `SIMOS[].project` for project-level data instead of storing root_dir.
 """
 mutable struct WorkSession
-    label::String
+    session_id::Base.UUID
+    labels::Vector{String}
     stage::ScopeStage
     meta::Dict{String, Any}    # git, julia version, etc.
     simignore_rules::Vector{Dict{Symbol, Any}}
@@ -209,21 +210,4 @@ Represents the ~/.simuleos home directory with registry and config.
 mutable struct SimuleosHome
     path::String
     # Future: registry, config, etc.
-end
-
-# ==================================
-# Traceability Types (stubs)
-# ==================================
-
-"""
-    ContextLink
-
-Links an output artifact (hash/path) to its generation context.
-"""
-struct ContextLink
-    artifact_hash::String
-    artifact_path::Union{Nothing, String}
-    session_label::String
-    commit_label::String
-    timestamp::Dates.DateTime
 end

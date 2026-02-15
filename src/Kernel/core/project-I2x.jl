@@ -5,4 +5,4 @@ proj_settings_path(sim::SimOs)::String = settings_path(sim_project(sim))
 
 home_settings_path(sim::SimOs)::String = settings_path(sim_home(sim))
 
-tape_path(sim::SimOs)::String = tape_path(sim_project(sim))
+

@@ -2,11 +2,12 @@
 
 # Backward-compatible keyword constructor (formerly provided by @kwdef).
 function Kernel.WorkSession(;
-        label,
+        session_id,
+        labels = String[],
         stage,
         meta,
         simignore_rules = Dict{Symbol, Any}[],
         _settings_cache = Dict{String, Any}()
     )
-    return Kernel.WorkSession(label, stage, meta, simignore_rules, _settings_cache)
+    return Kernel.WorkSession(session_id, labels, stage, meta, simignore_rules, _settings_cache)
 end

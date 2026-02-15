@@ -5,7 +5,7 @@ registry_path(home::SimuleosHome)::String = joinpath(home.path, HOME_REGISTRY_DI
 config_path(home::SimuleosHome)::String = joinpath(home.path, "config")
 settings_path(home::SimuleosHome)::String = _home_settings_path(home_path(home))
 
-function init_home(home::SimuleosHome)::SimuleosHome
+function init_home!(home::SimuleosHome)::SimuleosHome
     hpath = home_path(home)
     mkpath(hpath)
     mkpath(registry_path(home))
