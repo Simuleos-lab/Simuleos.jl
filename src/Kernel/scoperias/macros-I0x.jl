@@ -4,7 +4,7 @@
 """
     @scope_capture
 
-Capture current local scope plus globals from `Main` into a label-less `Scope`.
+Capture current local scope plus globals from `Main` into a label-less `SimuleosScope`.
 Built-in filtering removes variables whose values are `Module` or `Function`.
 """
 macro scope_capture()
@@ -19,7 +19,7 @@ macro scope_capture()
             end
         end
 
-        _scope = Scope(String[], _locals, _globals)
+        _scope = SimuleosScope(String[], _locals, _globals)
         _empty_rules = Dict{Symbol, Any}[]
         filter_vars!(_scope) do _var_name, _sv
             !_should_ignore_var(_var_name, _scopevar_runtime_value(_sv), "", _empty_rules)

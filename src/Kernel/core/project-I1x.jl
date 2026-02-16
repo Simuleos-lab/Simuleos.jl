@@ -8,30 +8,33 @@ tape_path(project::SimuleosProject, session_id::Base.UUID)::String = tape_path(p
 
 blob_path(project::SimuleosProject, sha1::String)::String = blob_path(project.blobstorage, sha1)
 
-function proj_is_init(proj::SimuleosProject)::Bool
-    proj_json = proj_json_path(proj)
-    return isfile(proj_json)
-end
+"""
+    proj_init!(simos::SimOs)
 
-function proj_init!(proj::SimuleosProject)::SimuleosProject
+I1x - reads settings, writes disk
+
+Initialize the project on `simos`.
+- Reads `projRoot` from UX settings (defaults to `pwd()`).
+- Calls `resolve_project` to build/load the `SimuleosProject`.
+- Sets `simos.project`.
+- Creates `.simuleos/` and writes `project.json` to disk if missing.
+"""
+function proj_init!(simos::SimOs)
+    
+    # Resolve project (read disk or create in-memory)
+    proj = resolve_project(simos)
+    simos.project = proj
+
+    # Ensure disk representation exists
     proj_sim = simuleos_dir(proj)
     proj_json = proj_json_path(proj)
     mkpath(proj_sim)
 
     if !isfile(proj_json)
-        proj.id = string(UUIDs.uuid4())
         open(proj_json, "w") do io
             JSON3.pretty(io, Dict("id" => proj.id))
         end
-        return proj
     end
 
-    pjdata = open(proj_json, "r") do io
-        JSON3.read(io, Dict{String, Any})
-    end
-    id = get(pjdata, "id", nothing)
-    isnothing(id) && error("project.json is missing 'id' field: $proj_json")
-    proj.id = string(id)
-
-    return proj
+    return nothing
 end

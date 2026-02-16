@@ -23,6 +23,64 @@ function _proj_validate_folder(proj_path::String)
     return nothing
 end
 
+function _load_project(proj_path::String)::SimuleosProject
+    pjpath = _proj_json_path(proj_path)
+    pjdata = open(pjpath, "r") do io
+        JSON3.read(io, Dict{String, Any})
+    end
+
+    id = get(pjdata, "id", nothing)
+    isnothing(id) && error("project.json is missing 'id' field: $pjpath")
+
+    sd = _simuleos_dir(proj_path)
+    return SimuleosProject(
+        id = string(id),
+        root_path = proj_path,
+        simuleos_dir = sd,
+        blobstorage = BlobStorage(sd)
+    )
+end
+
+"""
+    resolve_project(simos::SimOs, proj_root::String)::SimuleosProject
+
+I0x - reads disk, no writes
+
+Resolve the project state from `proj_root`.
+- If `.simuleos/project.json` exists on disk, loads it via `_load_project`.
+- Otherwise, creates an in-memory `SimuleosProject` with a fresh UUID.
+Caller is responsible for path normalization.
+"""
+function resolve_project(
+        simos::SimOs,
+        proj_path::String
+    )::SimuleosProject
+    proj_path = abspath(proj_path)
+    isfile(proj_path) && error("Project path must not be a file: $proj_path")
+
+    # Walk upward to find project root, fall back to proj_path itself
+    proj_root = something(find_project_root(proj_path), proj_path)
+
+    pjpath = _proj_json_path(proj_root)
+    if isfile(pjpath)
+        return _load_project(proj_root)
+    end
+    # Fresh project — in-memory only, no disk writes
+    return SimuleosProject(
+        id = string(UUIDs.uuid4()),
+        root_path = proj_root,
+    )
+end
+
+function resolve_project(
+        simos::SimOs
+    )::SimuleosProject
+    proj_path = settings(simos, "projPath", pwd())
+    proj = resolve_project(simos, proj_path)
+    UXLayers.update_bootstrap!(ux_root(simos), Dict("projRoot" => proj.root_path))
+    return proj
+end
+# Resolve proj_root from settings
 
 # Project identity file path (used by sys-init and SIMOS)
 _proj_json_path(project_root::String)::String = joinpath(_simuleos_dir(project_root), "project.json")

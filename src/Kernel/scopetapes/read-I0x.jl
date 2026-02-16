@@ -1,5 +1,5 @@
 # ScopeTapes constructors from raw Dict data (all I0x)
-# Constructs `ScopeCommit` / `Scope` / `ScopeVariable` objects from raw data.
+# Constructs `ScopeCommit` / `SimuleosScope` / `ScopeVariable` objects from raw data.
 
 function _as_string_any_dict(raw)::Dict{String, Any}
     raw isa Dict{String, Any} && return raw
@@ -37,7 +37,7 @@ function _raw_to_scope_variable(raw::Dict{String, Any})::ScopeVariable
     return VoidScopeVariable(src, type_short)
 end
 
-function _raw_to_scope(raw::Dict{String, Any})::Scope
+function _raw_to_scope(raw::Dict{String, Any})::SimuleosScope
     raw_vars = _as_string_any_dict(get(raw, "variables", Dict{String, Any}()))
     vars = Dict{Symbol, ScopeVariable}()
     for (name, raw_var) in raw_vars
@@ -53,7 +53,7 @@ function _raw_to_scope(raw::Dict{String, Any})::Scope
 
     data = _as_symbol_any_dict(get(raw, "data", Dict{String, Any}()))
 
-    Scope(
+    SimuleosScope(
         labels,
         vars,
         data
@@ -62,7 +62,7 @@ end
 
 function _raw_to_scope_commit(raw::Dict{String, Any})::ScopeCommit
     raw_scopes = get(raw, "scopes", Any[])
-    scopes = Scope[
+    scopes = SimuleosScope[
         _raw_to_scope(_as_string_any_dict(s))
         for s in raw_scopes
     ]

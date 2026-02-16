@@ -5,7 +5,7 @@ using UUIDs
 # Convenience aliases for Kernel ScopeTapes + TapeIO + BlobStorage APIs
 const TapeIO = Simuleos.Kernel.TapeIO
 const ScopeCommit = Simuleos.Kernel.ScopeCommit
-const Scope = Simuleos.Kernel.Scope
+const SimuleosScope = Simuleos.Kernel.SimuleosScope
 const InMemoryScopeVariable = Simuleos.Kernel.InMemoryScopeVariable
 const BlobScopeVariable = Simuleos.Kernel.BlobScopeVariable
 const VoidScopeVariable = Simuleos.Kernel.VoidScopeVariable
@@ -104,7 +104,7 @@ const exists = Simuleos.Kernel.exists
 
             @test length(c1.scopes) == 1
             s = c1.scopes[1]
-            @test s isa Scope
+            @test s isa SimuleosScope
             @test s.labels == ["scope1", "iteration", "step1"]
             @test s.data[:step] == 1
 

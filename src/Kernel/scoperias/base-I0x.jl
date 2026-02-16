@@ -1,17 +1,17 @@
 # Scoperias base constructors (all I0x)
-# Runtime constructors for `Scope` now that struct definitions live in Core types.
+# Runtime constructors for `SimuleosScope` now that struct definitions live in Core types.
 
 # Empty scope
-Scope() = Scope(String[], Dict{Symbol, ScopeVariable}(), Dict{Symbol, Any}())
+SimuleosScope() = SimuleosScope(String[], Dict{Symbol, ScopeVariable}(), Dict{Symbol, Any}())
 
-# Scope with labels only
-Scope(labels::Vector{String}) = Scope(labels, Dict{Symbol, ScopeVariable}(), Dict{Symbol, Any}())
+# SimuleosScope with labels only
+SimuleosScope(labels::Vector{String}) = SimuleosScope(labels, Dict{Symbol, ScopeVariable}(), Dict{Symbol, Any}())
 
 # Single-label convenience
-Scope(label::String) = Scope([label])
+SimuleosScope(label::String) = SimuleosScope([label])
 
 # Construct from raw capture dicts (locals override globals on collision)
-function Scope(
+function SimuleosScope(
         labels::Vector{String},
         locals::Dict{Symbol, Any},
         globals::Dict{Symbol, Any}
@@ -23,5 +23,5 @@ function Scope(
     for (k, v) in locals
         vars[k] = InMemoryScopeVariable(:local, _type_short(v), v)  # overrides globals
     end
-    return Scope(labels, vars, Dict{Symbol, Any}())
+    return SimuleosScope(labels, vars, Dict{Symbol, Any}())
 end

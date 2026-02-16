@@ -38,7 +38,7 @@ abstract type ScopeVariable end
 """
     InMemoryScopeVariable
 
-Scope variable with inline value.
+SimuleosScope variable with inline value.
 """
 struct InMemoryScopeVariable <: ScopeVariable
     src::Symbol
@@ -49,7 +49,7 @@ end
 """
     BlobScopeVariable
 
-Scope variable stored in blob storage.
+SimuleosScope variable stored in blob storage.
 """
 struct BlobScopeVariable <: ScopeVariable
     src::Symbol
@@ -60,7 +60,7 @@ end
 """
     VoidScopeVariable
 
-Scope variable with no stored value (type metadata only).
+SimuleosScope variable with no stored value (type metadata only).
 """
 struct VoidScopeVariable <: ScopeVariable
     src::Symbol
@@ -68,11 +68,11 @@ struct VoidScopeVariable <: ScopeVariable
 end
 
 """
-    Scope
+    SimuleosScope
 
 Runtime container of named variables, labels, and per-scope context data.
 """
-mutable struct Scope
+mutable struct SimuleosScope
     labels::Vector{String}
     variables::Dict{Symbol, ScopeVariable}
     data::Dict{Symbol, Any}
@@ -90,7 +90,7 @@ Typed commit record for scope tape payloads.
 struct ScopeCommit
     commit_label::String
     metadata::Dict{String, Any}
-    scopes::Vector{Scope}
+    scopes::Vector{SimuleosScope}
 end
 
 # ==================================
@@ -161,8 +161,8 @@ end
 Recording-only stage with finalized captures and one open current scope.
 """
 mutable struct ScopeStage
-    captures::Vector{Scope}
-    current_scope::Scope
+    captures::Vector{SimuleosScope}
+    current_scope::SimuleosScope
     blob_refs::Dict{Symbol, BlobRef}
 end
 

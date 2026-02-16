@@ -10,28 +10,21 @@ Initialize a Simuleos project at `proj_path`.
 - Idempotent: if `project.json` already exists, preserves it.
 - Calls `sim_activate(proj_path, bootstrap)` at the end.
 """
-function sim_init(proj_path::String; bootstrap::Dict{String, Any} = Dict{String, Any}())
-    proj_root = abspath(proj_path)
-    isfile(proj_root) && error("Project path must not be a file: $proj_root")
-
-    # init home
-    home = SimuleosHome(
-        path = get(bootstrap, "homePath", home_simuleos_default_path())
+function sim_init!(
+        simos::SimOs; 
+        bootstrap::Dict{String, Any} = Dict{String, Any}()
     )
-    init_home!(home)
+    
+    # Phase 0: init uxlayer
+    simos.ux = uxlayer_init(bootstrap)
+    # NOTE: from now on, we can use settings(simos, key, default) during init.
 
-    # init project
-    proj = SimuleosProject(root_path = proj_root)
-    already_init = proj_is_init(proj)
-    proj_init!(proj)
+    # Phase 1: init home
+    home_init!(simos)
 
-    if already_init
-        @info "Project already initialized, activating..." proj_json=proj_json_path(proj)
-    else
-        @info "Simuleos project initialized at" proj_root=proj_root
-    end
+    # Phase 2: init project
+    proj_init!(simos)
 
-    sim_activate(proj_root, bootstrap)
     return nothing
 end
 

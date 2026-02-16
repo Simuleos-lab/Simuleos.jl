@@ -3,13 +3,32 @@
 Complete call graph of every action triggered by `sim_init(proj_path; bootstrap)`.
 
 ```
-sim_init(proj_path; bootstrap)                           [sys-init-I3x.jl:13]
+│   # FEEDBACK: we need to make `sim_init!` act on a simos
+│   # the global one `sim_init(simos::SimOs, proj_path; bootstrap)` will just call `sim_init!`
+│   # FEEDBACK: we are dropping `proj_root` as an explicit arg
+│   # all must be set on the bootstrap data
 │
-├─ proj_root = abspath(proj_path)
+sim_init!(simos::SimOs; bootstrap)                           [sys-init-I3x.jl:13]
+│
+│  ── PHASE O: INIT UXLAYER ────────────────────────────────────────
+│   # FEEDBACK: we need `uxlayer_init(bootstrap)::UXLayer`
+│   # this is important because the init of the system should also depend on uxlayer settings
+│   ux = uxlayer_init(bootstrap) # error if init fail
+│   # FEEDBACK: we need to have a set of bootstraping methods
+│   # - for instance, we need to be able to load settings and deal with ENV before having fuly form drivers
+│   # - those methods whould only be required on init methods... 
+│   
+│   # FEEDBACK: Improtant, bootstrap needs to be high priority on uxlayer settings
+│   # - here at SimuleOs is like runtime config
+│
+│   # FEEDBACK: create a helper for normalizing paths
+├─ proj_root = _path_normalize(proj_path)
 ├─ GUARD: isfile(proj_root) → error
 │
 │  ── PHASE 1: HOME INIT ──────────────────────────────────────────
 │
+│   # FEEDBACK: nice, yes, we are opting for building a driver object first
+│   # and then completed on its own init
 ├─ home = SimuleosHome(path = ...)                       [base-I0x.jl:30]
 │    └─ path = get(bootstrap, "homePath", ...)
 │         └─ home_simuleos_default_path()                [home-I0x.jl:5]

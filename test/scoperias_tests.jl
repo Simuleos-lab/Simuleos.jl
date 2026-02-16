@@ -1,7 +1,7 @@
 using Test
 using Simuleos
 
-const Scope = Simuleos.Kernel.Scope
+const SimuleosScope = Simuleos.Kernel.SimuleosScope
 
 global __scoperia_global_value = 11
 global __scoperia_collision = :global
@@ -12,7 +12,7 @@ global __scoperia_global_function = string
     let __scoperia_local_value = 22, __scoperia_collision = :local
         scope = Simuleos.Kernel.@scope_capture
 
-        @test scope isa Scope
+        @test scope isa SimuleosScope
         @test isempty(scope.labels)
 
         @test Simuleos.Kernel.hasvar(scope, :__scoperia_local_value)
@@ -34,7 +34,7 @@ global __scoperia_global_function = string
 end
 
 @testset "Scoperias filter_rules" begin
-    base_scope = Scope(
+    base_scope = SimuleosScope(
         ["dev"],
         Dict{Symbol, Any}(
             :alpha => 1,
@@ -58,7 +58,7 @@ end
     filtered_dev = Simuleos.Kernel.filter_rules(base_scope, scoped_rules)
     @test Simuleos.Kernel.hasvar(filtered_dev, :beta)
 
-    prod_scope = Scope(
+    prod_scope = SimuleosScope(
         ["prod"],
         Dict{Symbol, Any}(
             :alpha => 1,
@@ -74,7 +74,7 @@ end
     filtered_exclude = Simuleos.Kernel.filter_rules(base_scope, exclude_rule)
     @test !Simuleos.Kernel.hasvar(filtered_exclude, :gamma)
 
-    runtime_scope = Scope(
+    runtime_scope = SimuleosScope(
         ["dev"],
         Dict{Symbol, Any}(
             :x => 1,

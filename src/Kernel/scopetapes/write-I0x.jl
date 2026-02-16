@@ -1,5 +1,5 @@
 # ScopeTapes write primitives (all I0x)
-# Scope variables are materialized at capture time.
+# SimuleosScope variables are materialized at capture time.
 
 const MAX_TAPE_SIZE_BYTES = 200_000_000  # 200 MB threshold for tape file warnings
 
@@ -37,7 +37,7 @@ function _scope_data_to_dict(data::Dict{Symbol, Any})::Dict{String, Any}
     return out
 end
 
-function _scope_to_dict(scope::Scope)::Dict{String, Any}
+function _scope_to_dict(scope::SimuleosScope)::Dict{String, Any}
     variables = Dict{String, Any}()
     for (name, sv) in scope.variables
         variables[string(name)] = _scope_var_to_dict(sv)
@@ -79,8 +79,8 @@ function _stage_to_scope_commit(
     )::ScopeCommit
     commit_meta = copy(meta)
     commit_meta["timestamp"] = string(Dates.now())
-    scopes = Scope[
-        Scope(copy(scope.labels), copy(scope.variables), copy(scope.data))
+    scopes = SimuleosScope[
+        SimuleosScope(copy(scope.labels), copy(scope.variables), copy(scope.data))
         for scope in stage.captures
     ]
     return ScopeCommit(
@@ -91,9 +91,9 @@ function _stage_to_scope_commit(
 end
 
 function _materialize_scope_variables!(
-        scope::Scope,
+        scope::SimuleosScope,
         blob_refs::Dict{Symbol, BlobRef}
-    )::Scope
+    )::SimuleosScope
     for (name, sv) in scope.variables
         if !(sv isa InMemoryScopeVariable)
             continue

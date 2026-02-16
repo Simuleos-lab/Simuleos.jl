@@ -3,8 +3,8 @@
 
 # Backward-compatible keyword constructor (formerly provided by @kwdef).
 function ScopeStage(;
-        captures = Scope[],
-        current_scope = Scope(),
+        captures = SimuleosScope[],
+        current_scope = SimuleosScope(),
         blob_refs = Dict{Symbol, BlobRef}()
     )
     return ScopeStage(captures, current_scope, blob_refs)

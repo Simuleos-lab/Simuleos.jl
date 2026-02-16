@@ -18,7 +18,7 @@ function _fill_scope!(
     simignore_rules::Vector
 )
     labels = vcat([label], stage.current_scope.labels)
-    scope = Scope(labels, locals, globals)
+    scope = SimuleosScope(labels, locals, globals)
     scope.data = copy(stage.current_scope.data)
     scope.data[:src_file] = src_file
     scope.data[:src_line] = src_line
@@ -28,7 +28,7 @@ function _fill_scope!(
     scope = _materialize_scope_variables!(scope, stage.blob_refs)
 
     push!(stage.captures, scope)
-    stage.current_scope = Scope()
+    stage.current_scope = SimuleosScope()
     empty!(stage.blob_refs)
     return stage.captures[end]
 end
