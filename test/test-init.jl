@@ -18,7 +18,7 @@ function test_init!()
     end
 
     kernel = Simuleos.Kernel
-    kernel.reset_sim!()
+    kernel.sim_reset!()
 
     root_path = mktempdir()
     project_path = joinpath(root_path, "project")
@@ -31,9 +31,11 @@ function test_init!()
     TEST_HOME_PATH[] = home_path
 
     cd(project_path)
-    kernel.sim_init(
-        project_path;
-        bootstrap = Dict{String, Any}("homePath" => home_path)
+    kernel.sim_init!(
+        bootstrap = Dict{String, Any}(
+            "projPath" => project_path,
+            "homePath" => home_path
+        )
     )
 
     return nothing
@@ -41,7 +43,7 @@ end
 
 function test_cleanup!()
     kernel = Simuleos.Kernel
-    kernel.reset_sim!()
+    kernel.sim_reset!()
 
     if !isnothing(TEST_PREV_CWD[])
         cd(TEST_PREV_CWD[])
@@ -71,11 +73,13 @@ function with_test_context(f::Function)
     temp_home_path = joinpath(temp_root_path, "home")
     mkpath(temp_project_path)
 
-    kernel.reset_sim!()
+    kernel.sim_reset!()
     cd(temp_project_path)
-    kernel.sim_init(
-        temp_project_path;
-        bootstrap = Dict{String, Any}("homePath" => temp_home_path)
+    kernel.sim_init!(
+        bootstrap = Dict{String, Any}(
+            "projPath" => temp_project_path,
+            "homePath" => temp_home_path
+        )
     )
 
     ctx = Dict{Symbol, String}(
@@ -87,11 +91,13 @@ function with_test_context(f::Function)
     try
         return f(ctx)
     finally
-        kernel.reset_sim!()
+        kernel.sim_reset!()
         cd(main_project_path)
-        kernel.sim_init(
-            main_project_path;
-            bootstrap = Dict{String, Any}("homePath" => main_home_path)
+        kernel.sim_init!(
+            bootstrap = Dict{String, Any}(
+                "projPath" => main_project_path,
+                "homePath" => main_home_path
+            )
         )
         rm(temp_root_path; recursive=true, force=true)
         cd(caller_cwd)

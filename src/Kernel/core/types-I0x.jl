@@ -120,13 +120,13 @@ mutable struct SimOs
     # Activation/bootstrap overrides.
     bootstrap::Dict{String, Any}
 
-    # Active project reference (set at sim_init/sim_activate)
+    # Active project reference (set at sim_init!)
     project::Any  # Will be SimuleosProject once activated
 
     # Home driver cache
     home::Any     # Will be SimuleosHome once loaded
 
-    # UXLayers integration (built at sim_activate() time)
+    # UXLayers integration (built at sim_init! Phase 0)
     ux::Any  # Will be UXLayerView once loaded
 
     # Subsystem references

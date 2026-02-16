@@ -1,53 +1,32 @@
-# UXLayer root building (all I2x - explicit SimOs integration)
+# UXLayer settings refresh (all I2x - explicit SimOs integration)
 
 """
-    _buildux!(sim::SimOs, bootstrap::Dict{String, Any})
+    uxlayer_load_settings!(simos::SimOs)
 
-I2x - reads `sim.project`, `sim.home`, `sim.bootstrap`; writes `sim.ux`
+I2x — reads simos.project, simos.home; updates simos.ux
 
-Build the UXLayers root view with all sources in priority order.
-Called at sim_activate() time.
+Load project-local and home-global settings into the UXLayer.
+Called at Phase 3 of sim_init!, after home and project are initialized.
+Uses update_source! (additive — preserves existing :runtime and :env sources).
 
-Sources (priority order, first hit wins):
-1. bootstrap     - passed to sim_activate()
-2. local         - .simuleos/settings.json
-3. global        - ~/.simuleos/settings.json
-
-Bootstrap and defaults are set separately via update_bootstrap!() and update_defaults!().
+Sources added (priority after :env):
+- :local  — {projRoot}/.simuleos/settings.json
+- :home   — ~/.simuleos/settings.json
 """
-function _buildux!(sim::SimOs, bootstrap::Dict{String, Any})
-    # Create UXLayerView root
-    ux = UXLayers.UXLayerView("simuleos")
+function uxlayer_load_settings!(simos::SimOs)
+    ux = ux_root(simos)
 
-    # Load sources in priority order (highest to lowest)
-    # Priority 2: local project settings
-    local_settings = if !isnothing(sim.project)
-        _load_settings_json(proj_settings_path(sim))
-    else
-        Dict{String, Any}()
+    # Load project-local settings
+    if !isnothing(simos.project)
+        local_path = settings_path(simos.project)
+        UXLayers.update_source!(ux, :local, _load_settings_json(local_path))
     end
 
-    # Priority 3: global user settings
-    global_settings = if !isnothing(sim.home)
-        _load_settings_json(home_settings_path(sim))
-    else
-        Dict{String, Any}()
+    # Load home-global settings
+    if !isnothing(simos.home)
+        home_path = settings_path(simos.home)
+        UXLayers.update_source!(ux, :home, _load_settings_json(home_path))
     end
 
-    # Load all sources into UXLayers
-    UXLayers.refresh!(ux,
-        Dict(
-            :bootstrap => bootstrap,
-            :local => local_settings,
-            :global => global_settings,
-        ),
-        [:bootstrap, :local, :global]  # Priority order
-    )
-
-    # Set bootstrap and defaults
-    UXLayers.update_bootstrap!(ux, sim.bootstrap)
-    UXLayers.update_defaults!(ux, DEFAULTS)
-
-    sim.ux = ux
-    return ux
+    return nothing
 end

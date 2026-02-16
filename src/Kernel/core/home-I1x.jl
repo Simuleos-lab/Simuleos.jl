@@ -11,12 +11,3 @@ function init_home!(home::SimuleosHome)::SimuleosHome
     mkpath(registry_path(home))
     return home
 end
-
-function home_init!(simos::SimOs)
-    home_path = settings(simos, "homePath", home_simuleos_default_path())
-    home_path = abspath(home_path)
-    home = SimuleosHome(path = home_path)
-    init_home!(home)
-    simos.home = home
-    return nothing
-end

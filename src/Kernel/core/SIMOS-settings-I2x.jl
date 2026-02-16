@@ -9,11 +9,11 @@ const __MISSING__ = :__MISSING__
 
 I2x — reads `sim.ux`
 
-Get the UXLayers root view. Must call sim_activate() first.
+Get the UXLayers root view. Must call sim_init!() first.
 """
 function ux_root(sim::SimOs)::UXLayers.UXLayerView
     if isnothing(sim.ux)
-        error("Settings not initialized. Call Simuleos.sim_activate(proj_path, bootstrap) first.")
+        error("Settings not initialized. Call Simuleos.sim_init!() first.")
     end
     return sim.ux
 end

@@ -5,36 +5,46 @@ simuleos_dir(project::SimuleosProject)::String = project.simuleos_dir
 proj_json_path(project::SimuleosProject)::String = _proj_json_path(project.root_path)
 settings_path(project::SimuleosProject)::String = _proj_settings_path(project.root_path)
 tape_path(project::SimuleosProject, session_id::Base.UUID)::String = tape_path(project.simuleos_dir, session_id)
+session_json_path(project::SimuleosProject, session_id::Base.UUID)::String = _session_json_path(project.simuleos_dir, session_id)
 
 blob_path(project::SimuleosProject, sha1::String)::String = blob_path(project.blobstorage, sha1)
 
+function _is_simuleos_dir_path(path::String)::Bool
+    return basename(normpath(path)) == SIMULEOS_DIR_NAME
+end
+
 """
-    proj_init!(simos::SimOs)
+    resolve_project(simos::SimOs, proj_path::String)::SimuleosProject
 
-I1x - reads settings, writes disk
+I1x — reads disk, no writes
 
-Initialize the project on `simos`.
-- Reads `projRoot` from UX settings (defaults to `pwd()`).
-- Calls `resolve_project` to build/load the `SimuleosProject`.
-- Sets `simos.project`.
-- Creates `.simuleos/` and writes `project.json` to disk if missing.
+Resolve a project from `proj_path`.
+- If `proj_path` is a `.simuleos` directory path, treat it as explicit project storage path and use its parent as project root.
+- Otherwise, walks upward from `proj_path` to find `.simuleos/project.json`.
+- If found, loads via `_load_project`.
+- Otherwise, creates an in-memory `SimuleosProject` with a fresh UUID.
 """
-function proj_init!(simos::SimOs)
-    
-    # Resolve project (read disk or create in-memory)
-    proj = resolve_project(simos)
-    simos.project = proj
+function resolve_project(
+        simos::SimOs,
+        proj_path::String
+    )::SimuleosProject
+    proj_path = abspath(proj_path)
+    isfile(proj_path) && error("Project path must not be a file: $proj_path")
 
-    # Ensure disk representation exists
-    proj_sim = simuleos_dir(proj)
-    proj_json = proj_json_path(proj)
-    mkpath(proj_sim)
-
-    if !isfile(proj_json)
-        open(proj_json, "w") do io
-            JSON3.pretty(io, Dict("id" => proj.id))
-        end
+    # Resolve project root
+    proj_root = if _is_simuleos_dir_path(proj_path)
+        dirname(proj_path)
+    else
+        something(find_project_root(proj_path), proj_path)
     end
 
-    return nothing
+    pjpath = _proj_json_path(proj_root)
+    if isfile(pjpath)
+        return _load_project(proj_root)
+    end
+    # Fresh project — in-memory only, no disk writes
+    return SimuleosProject(
+        id = string(UUIDs.uuid4()),
+        root_path = proj_root,
+    )
 end

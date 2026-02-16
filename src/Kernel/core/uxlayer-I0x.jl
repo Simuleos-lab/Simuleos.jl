@@ -1,17 +1,6 @@
 # UXLayer source loading (all I0x - pure settings I/O helpers)
 
 """
-    DEFAULTS
-
-Built-in default settings. Lowest priority source.
-"""
-const DEFAULTS = Dict{String, Any}(
-    # Add default settings here as needed
-    # "max_blob_size" => 1048576,
-    # "compression" => true,
-)
-
-"""
     _load_settings_json(path::String)::Dict{String, Any}
 
 I0x - pure file I/O
