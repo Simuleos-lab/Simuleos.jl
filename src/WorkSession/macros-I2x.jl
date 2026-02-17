@@ -18,6 +18,10 @@ function _commit_worksession!(
     meta["session_labels"] = worksession.labels
 
     Kernel.commit_stage!(tape, worksession.stage, meta; commit_label=commit_label)
-    worksession.stage = Kernel.ScopeStage()
+    worksession.stage = Kernel.ScopeStage(
+        Kernel.SimuleosScope[],
+        Kernel.SimuleosScope(),
+        Dict{Symbol, Kernel.BlobRef}()
+    )
     return nothing
 end

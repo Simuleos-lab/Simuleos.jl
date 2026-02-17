@@ -4,9 +4,9 @@
 # ==================================
 macro session_init(labels...)
     src_file = string(__source__.file)
-    label_exprs = [esc(l) for l in labels]
+    label_exprs = [l isa Union{String, Number, Bool} ? l : esc(l) for l in labels]
     quote
-        $(_WorkSession).session_init!(String[$(label_exprs...)], $(src_file))
+        $(_WorkSession).session_init_from_macro!(Any[$(label_exprs...)], $(src_file))
     end
 end
 
@@ -44,13 +44,13 @@ macro session_store(vars...)
 end
 
 # ==================================
-# @session_context - Add context labels and data to current capture
+# @scope_context - Add context labels and data to current capture
 # I3x — via `_get_worksession()` → reads/writes `SIMOS[].worksession.stage.current_scope`
-# Usage: @session_context "label"
-#        @session_context :key => value
-#        @session_context "label" :key1 => val1 :key2 => val2
+# Usage: @scope_context "label"
+#        @scope_context :key => value
+#        @scope_context "label" :key1 => val1 :key2 => val2
 # ==================================
-macro session_context(args...)
+macro scope_context(args...)
     exprs = []
     for arg in args
         if arg isa String
@@ -58,12 +58,12 @@ macro session_context(args...)
             push!(exprs, :(push!(ws.stage.current_scope.labels, $arg)))
         elseif arg isa Expr && arg.head == :string
             # Interpolated string label — goes on scope.labels
-            push!(exprs, :(push!(ws.stage.current_scope.labels, $(esc(arg)))))
+            push!(exprs, :(push!(ws.stage.current_scope.labels, $arg)))
         elseif arg isa Expr && arg.head == :call && arg.args[1] == :(=>)
             # Key => value pair — goes on capture data
             key = arg.args[2]
             val = arg.args[3]
-            push!(exprs, :(ws.stage.current_scope.data[$(QuoteNode(key))] = $(esc(val))))
+            push!(exprs, :(ws.stage.current_scope.data[$key] = $val))
         end
     end
     quote
@@ -74,10 +74,10 @@ macro session_context(args...)
 end
 
 # ==================================
-# @session_capture - Snapshot local scope + globals
+# @scope_capture - Snapshot local scope + globals
 # I3x — via `_get_worksession()` → reads/writes `SIMOS[].worksession`
 # ==================================
-macro session_capture(label)
+macro scope_capture(label)
     src_file = string(__source__.file)
     src_line = __source__.line
     quote
@@ -119,7 +119,7 @@ macro session_commit(label="")
         cc = ws.stage.current_scope
         if !isempty(cc.labels) || !isempty(cc.data) || !isempty(ws.stage.blob_refs)
             error("Cannot commit: current capture has pending context (labels, data, or blob_refs). " *
-                  "Use @session_capture first to finalize the scope.")
+                  "Use @scope_capture first to finalize the scope.")
         end
 
         if !isempty(ws.stage.captures)
@@ -135,13 +135,13 @@ end
 # ==================================
 
 """
-    session_capture(label::String, locals::Dict{Symbol, Any}, globals::Dict{Symbol, Any}, src_file::String, src_line::Int)
+    scope_capture(label::String, locals::Dict{Symbol, Any}, globals::Dict{Symbol, Any}, src_file::String, src_line::Int)
 
 I3x — via `_get_worksession()` → reads/writes `SIMOS[].worksession`
 
-Programmatic form of @session_capture. Caller must provide locals/globals.
+Programmatic form of @scope_capture. Caller must provide locals/globals.
 """
-function session_capture(label::String, locals::Dict{Symbol, Any}, globals::Dict{Symbol, Any}, src_file::String, src_line::Int)
+function scope_capture(label::String, locals::Dict{Symbol, Any}, globals::Dict{Symbol, Any}, src_file::String, src_line::Int)
     ws = _get_worksession()
 
     captured = Kernel._fill_scope!(
@@ -167,7 +167,7 @@ function session_commit(label::String="")
     cc = ws.stage.current_scope
     if !isempty(cc.labels) || !isempty(cc.data) || !isempty(ws.stage.blob_refs)
         error("Cannot commit: current capture has pending context (labels, data, or blob_refs). " *
-              "Use session_capture first to finalize the scope.")
+              "Use scope_capture first to finalize the scope.")
     end
 
     if !isempty(ws.stage.captures)

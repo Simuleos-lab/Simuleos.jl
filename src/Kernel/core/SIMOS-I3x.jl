@@ -50,12 +50,15 @@ Public entrypoint. Creates or reuses the global `SimOs` and delegates to
 `sim_init!(simos; bootstrap)`. Lazy — cheap to call multiple times.
 To re-initialize with different bootstrap, call `sim_reset!()` first.
 """
-function sim_init!(; bootstrap::Dict{String, Any} = Dict{String, Any}())
+function sim_init!(; 
+        bootstrap::Dict{String, Any} = Dict{String, Any}(), 
+        _nukeFirst = true
+    )
     sim = SIMOS[]
     if isnothing(sim)
         sim = SimOs(; bootstrap)
         SIMOS[] = sim
     end
-    sim_init!(sim; bootstrap)
+    sim_init!(sim; bootstrap, _nukeFirst)
     return nothing
 end

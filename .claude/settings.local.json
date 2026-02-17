@@ -31,7 +31,8 @@
       "Bash(./.claude/skills/object-inventory/scripts/scan_objects.sh:*)",
       "Bash(sh ~/.agents/skills/live-note-base/scripts/get_max_live_prefix.sh /Users/pereiro/.julia/dev/Simuleos)",
       "Bash(git mv:*)",
-      "Bash(git -C:*)"
+      "Bash(git -C:*)",
+      "Skill(git-commit-trigger)"
     ]
   }
 }

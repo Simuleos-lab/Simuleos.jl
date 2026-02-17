@@ -51,7 +51,7 @@ function simulate_lv(; X0=30.0, Y0=8.0, alpha=1.2, beta=0.08, delta=0.06, gamma=
     # - tag the scope with label
     # - add it to the current stage [global]
     # - return the scope [local]
-    @session_capture "simulate_lv"
+    @scope_capture "simulate_lv"
 end
 
 ## --- main execution ---
@@ -67,7 +67,7 @@ let
     # - run hooks
     # - tag the scope with label
     @session_init "Lotka-Volterra Simulation"
-    @session_context "v001"
+    @scope_context "v001"
 
     n_iters = 10
     for it in 1:n_iters

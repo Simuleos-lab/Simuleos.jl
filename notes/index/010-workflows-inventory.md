@@ -17,6 +17,10 @@
 -  Key workflow: embed simuleos macros to capture program scopes into .simuleos database
 - Steps: init → session → record scopes (with labels/context) → commit → repeat
 - Globals-based interface preferred (macros use implicit current_session)
+- `@session_init` resolves session by first label (`labels[1]`) at project level.
+- If multiple sessions match first label, select the most recent.
+- If no session matches first label, create a new session with a new UUID.
+- `@session_init` labels must be strings.
 
 
 ### Workflows: Database reading

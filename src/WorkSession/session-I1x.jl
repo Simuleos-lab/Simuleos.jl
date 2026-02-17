@@ -1,8 +1,130 @@
 # Session lifecycle API (all I1x - explicit SimOs and project dependencies)
 
+function _new_worksession(
+        session_id::Base.UUID,
+        labels::Vector{String},
+        meta::Dict{String, Any}
+    )::Kernel.WorkSession
+    return Kernel.WorkSession(
+        session_id,
+        labels,
+        Kernel.ScopeStage(
+            Kernel.SimuleosScope[],
+            Kernel.SimuleosScope(),
+            Dict{Symbol, Kernel.BlobRef}()
+        ),
+        meta,
+        Dict{Symbol, Any}[],
+        Dict{String, Any}(),
+    )
+end
+
 function _session_labels(labels_any)::Vector{String}
     labels_any isa AbstractVector || return String[]
     return String[string(label) for label in labels_any]
+end
+
+function _session_timestamp(worksession::Kernel.WorkSession)::Dates.DateTime
+    raw = get(worksession.meta, "timestamp", nothing)
+    raw isa String || return Dates.DateTime(0)
+    try
+        return Dates.DateTime(raw)
+    catch
+        return Dates.DateTime(0)
+    end
+end
+
+function _matches_first_label(worksession::Kernel.WorkSession, label::AbstractString)::Bool
+    isempty(worksession.labels) && return false
+    return worksession.labels[1] == label
+end
+
+"""
+    proj_scan_session_files(f::Function, proj::Kernel.SimuleosProject)::Nothing
+
+I1x — project-attached session file scan
+
+Scan all `session.json` files under the project sessions directory and call
+`f(raw::Dict{String, Any})` for each file content.
+"""
+function proj_scan_session_files(
+        f::Function,
+        proj::Kernel.SimuleosProject
+    )::Nothing
+    sessions_dir = Kernel._sessions_dir(proj.simuleos_dir)
+    isdir(sessions_dir) || return nothing
+
+    for session_name in readdir(sessions_dir)
+        session_json = joinpath(sessions_dir, session_name, "session.json")
+        isfile(session_json) || continue
+
+        raw = open(session_json, "r") do io
+            Kernel.JSON3.read(io, Dict{String, Any})
+        end
+        f(raw)
+    end
+
+    return nothing
+end
+
+"""
+    parse_session(proj::Kernel.SimuleosProject, raw::Dict{String, Any})::Kernel.WorkSession
+
+I1x — parse raw session file content into a `Kernel.WorkSession` driver.
+"""
+function parse_session(
+        proj::Kernel.SimuleosProject,
+        raw::Dict{String, Any}
+    )::Kernel.WorkSession
+    _ = proj
+
+    haskey(raw, "session_id") || error("Invalid session file: missing `session_id`.")
+    session_id_raw = raw["session_id"]
+    session_id_raw isa String || error("Invalid session file: `session_id` must be a String.")
+
+    labels = _session_labels(get(raw, "labels", String[]))
+    meta = Dict{String, Any}(get(raw, "meta", Dict{String, Any}()))
+
+    return _new_worksession(
+        Kernel.UUIDs.UUID(session_id_raw),
+        labels,
+        meta
+    )
+end
+
+"""
+    resolve_session(proj::Kernel.SimuleosProject, label::String)::Kernel.WorkSession
+
+I1x — project-attached label resolution, no writes.
+
+Resolve by first-label match (`labels[1] == label`). If multiple sessions match,
+pick the most recent by session timestamp. If none match, return a new in-memory
+session driver.
+"""
+function resolve_session(
+        proj::Kernel.SimuleosProject,
+        label::String
+    )::Kernel.WorkSession
+    stripped_label = strip(label)
+    isempty(stripped_label) && error("Session label cannot be empty.")
+
+    matches = Kernel.WorkSession[]
+    proj_scan_session_files(proj) do raw
+        worksession = parse_session(proj, raw)
+        _matches_first_label(worksession, stripped_label) || return
+        push!(matches, worksession)
+    end
+
+    if isempty(matches)
+        return _new_worksession(
+            Kernel.UUIDs.uuid4(),
+            String[stripped_label],
+            Dict{String, Any}()
+        )
+    end
+
+    sort!(matches; by=ws -> (_session_timestamp(ws), string(ws.session_id)))
+    return matches[end]
 end
 
 """
@@ -35,22 +157,13 @@ function resolve_session(
         payload = open(session_json, "r") do io
             Kernel.JSON3.read(io, Dict{String, Any})
         end
-
-        loaded_labels = _session_labels(get(payload, "labels", labels))
-        loaded_meta = Dict{String, Any}(get(payload, "meta", Dict{String, Any}()))
-        return Kernel.WorkSession(
-            session_id = resolved_session_id,
-            labels = loaded_labels,
-            stage = Kernel.ScopeStage(),
-            meta = loaded_meta,
-        )
+        return parse_session(proj, payload)
     end
 
-    return Kernel.WorkSession(
-        session_id = resolved_session_id,
-        labels = labels,
-        stage = Kernel.ScopeStage(),
-        meta = Dict{String, Any}(),
+    return _new_worksession(
+        resolved_session_id,
+        labels,
+        Dict{String, Any}(),
     )
 end
 

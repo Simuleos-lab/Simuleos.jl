@@ -6,10 +6,10 @@ module Registry
 # Access sibling Kernel module
 import ..Kernel
 
-# Home directory management
-include("home-I0x.jl")
+# AGENTS: This is a stub, just ignore for now.
 
-# AGENT: IMPORTANT
+
+# AGENTS: IMPORTANT
 # DO NOT ADD EXPORT STATEMENTS
 
 end # module Registry

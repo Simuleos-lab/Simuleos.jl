@@ -2,15 +2,28 @@ using Test
 using Simuleos
 using UUIDs
 
+function _empty_stage()::Simuleos.Kernel.ScopeStage
+    return Simuleos.Kernel.ScopeStage(
+        Simuleos.Kernel.SimuleosScope[],
+        Simuleos.Kernel.SimuleosScope(),
+        Dict{Symbol, Simuleos.Kernel.BlobRef}()
+    )
+end
+
+function _test_worksession()::Simuleos.Kernel.WorkSession
+    return Simuleos.Kernel.WorkSession(
+        uuid4(),
+        ["test"],
+        _empty_stage(),
+        Dict{String, Any}(),
+        Dict{Symbol, Any}[],
+        Dict{String, Any}()
+    )
+end
+
 @testset "Simignore" begin
     @testset "Rule validation" begin
-        # Create a minimal work session for testing
-        worksession = Simuleos.Kernel.WorkSession(
-            session_id = uuid4(),
-            labels = ["test"],
-            stage = Simuleos.Kernel.ScopeStage(),
-            meta = Dict{String, Any}()
-        )
+        worksession = _test_worksession()
 
         # Missing :regex should error
         @test_throws ErrorException Simuleos.WorkSession.set_simignore_rules!(worksession, [
@@ -45,12 +58,7 @@ using UUIDs
     end
 
     @testset "_should_ignore - type filtering" begin
-        worksession = Simuleos.Kernel.WorkSession(
-            session_id = uuid4(),
-            labels = ["test"],
-            stage = Simuleos.Kernel.ScopeStage(),
-            meta = Dict{String, Any}()
-        )
+        worksession = _test_worksession()
 
         # Modules are always ignored
         @test Simuleos.WorkSession._should_ignore(worksession, :Base, Base, "scope1") == true
@@ -73,12 +81,7 @@ using UUIDs
     end
 
     @testset "_should_ignore - global rules" begin
-        worksession = Simuleos.Kernel.WorkSession(
-            session_id = uuid4(),
-            labels = ["test"],
-            stage = Simuleos.Kernel.ScopeStage(),
-            meta = Dict{String, Any}()
-        )
+        worksession = _test_worksession()
 
         # Set global exclude rule for variables starting with _
         Simuleos.WorkSession.set_simignore_rules!(worksession, [
@@ -96,12 +99,7 @@ using UUIDs
     end
 
     @testset "_should_ignore - scope-specific rules" begin
-        worksession = Simuleos.Kernel.WorkSession(
-            session_id = uuid4(),
-            labels = ["test"],
-            stage = Simuleos.Kernel.ScopeStage(),
-            meta = Dict{String, Any}()
-        )
+        worksession = _test_worksession()
 
         # Set scope-specific rule
         Simuleos.WorkSession.set_simignore_rules!(worksession, [
@@ -119,12 +117,7 @@ using UUIDs
     end
 
     @testset "_should_ignore - last rule wins" begin
-        worksession = Simuleos.Kernel.WorkSession(
-            session_id = uuid4(),
-            labels = ["test"],
-            stage = Simuleos.Kernel.ScopeStage(),
-            meta = Dict{String, Any}()
-        )
+        worksession = _test_worksession()
 
         # First exclude all _temp*, then include _temp_keep
         Simuleos.WorkSession.set_simignore_rules!(worksession, [
@@ -146,12 +139,7 @@ using UUIDs
     end
 
     @testset "_should_ignore - mixed global and scope rules" begin
-        worksession = Simuleos.Kernel.WorkSession(
-            session_id = uuid4(),
-            labels = ["test"],
-            stage = Simuleos.Kernel.ScopeStage(),
-            meta = Dict{String, Any}()
-        )
+        worksession = _test_worksession()
 
         # Global: exclude all _*
         # Scope-specific: include _debug in "dev" scope
