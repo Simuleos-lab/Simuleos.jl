@@ -36,12 +36,12 @@ A captured variable payload.
 abstract type ScopeVariable end
 
 """
-    InMemoryScopeVariable
+    InlineScopeVariable
 
 SimuleosScope variable with inline value.
 """
-struct InMemoryScopeVariable <: ScopeVariable
-    src::Symbol
+struct InlineScopeVariable <: ScopeVariable
+    level::Symbol
     type_short::String
     value::Any
 end
@@ -52,7 +52,7 @@ end
 SimuleosScope variable stored in blob storage.
 """
 struct BlobScopeVariable <: ScopeVariable
-    src::Symbol
+    level::Symbol
     type_short::String
     blob_ref::BlobRef
 end
@@ -63,7 +63,7 @@ end
 SimuleosScope variable with no stored value (type metadata only).
 """
 struct VoidScopeVariable <: ScopeVariable
-    src::Symbol
+    level::Symbol
     type_short::String
 end
 
@@ -75,7 +75,7 @@ Runtime container of named variables, labels, and per-scope context data.
 mutable struct SimuleosScope
     labels::Vector{String}
     variables::Dict{Symbol, ScopeVariable}
-    data::Dict{Symbol, Any}
+    metadata::Dict{Symbol, Any}
 end
 
 # ==================================
@@ -176,7 +176,7 @@ mutable struct WorkSession
     session_id::Base.UUID
     labels::Vector{String}
     stage::ScopeStage
-    meta::Dict{String, Any}    # git, julia version, etc.
+    metadata::Dict{String, Any}    # git, julia version, etc.
     simignore_rules::Vector{Dict{Symbol, Any}}
 
     # Settings cache (reset at @session_init start, populated lazily)

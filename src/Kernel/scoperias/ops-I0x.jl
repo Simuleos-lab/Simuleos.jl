@@ -32,7 +32,7 @@ function filter_vars(f, scope::SimuleosScope)::SimuleosScope
     for (name, sv) in scope.variables
         f(name, sv) && (new_vars[name] = sv)
     end
-    SimuleosScope(copy(scope.labels), new_vars, copy(scope.data))
+    SimuleosScope(copy(scope.labels), new_vars, copy(scope.metadata))
 end
 
 # Mutate in-place, remove variables where !f(name, sv)
@@ -47,7 +47,7 @@ end
 
 # Return new SimuleosScope with labels satisfying f(label)
 function filter_labels(f, scope::SimuleosScope)::SimuleosScope
-    SimuleosScope(filter(f, scope.labels), copy(scope.variables), copy(scope.data))
+    SimuleosScope(filter(f, scope.labels), copy(scope.variables), copy(scope.metadata))
 end
 
 # Mutate in-place, remove labels where !f(label)
@@ -69,7 +69,7 @@ function merge_scopes(scopes::SimuleosScope...)::SimuleosScope
             l in labels || push!(labels, l)
         end
         merge!(vars, scope.variables)  # last-wins
-        merge!(data, scope.data)  # last-wins
+        merge!(data, scope.metadata)  # last-wins
     end
     SimuleosScope(labels, vars, data)
 end
@@ -107,7 +107,7 @@ function _should_ignore_var(
     return !isnothing(last_action) && last_action == :exclude
 end
 
-_scopevar_runtime_value(sv::InMemoryScopeVariable) = sv.value
+_scopevar_runtime_value(sv::InlineScopeVariable) = sv.value
 _scopevar_runtime_value(::BlobScopeVariable) = nothing
 _scopevar_runtime_value(::VoidScopeVariable) = nothing
 

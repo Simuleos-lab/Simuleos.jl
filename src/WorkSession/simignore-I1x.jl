@@ -20,7 +20,7 @@ function set_simignore_rules!(
     validated_rules = Dict{Symbol, Any}[]
 
     for rule in rules
-        check_rules(rule)
+        validate_rules(rule)
         push!(validated_rules, rule)
     end
 
@@ -32,7 +32,7 @@ end
 function append_simignore_rule!(
         worksession::Kernel.WorkSession, rule::RuleType
     )
-    check_rules(rule)
+    validate_rules(rule)
     push!(worksession.simignore_rules, rule)
     return nothing
 end

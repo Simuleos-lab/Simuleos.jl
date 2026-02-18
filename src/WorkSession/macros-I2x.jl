@@ -13,7 +13,7 @@ function _commit_worksession!(
 
     tape = Kernel.TapeIO(Kernel.tape_path(project, worksession.session_id))
 
-    meta = copy(worksession.meta)
+    meta = copy(worksession.metadata)
     meta["session_id"] = string(worksession.session_id)
     meta["session_labels"] = worksession.labels
 

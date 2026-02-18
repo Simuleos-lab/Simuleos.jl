@@ -6,7 +6,7 @@ using UUIDs
 const TapeIO = Simuleos.Kernel.TapeIO
 const ScopeCommit = Simuleos.Kernel.ScopeCommit
 const SimuleosScope = Simuleos.Kernel.SimuleosScope
-const InMemoryScopeVariable = Simuleos.Kernel.InMemoryScopeVariable
+const InlineScopeVariable = Simuleos.Kernel.InlineScopeVariable
 const BlobScopeVariable = Simuleos.Kernel.BlobScopeVariable
 const VoidScopeVariable = Simuleos.Kernel.VoidScopeVariable
 const iterate_tape = Simuleos.Kernel.iterate_tape
@@ -60,7 +60,7 @@ const exists = Simuleos.Kernel.exists
                         "y" => Dict("src_type" => "Vector{Float64}", "src" => "local", "blob_ref" => blob_hash)
                     ),
                     "labels" => Any["iteration", "step1"],
-                    "data" => Dict("step" => 1)
+                    "metadata" => Dict("step" => 1)
                 )
             ],
             "commit_label" => "first_commit"
@@ -106,18 +106,18 @@ const exists = Simuleos.Kernel.exists
             s = c1.scopes[1]
             @test s isa SimuleosScope
             @test s.labels == ["scope1", "iteration", "step1"]
-            @test s.data[:step] == 1
+            @test s.metadata[:step] == 1
 
             @test length(s.variables) == 2
             var_x = s.variables[:x]
             var_y = s.variables[:y]
-            @test var_x isa InMemoryScopeVariable
+            @test var_x isa InlineScopeVariable
             @test var_x.type_short == "Int64"
-            @test var_x.src == :local
+            @test var_x.level == :local
             @test var_x.value == 42
             @test var_y isa BlobScopeVariable
             @test var_y.type_short == "Vector{Float64}"
-            @test var_y.src == :local
+            @test var_y.level == :local
             @test var_y.blob_ref.hash == blob_hash
 
             s2 = c2.scopes[1]

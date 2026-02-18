@@ -25,7 +25,7 @@ function _session_labels(labels_any)::Vector{String}
 end
 
 function _session_timestamp(worksession::Kernel.WorkSession)::Dates.DateTime
-    raw = get(worksession.meta, "timestamp", nothing)
+    raw = get(worksession.metadata, "timestamp", nothing)
     raw isa String || return Dates.DateTime(0)
     try
         return Dates.DateTime(raw)
@@ -40,14 +40,14 @@ function _matches_first_label(worksession::Kernel.WorkSession, label::AbstractSt
 end
 
 """
-    proj_scan_session_files(f::Function, proj::Kernel.SimuleosProject)::Nothing
+    scan_session_files(f::Function, proj::Kernel.SimuleosProject)::Nothing
 
 I1x — project-attached session file scan
 
 Scan all `session.json` files under the project sessions directory and call
 `f(raw::Dict{String, Any})` for each file content.
 """
-function proj_scan_session_files(
+function scan_session_files(
         f::Function,
         proj::Kernel.SimuleosProject
     )::Nothing
@@ -109,7 +109,7 @@ function resolve_session(
     isempty(stripped_label) && error("Session label cannot be empty.")
 
     matches = Kernel.WorkSession[]
-    proj_scan_session_files(proj) do raw
+    scan_session_files(proj) do raw
         worksession = parse_session(proj, raw)
         _matches_first_label(worksession, stripped_label) || return
         push!(matches, worksession)
@@ -192,9 +192,9 @@ function session_init!(
         script_path::String
     )::Nothing
     worksession = resolve_session(simos, proj; session_id, labels)
-    worksession.meta = _capture_worksession_metadata(script_path)
+    worksession.metadata = _capture_worksession_metadata(script_path)
 
-    if get(worksession.meta, "git_dirty", false) === true
+    if get(worksession.metadata, "git_dirty", false) === true
         error("Cannot start session: git repository has uncommitted changes. " *
               "Please commit or stash your changes before recording.")
     end
@@ -210,7 +210,7 @@ function session_init!(
             Kernel.JSON3.pretty(io, Dict(
                 "session_id" => string(worksession.session_id),
                 "labels" => worksession.labels,
-                "meta" => worksession.meta,
+                "meta" => worksession.metadata,
             ))
         end
     end

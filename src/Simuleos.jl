@@ -18,7 +18,7 @@ include("WorkSession/WorkSession.jl")
 # Public API
 # ==================================
 import .Kernel: sim_init!, sim_reset!
-using .WorkSession: @session_init, @session_store, @scope_context, @scope_capture, @session_commit
+using .WorkSession: @session_init, @session_store, @scope_meta, @scope_capture, @session_commit
 
 # ==================================
 # Exports
@@ -29,6 +29,6 @@ using .WorkSession: @session_init, @session_store, @scope_context, @scope_captur
 export sim_init!, sim_reset!
 
 # WorkSession macros (names kept stable for now)
-export @session_init, @session_store, @scope_context, @scope_capture, @session_commit
+export @session_init, @session_store, @scope_meta, @scope_capture, @session_commit
 
 end # module Simuleos

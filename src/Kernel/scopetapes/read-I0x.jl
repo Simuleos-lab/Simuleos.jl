@@ -25,16 +25,16 @@ function _as_symbol_any_dict(raw)::Dict{Symbol, Any}
 end
 
 function _raw_to_scope_variable(raw::Dict{String, Any})::ScopeVariable
-    src = Symbol(get(raw, "src", "local"))
+    level = Symbol(get(raw, "src", "local"))
     type_short = get(raw, "src_type", "")
 
     if haskey(raw, "blob_ref")
-        return BlobScopeVariable(src, type_short, BlobRef(string(raw["blob_ref"])))
+        return BlobScopeVariable(level, type_short, BlobRef(string(raw["blob_ref"])))
     end
     if haskey(raw, "value")
-        return InMemoryScopeVariable(src, type_short, get(raw, "value", nothing))
+        return InlineScopeVariable(level, type_short, get(raw, "value", nothing))
     end
-    return VoidScopeVariable(src, type_short)
+    return VoidScopeVariable(level, type_short)
 end
 
 function _raw_to_scope(raw::Dict{String, Any})::SimuleosScope
@@ -51,12 +51,12 @@ function _raw_to_scope(raw::Dict{String, Any})::SimuleosScope
         labels = vcat([primary_label], labels)
     end
 
-    data = _as_symbol_any_dict(get(raw, "data", Dict{String, Any}()))
+    metadata = _as_symbol_any_dict(get(raw, "metadata", Dict{String, Any}()))
 
     SimuleosScope(
         labels,
         vars,
-        data
+        metadata
     )
 end
 

@@ -21,7 +21,7 @@ using Dates
         ws = wsmod.resolve_session(simos, proj; session_id=sid, labels=["alpha"])
         @test ws.session_id == sid
         @test ws.labels == ["alpha"]
-        @test isempty(ws.meta)
+        @test isempty(ws.metadata)
         @test isnothing(simos.worksession)
         @test !isfile(session_json)
     end
@@ -50,7 +50,7 @@ using Dates
         loaded = wsmod.resolve_session(simos, proj; session_id=sid, labels=["ignored"])
         @test loaded.session_id == sid
         @test loaded.labels == ["beta"]
-        @test haskey(loaded.meta, "script_path")
+        @test haskey(loaded.metadata, "script_path")
     end
 
     @testset "project scan and parse session files" begin

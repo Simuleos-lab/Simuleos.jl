@@ -12,7 +12,7 @@ function _rule_str(rule::RuleType)
     end
 end
 
-function check_rules(rule::RuleType)
+function validate_rules(rule::RuleType)
     # Validate :regex (required)
     if !haskey(rule, :regex)
         error("simignore rule missing required :regex field, rule $(_rule_str(rule))")

@@ -36,7 +36,7 @@
 ### I Axis: Levels of integration:
 - Level `I0x` — zero integration, utilities: `f(...)`
     - no access to any `SimOs` object
-    - Pure utilities (e.g., `_is_lite(val)`) don't take it, `I0x` = pure
+    - Pure with respect to the integration system (no `SimOs`, no `SIMOS[]`)
 - Level `I1x` — all dependencies as arguments: `f(simos, worksession, stage, ...)`
     - explicit access to `SimOs` object
     - no use of `SimOs` inner globals

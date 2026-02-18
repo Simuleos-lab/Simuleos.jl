@@ -23,7 +23,7 @@ function isdirty(
     )::Bool
     _ = simos
     cc = worksession.stage.current_scope
-    has_pending_scope = !isempty(cc.labels) || !isempty(cc.data)
+    has_pending_scope = !isempty(cc.labels) || !isempty(cc.metadata)
     has_pending_blob_refs = !isempty(worksession.stage.blob_refs)
     has_pending_captures = !isempty(worksession.stage.captures)
     return has_pending_scope || has_pending_blob_refs || has_pending_captures

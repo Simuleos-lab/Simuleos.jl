@@ -44,13 +44,13 @@ macro session_store(vars...)
 end
 
 # ==================================
-# @scope_context - Add context labels and data to current capture
+# @scope_meta - Add context labels and data to current capture
 # I3x — via `_get_worksession()` → reads/writes `SIMOS[].worksession.stage.current_scope`
-# Usage: @scope_context "label"
-#        @scope_context :key => value
-#        @scope_context "label" :key1 => val1 :key2 => val2
+# Usage: @scope_meta "label"
+#        @scope_meta :key => value
+#        @scope_meta "label" :key1 => val1 :key2 => val2
 # ==================================
-macro scope_context(args...)
+macro scope_meta(args...)
     exprs = []
     for arg in args
         if arg isa String
@@ -63,7 +63,7 @@ macro scope_context(args...)
             # Key => value pair — goes on capture data
             key = arg.args[2]
             val = arg.args[3]
-            push!(exprs, :(ws.stage.current_scope.data[$key] = $val))
+            push!(exprs, :(ws.stage.current_scope.metadata[$key] = $val))
         end
     end
     quote
@@ -86,7 +86,7 @@ macro scope_capture(label)
         # Capture locals
         _locals = Base.@locals()
 
-        # Capture globals from Main (filtering done in _fill_scope!)
+        # Capture globals from Main (filtering done in _capture_scope!)
         _global_names = names(Main; imported = false)
         _globals = Dict{Symbol, Any}()
         for name in _global_names
@@ -96,7 +96,7 @@ macro scope_capture(label)
         end
 
         # Finalize current staged capture from captured variables
-        $(_Kernel)._fill_scope!(
+        $(_Kernel)._capture_scope!(
             ws.stage, _locals, _globals,
             $(src_file), $(src_line), $(esc(label));
             simignore_rules = ws.simignore_rules
@@ -117,7 +117,7 @@ macro session_commit(label="")
 
         # Check for pending context in current capture
         cc = ws.stage.current_scope
-        if !isempty(cc.labels) || !isempty(cc.data) || !isempty(ws.stage.blob_refs)
+        if !isempty(cc.labels) || !isempty(cc.metadata) || !isempty(ws.stage.blob_refs)
             error("Cannot commit: current capture has pending context (labels, data, or blob_refs). " *
                   "Use @scope_capture first to finalize the scope.")
         end
@@ -144,7 +144,7 @@ Programmatic form of @scope_capture. Caller must provide locals/globals.
 function scope_capture(label::String, locals::Dict{Symbol, Any}, globals::Dict{Symbol, Any}, src_file::String, src_line::Int)
     ws = _get_worksession()
 
-    captured = Kernel._fill_scope!(
+    captured = Kernel._capture_scope!(
         ws.stage, locals, globals,
         src_file, src_line, label;
         simignore_rules = ws.simignore_rules
@@ -165,7 +165,7 @@ function session_commit(label::String="")
     simos = Kernel._get_sim()
 
     cc = ws.stage.current_scope
-    if !isempty(cc.labels) || !isempty(cc.data) || !isempty(ws.stage.blob_refs)
+    if !isempty(cc.labels) || !isempty(cc.metadata) || !isempty(ws.stage.blob_refs)
         error("Cannot commit: current capture has pending context (labels, data, or blob_refs). " *
               "Use scope_capture first to finalize the scope.")
     end

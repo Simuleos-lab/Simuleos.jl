@@ -13,8 +13,10 @@ Key distinction
 
 - `resolve_*` is the cheap bootstrap function.
 - `resolve_*` must only locate/load or minimally construct the driver object.
-- `resolve_*` may read existing state (for example from disk) but must avoid side effects.
-- `resolve_*` must not write to disk, run validations, or capture metadata.
+- `resolve_*` may read existing state (for example from disk) but must avoid disk side
+  effects.
+- `resolve_*` must not write to disk, run validations, or capture metadata. In-memory
+  mutations (e.g., updating bootstrap dicts) are allowed.
 - `*_init!` is the full readiness function for cold-path setup.
 - `*_init!` must call `resolve_*` first, then bind the resolved object into runtime state.
 - `*_init!` is responsible for all expensive/side-effect work: persistence, directory creation, metadata capture, and validation guards.

@@ -2,13 +2,13 @@
 # Explicit dependencies are passed as arguments.
 
 """
-    _fill_scope!(stage, locals, globals, src_file, src_line, label; simignore_rules)
+    _capture_scope!(stage, locals, globals, src_file, src_line, label; simignore_rules)
 
 Finalize one scope capture from locals/globals and append to `stage.captures`.
 Uses `stage.current_scope` for pending labels/context and `stage.blob_refs` for
 blob-backed variables. Resets current scope and blob refs after capture.
 """
-function _fill_scope!(
+function _capture_scope!(
     stage::ScopeStage,
     locals::Dict{Symbol, Any},
     globals::Dict{Symbol, Any},
@@ -19,10 +19,10 @@ function _fill_scope!(
 )
     labels = vcat([label], stage.current_scope.labels)
     scope = SimuleosScope(labels, locals, globals)
-    scope.data = copy(stage.current_scope.data)
-    scope.data[:src_file] = src_file
-    scope.data[:src_line] = src_line
-    scope.data[:threadid] = Threads.threadid()
+    scope.metadata = copy(stage.current_scope.metadata)
+    scope.metadata[:src_file] = src_file
+    scope.metadata[:src_line] = src_line
+    scope.metadata[:threadid] = Threads.threadid()
 
     scope = filter_rules(scope, simignore_rules)
     scope = _materialize_scope_variables!(scope, stage.blob_refs)

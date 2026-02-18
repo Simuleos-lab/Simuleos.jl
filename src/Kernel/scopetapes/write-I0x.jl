@@ -3,10 +3,10 @@
 
 const MAX_TAPE_SIZE_BYTES = 200_000_000  # 200 MB threshold for tape file warnings
 
-function _scope_var_to_dict(sv::InMemoryScopeVariable)::Dict{String, Any}
+function _scope_var_to_dict(sv::InlineScopeVariable)::Dict{String, Any}
     out = Dict{String, Any}(
         "src_type" => sv.type_short,
-        "src" => sv.src
+        "src" => sv.level
     )
     out["value"] = _liteify(sv.value)
     return out
@@ -15,7 +15,7 @@ end
 function _scope_var_to_dict(sv::BlobScopeVariable)::Dict{String, Any}
     out = Dict{String, Any}(
         "src_type" => sv.type_short,
-        "src" => sv.src
+        "src" => sv.level
     )
     out["blob_ref"] = sv.blob_ref.hash
     return out
@@ -24,14 +24,14 @@ end
 function _scope_var_to_dict(sv::VoidScopeVariable)::Dict{String, Any}
     out = Dict{String, Any}(
         "src_type" => sv.type_short,
-        "src" => sv.src
+        "src" => sv.level
     )
     return out
 end
 
-function _scope_data_to_dict(data::Dict{Symbol, Any})::Dict{String, Any}
+function _scope_metadata_to_dict(metadata::Dict{Symbol, Any})::Dict{String, Any}
     out = Dict{String, Any}()
-    for (k, v) in data
+    for (k, v) in metadata
         out[string(k)] = v
     end
     return out
@@ -52,8 +52,8 @@ function _scope_to_dict(scope::SimuleosScope)::Dict{String, Any}
     if !isempty(labels)
         out["labels"] = labels
     end
-    if !isempty(scope.data)
-        out["data"] = _scope_data_to_dict(scope.data)
+    if !isempty(scope.metadata)
+        out["metadata"] = _scope_metadata_to_dict(scope.metadata)
     end
 
     return out
@@ -80,7 +80,7 @@ function _stage_to_scope_commit(
     commit_meta = copy(meta)
     commit_meta["timestamp"] = string(Dates.now())
     scopes = SimuleosScope[
-        SimuleosScope(copy(scope.labels), copy(scope.variables), copy(scope.data))
+        SimuleosScope(copy(scope.labels), copy(scope.variables), copy(scope.metadata))
         for scope in stage.captures
     ]
     return ScopeCommit(
@@ -95,24 +95,24 @@ function _materialize_scope_variables!(
         blob_refs::Dict{Symbol, BlobRef}
     )::SimuleosScope
     for (name, sv) in scope.variables
-        if !(sv isa InMemoryScopeVariable)
+        if !(sv isa InlineScopeVariable)
             continue
         end
         if haskey(blob_refs, name)
             scope.variables[name] = BlobScopeVariable(
-                sv.src,
+                sv.level,
                 sv.type_short,
                 blob_refs[name]
             )
         elseif _is_lite(sv.value)
-            scope.variables[name] = InMemoryScopeVariable(
-                sv.src,
+            scope.variables[name] = InlineScopeVariable(
+                sv.level,
                 sv.type_short,
                 _liteify(sv.value)
             )
         else
             scope.variables[name] = VoidScopeVariable(
-                sv.src,
+                sv.level,
                 sv.type_short
             )
         end

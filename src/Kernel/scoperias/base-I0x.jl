@@ -18,10 +18,10 @@ function SimuleosScope(
     )
     vars = Dict{Symbol, ScopeVariable}()
     for (k, v) in globals
-        vars[k] = InMemoryScopeVariable(:global, _type_short(v), v)
+        vars[k] = InlineScopeVariable(:global, _type_short(v), v)
     end
     for (k, v) in locals
-        vars[k] = InMemoryScopeVariable(:local, _type_short(v), v)  # overrides globals
+        vars[k] = InlineScopeVariable(:local, _type_short(v), v)  # overrides globals
     end
     return SimuleosScope(labels, vars, Dict{Symbol, Any}())
 end

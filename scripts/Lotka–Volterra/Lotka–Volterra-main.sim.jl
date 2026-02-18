@@ -67,7 +67,7 @@ let
     # - run hooks
     # - tag the scope with label
     @session_init "Lotka-Volterra Simulation"
-    @scope_context "v001"
+    @scope_meta "v001"
 
     n_iters = 10
     for it in 1:n_iters

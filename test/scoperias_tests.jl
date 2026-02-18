@@ -18,15 +18,15 @@ global __scoperia_global_function = string
         @test Simuleos.Kernel.hasvar(scope, :__scoperia_local_value)
         @test Simuleos.Kernel.hasvar(scope, :__scoperia_global_value)
 
-        @test scope.variables[:__scoperia_local_value] isa Simuleos.Kernel.InMemoryScopeVariable
+        @test scope.variables[:__scoperia_local_value] isa Simuleos.Kernel.InlineScopeVariable
         @test scope.variables[:__scoperia_local_value].value == 22
-        @test scope.variables[:__scoperia_local_value].src == :local
+        @test scope.variables[:__scoperia_local_value].level == :local
 
         @test scope.variables[:__scoperia_global_value].value == 11
-        @test scope.variables[:__scoperia_global_value].src == :global
+        @test scope.variables[:__scoperia_global_value].level == :global
 
         @test scope.variables[:__scoperia_collision].value == :local
-        @test scope.variables[:__scoperia_collision].src == :local
+        @test scope.variables[:__scoperia_collision].level == :local
 
         @test !Simuleos.Kernel.hasvar(scope, :__scoperia_global_module)
         @test !Simuleos.Kernel.hasvar(scope, :__scoperia_global_function)
