@@ -9,10 +9,10 @@
     BlobStorage
 
 Driver object for project-local blob storage under `{project_root}/.simuleos/blobs`.
-Holds only the `.simuleos` root directory.
+Holds only the project's `.simuleos` directory path.
 """
 struct BlobStorage
-    root_dir::String
+    simuleos_dir::String
 end
 
 """
@@ -170,7 +170,7 @@ end
     WorkSession
 
 A work session with metadata and staged scopes.
-References `SIMOS[].project` for project-level data instead of storing root_dir.
+References `SIMOS[].project` for project-level data instead of storing `simuleos_dir`.
 """
 mutable struct WorkSession
     session_id::Base.UUID

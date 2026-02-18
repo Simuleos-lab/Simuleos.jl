@@ -6,6 +6,7 @@ const BLOB_EXT = ".jls"
 
 # Convenience constructor for callers that only pass repository path.
 GitHandler(path::String) = GitHandler(path, nothing)
+BlobStorage(project::SimuleosProject) = BlobStorage(project.simuleos_dir)
 
 function SimOs(;
         bootstrap = Dict{String, Any}(),
@@ -21,10 +22,18 @@ function SimuleosProject(;
         root_path,
         id = nothing,
         simuleos_dir = _simuleos_dir(root_path),
-        blobstorage = BlobStorage(simuleos_dir),
+        blobstorage = nothing,
         git_handler = nothing
     )
-    return SimuleosProject(id, root_path, simuleos_dir, blobstorage, git_handler)
+    project = SimuleosProject(
+        id,
+        root_path,
+        simuleos_dir,
+        BlobStorage(simuleos_dir),
+        git_handler
+    )
+    project.blobstorage = isnothing(blobstorage) ? BlobStorage(project) : blobstorage
+    return project
 end
 
 SimuleosHome(; path) = SimuleosHome(path)

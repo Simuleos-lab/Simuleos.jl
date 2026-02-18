@@ -37,8 +37,7 @@ function _load_project(proj_path::String)::SimuleosProject
     return SimuleosProject(
         id = string(id),
         root_path = proj_path,
-        simuleos_dir = sd,
-        blobstorage = BlobStorage(sd)
+        simuleos_dir = sd
     )
 end
 
@@ -47,7 +46,7 @@ end
 _proj_json_path(project_root::String)::String = joinpath(_simuleos_dir(project_root), "project.json")
 
 function blob_path(storage::BlobStorage, sha1::String)::String
-    joinpath(storage.root_dir, "blobs", "$(sha1)$(BLOB_EXT)")
+    joinpath(storage.simuleos_dir, "blobs", "$(sha1)$(BLOB_EXT)")
 end
 
 """

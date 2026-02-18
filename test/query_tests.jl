@@ -20,7 +20,12 @@ const exists = Simuleos.Kernel.exists
     mktempdir() do tmpdir
         simuleos_dir = joinpath(tmpdir, ".simuleos")
         mkpath(simuleos_dir)
-        blob_storage = BlobStorage(simuleos_dir)
+        project = Simuleos.Kernel.SimuleosProject(
+            id = "query-test-project",
+            root_path = tmpdir,
+            simuleos_dir = simuleos_dir
+        )
+        blob_storage = BlobStorage(project)
 
         test_session_id = uuid4()
         tape_path = Simuleos.Kernel.tape_path(simuleos_dir, test_session_id)
@@ -154,13 +159,13 @@ end
     mktempdir() do project_root
         simuleos_dir = joinpath(project_root, ".simuleos")
         mkpath(simuleos_dir)
-        storage = BlobStorage(simuleos_dir)
         project = Simuleos.Kernel.SimuleosProject(
             id = "test-project",
             root_path = project_root,
-            simuleos_dir = simuleos_dir,
-            blobstorage = storage
+            simuleos_dir = simuleos_dir
         )
+        storage = BlobStorage(project)
+        project.blobstorage = storage
         sim = Simuleos.Kernel.SimOs(project = project)
 
         key = ("simos", :blob)
