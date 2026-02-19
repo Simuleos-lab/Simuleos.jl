@@ -12,6 +12,7 @@ include("Kernel/Kernel.jl")
 # App Modules (depend on Kernel)
 # ==================================
 include("WorkSession/WorkSession.jl")
+include("ScopeReader/ScopeReader.jl")
 # include("Registry/Registry.jl")
 
 # ==================================
@@ -19,6 +20,7 @@ include("WorkSession/WorkSession.jl")
 # ==================================
 import .Kernel: sim_init!, sim_reset!
 using .WorkSession: @session_init, @session_store, @scope_meta, @scope_capture, @session_commit
+import .ScopeReader: project, each_scopes, value
 
 # ==================================
 # Exports
@@ -27,6 +29,7 @@ using .WorkSession: @session_init, @session_store, @scope_meta, @scope_capture, 
 # PUT EXPORT STATEMENTS HERE
 
 export sim_init!, sim_reset!
+export project, each_scopes, value
 
 # WorkSession macros (names kept stable for now)
 export @session_init, @session_store, @scope_meta, @scope_capture, @session_commit

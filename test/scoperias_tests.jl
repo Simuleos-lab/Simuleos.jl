@@ -96,3 +96,30 @@ end
     @test !Simuleos.Kernel.hasvar(filtered_runtime_include, :f)
     @test !Simuleos.Kernel.hasvar(filtered_runtime_include, :kmod)
 end
+
+@testset "Scoperias show" begin
+    scope = SimuleosScope(
+        ["s1", "s2"],
+        Dict{Symbol, Any}(
+            :x => 42,
+            :y => [1, 2, 3]
+        ),
+        Dict{Symbol, Any}()
+    )
+    scope.metadata[:step] = 1
+    scope.variables[:blobv] = Simuleos.Kernel.BlobScopeVariable(
+        :local,
+        "Dict",
+        Simuleos.Kernel.BlobRef("0123456789abcdef")
+    )
+    scope.variables[:voidv] = Simuleos.Kernel.VoidScopeVariable(:global, "Any")
+
+    compact = sprint(show, scope)
+    pretty = sprint(io -> show(io, MIME"text/plain"(), scope))
+
+    @test occursin("SimuleosScope(labels=", compact)
+    @test occursin("variables (4):", pretty)
+    @test occursin("metadata:", pretty)
+    @test occursin("blob:", pretty)
+    @test occursin("void", pretty)
+end

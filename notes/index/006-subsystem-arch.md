@@ -112,3 +112,8 @@ App-SubSystems (Kernel part + App part, span `I0x-I3x`):
 - Core driver objects are partially constructible and then finalized via dedicated initialization functions (e.g., a Project object might be partially constructed and then finalized via proj_init!).
 - Activation and initialization functions (e.g., `sim_init`, `sim_activate`) should propagate explicit bootstrap naming (e.g., `sim_init(proj_path; bootstrap)`, `sim_activate(proj_path, bootstrap)`).
 - Runtime state must rely on dedicated driver objects as the Single Source of Truth (SSOT).
+
+### Integration Axis (I Axis)
+- `types-I0x.jl` is struct declarations only — no constructors, constants, or logic             
+- `base-I0x.jl` in each subsystem hosts keyword constructors, convenience constructors, and module constants
+- New type → struct in `types-I0x.jl`, constructors in relevant `base-I0x.jl`

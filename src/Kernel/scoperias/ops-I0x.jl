@@ -129,3 +129,58 @@ function filter_rules(scope::SimuleosScope, rules::Vector{Dict{Symbol, Any}})::S
         scope
     )
 end
+
+function _scopevar_mode(sv::ScopeVariable)::String
+    if sv isa InlineScopeVariable
+        return "inline"
+    end
+    if sv isa BlobScopeVariable
+        return "blob"
+    end
+    return "void"
+end
+
+function _scopevar_preview(sv::ScopeVariable)::String
+    if sv isa InlineScopeVariable
+        text = repr(sv.value)
+        return length(text) > 36 ? string(first(text, 33), "...") : text
+    end
+    if sv isa BlobScopeVariable
+        return string("blob:", first(sv.blob_ref.hash, 10))
+    end
+    return "nothing"
+end
+
+function Base.show(io::IO, scope::SimuleosScope)
+    print(io, "SimuleosScope(labels=", scope.labels, ", vars=", length(scope.variables), ")")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", scope::SimuleosScope)
+    println(io, "SimuleosScope")
+    println(io, "  labels: ", scope.labels)
+    println(io, "  metadata: ", isempty(scope.metadata) ? "empty" : collect(keys(scope.metadata)))
+    println(io, "  variables (", length(scope.variables), "):")
+
+    shown = 0
+    for name in sort!(collect(keys(scope.variables)); by=string)
+        sv = scope.variables[name]
+        println(
+            io,
+            "    ",
+            name,
+            " [",
+            sv.level,
+            " ",
+            sv.type_short,
+            " ",
+            _scopevar_mode(sv),
+            "] = ",
+            _scopevar_preview(sv)
+        )
+        shown += 1
+        shown >= 10 && break
+    end
+
+    remaining = length(scope.variables) - shown
+    remaining > 0 && println(io, "    ... +", remaining, " more")
+end
