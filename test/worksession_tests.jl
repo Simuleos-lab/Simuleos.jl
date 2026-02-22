@@ -269,6 +269,23 @@ using Dates
             @test (v2, s2) == (100, :hit)
             @test calls[] == 1
 
+            v3, s3 = Simuleos.remember!("demo"; ctx_hash=h, ctx_extra=(metric="cube",)) do
+                calls[] += 1
+                x^3
+            end
+            v4, s4 = Simuleos.remember!("demo"; ctx_hash=h, ctx_extra=(metric="cube",)) do
+                calls[] += 1
+                x^4
+            end
+            v5, s5 = Simuleos.remember!("demo"; ctx_hash=h, ctx_extra=(metric="square",)) do
+                calls[] += 1
+                x^2 + 1
+            end
+            @test (v3, s3) == (1000, :miss)
+            @test (v4, s4) == (1000, :hit)
+            @test (v5, s5) == (101, :miss)
+            @test calls[] == 3
+
             @test_throws ErrorException Simuleos.remember!("demo"; ctx="demo", ctx_hash=h) do
                 1
             end
@@ -354,6 +371,31 @@ using Dates
             @test status_ta2 == :hit
             @test (p, q) == (7, 8)
             @test calls_tuple_assign[] == 1
+
+            calls_partition = Ref(0)
+            status_part_1 = Simuleos.@remember h (metric="A", fold=1) score = begin
+                calls_partition[] += 1
+                41
+            end
+            @test status_part_1 == :miss
+            @test score == 41
+
+            score = -1
+            status_part_2 = Simuleos.@remember h (metric="A", fold=1) score = begin
+                calls_partition[] += 1
+                999
+            end
+            @test status_part_2 == :hit
+            @test score == 41
+
+            score = -1
+            status_part_3 = Simuleos.@remember h (metric="B", fold=1) score = begin
+                calls_partition[] += 1
+                42
+            end
+            @test status_part_3 == :miss
+            @test score == 42
+            @test calls_partition[] == 2
         end
     end
 

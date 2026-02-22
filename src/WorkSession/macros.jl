@@ -48,6 +48,10 @@ function _remember_value_expr(vars::Vector{Symbol})
     return Expr(:tuple, vars...)
 end
 
+# NOTE: @isdefined is a best-effort guard — it catches unassigned targets but
+# cannot distinguish a fresh assignment from a pre-existing binding.  This is a
+# known limitation; the assign form (`@remember h x = expr`) is the reliable
+# alternative when the target may already be in scope.
 function _remember_defined_checks(vars::Vector{Symbol})
     checks = Expr[]
     for v in vars
@@ -55,6 +59,28 @@ function _remember_defined_checks(vars::Vector{Symbol})
         push!(checks, :((@isdefined $v) || error($msg)))
     end
     return checks
+end
+
+function _remember_is_extra_spec(expr)::Bool
+    if !(expr isa Expr && expr.head == :tuple)
+        return false
+    end
+    isempty(expr.args) && error("@remember extra key tuple cannot be empty.")
+    return any(!(a isa Symbol) for a in expr.args)
+end
+
+function _remember_extra_parts_expr(spec::Expr)
+    spec.head == :tuple || error("@remember internal error: expected tuple extra key spec.")
+
+    parts = Expr[]
+    for item in spec.args
+        if item isa Expr && item.head == :(=) && length(item.args) == 2 && item.args[1] isa Symbol
+            push!(parts, :(($(string(item.args[1])), $(item.args[2]))))
+        else
+            push!(parts, item)
+        end
+    end
+    return :(Any[$(parts...)])
 end
 
 const _BATCH_COMMIT_MAX_PENDING_DEFAULT = 10
@@ -68,11 +94,38 @@ function _require_active_worksession_and_project()
     return ws, proj
 end
 
-function _ctx_hash_record!(label::AbstractString, entries::AbstractVector{<:Tuple})::String
-    sim = _Kernel._get_sim()
-    ws = sim.worksession
-    isnothing(ws) && error("No active session. Call @session_init first.")
+function _ctx_hash_digest(parts...)::String
+    return _Kernel.blob_ref(("ctx_hash_v1", parts...)).hash
+end
 
+function _ctx_hash_extra_parts(extra_parts)::Vector{Any}
+    isnothing(extra_parts) && return Any[]
+
+    if extra_parts isa NamedTuple
+        parts = Any[]
+        for (k, v) in pairs(extra_parts)
+            push!(parts, (String(k), v))
+        end
+        return parts
+    end
+
+    if extra_parts isa Tuple || extra_parts isa AbstractVector
+        return Any[extra_parts...]
+    end
+
+    return Any[extra_parts]
+end
+
+function _ctx_hash_compose(ctx_hash, extra_parts = nothing)::String
+    h = strip(String(ctx_hash))
+    isempty(h) && error("Context hash must be a non-empty string.")
+
+    parts = _ctx_hash_extra_parts(extra_parts)
+    isempty(parts) && return h
+    return _ctx_hash_digest("ctx_hash_compose_v1", h, parts)
+end
+
+function _ctx_hash_from_named_entries(label::AbstractString, entries::AbstractVector{<:Tuple})::String
     key_label = strip(String(label))
     isempty(key_label) && error("@ctx_hash label must be a non-empty string.")
 
@@ -84,7 +137,17 @@ function _ctx_hash_record!(label::AbstractString, entries::AbstractVector{<:Tupl
         push!(normalized, (name, item[2]))
     end
 
-    hash = _Kernel.blob_ref(("ctx_hash_v1", key_label, normalized)).hash
+    # Keep the original @ctx_hash key layout to avoid unnecessary cache invalidation.
+    return _ctx_hash_digest(key_label, normalized)
+end
+
+function _ctx_hash_record!(label::AbstractString, entries::AbstractVector{<:Tuple})::String
+    sim = _Kernel._get_sim()
+    ws = sim.worksession
+    isnothing(ws) && error("No active session. Call @session_init first.")
+    key_label = strip(String(label))
+    isempty(key_label) && error("@ctx_hash label must be a non-empty string.")
+    hash = _ctx_hash_from_named_entries(label, entries)
     ws.context_hash_reg[key_label] = hash
     return hash
 end
@@ -260,9 +323,14 @@ end
 """
     @remember(ctx_hash, target, body)
     @remember(ctx_hash, target = expr)
+    @remember(ctx_hash, (extra_key_parts...), target, body)
+    @remember(ctx_hash, (extra_key_parts...), target = expr)
 
 Scope-oriented keyed cache macro.
 - `target` can be a variable (`x`) or tuple (`(a, b)`).
+- Optional `extra_key_parts` are composed into the context hash before lookup/store.
+  Use this to partition cache entries under the same base `ctx_hash` without
+  changing the original `@ctx_hash` registry entry.
 - On cache hit, assigns cached value(s) into caller scope and skips recomputation.
 - On cache miss, runs the miss branch, checks target assignment (block form),
   stores the resulting value(s), and returns `:miss`.
@@ -270,14 +338,23 @@ Scope-oriented keyed cache macro.
 Returns `:hit` or `:miss`.
 """
 macro remember(ctx_hash_expr, rest...)
-    length(rest) in (1, 2) || error("@remember expects `@remember h target begin ... end` or `@remember h target = expr`.")
+    isempty(rest) && error("@remember expects a target and payload.")
+
+    args = Any[rest...]
+    extra_parts_expr = nothing
+    if _remember_is_extra_spec(args[1])
+        extra_parts_expr = _remember_extra_parts_expr(args[1])
+        args = args[2:end]
+        isempty(args) && error("@remember extra key tuple must be followed by a target.")
+    end
+    length(args) in (1, 2) || error("@remember expects `@remember h target begin ... end`, `@remember h target = expr`, or the same with an extra key tuple before `target`.")
 
     local target_expr
     local payload_expr
     local mode
 
-    if length(rest) == 1
-        arg = rest[1]
+    if length(args) == 1
+        arg = args[1]
         if !(arg isa Expr && arg.head == :(=) && length(arg.args) == 2)
             error("@remember single-tail form expects assignment: `@remember h target = expr`.")
         end
@@ -285,8 +362,8 @@ macro remember(ctx_hash_expr, rest...)
         payload_expr = arg.args[2]
         mode = :assign
     else
-        target_expr = rest[1]
-        payload_expr = rest[2]
+        target_expr = args[1]
+        payload_expr = args[2]
         mode = :block
     end
 
@@ -300,6 +377,9 @@ macro remember(ctx_hash_expr, rest...)
         _remember_assign_expr(vars, :_remember_cached_value)
     miss_value_expr = length(vars) == 1 ? _remember_value_expr(vars[1]) : _remember_value_expr(vars)
     defined_checks = _remember_defined_checks(vars)
+    composed_ctx_expr = isnothing(extra_parts_expr) ?
+        :(string($ctx_hash_expr)) :
+        :($(_WS)._ctx_hash_compose(string($ctx_hash_expr), $extra_parts_expr))
 
     miss_branch_expr = if mode == :assign
         Expr(:block,
@@ -317,7 +397,7 @@ macro remember(ctx_hash_expr, rest...)
     end
 
     quote
-        local _remember_ctx_hash = string($ctx_hash_expr)
+        local _remember_ctx_hash = $composed_ctx_expr
         local _remember_ns = $ns_expr
         local _remember_hit, _remember_cached_value = $(_WS)._remember_tryload(_remember_ns, _remember_ctx_hash)
         if _remember_hit
