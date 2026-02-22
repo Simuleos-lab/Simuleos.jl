@@ -55,7 +55,7 @@ end
 function _remember_defined_checks(vars::Vector{Symbol})
     checks = Expr[]
     for v in vars
-        msg = "@remember miss branch did not assign `" * String(v) * "`."
+        msg = "@remember miss branch did not leave `" * String(v) * "` defined."
         push!(checks, :((@isdefined $v) || error($msg)))
     end
     return checks
@@ -66,7 +66,18 @@ function _remember_is_extra_spec(expr)::Bool
         return false
     end
     isempty(expr.args) && error("@remember extra key tuple cannot be empty.")
-    return any(!(a isa Symbol) for a in expr.args)
+
+    is_pair(a) = a isa Expr && a.head == :(=) && length(a.args) == 2 && a.args[1] isa Symbol
+    any_pairs = any(is_pair, expr.args)
+    all_pairs = all(is_pair, expr.args)
+
+    if all_pairs
+        return true
+    end
+    if any_pairs
+        error("@remember extra key tuple accepts only key=value pairs.")
+    end
+    return false
 end
 
 function _remember_extra_parts_expr(spec::Expr)
@@ -74,11 +85,10 @@ function _remember_extra_parts_expr(spec::Expr)
 
     parts = Expr[]
     for item in spec.args
-        if item isa Expr && item.head == :(=) && length(item.args) == 2 && item.args[1] isa Symbol
-            push!(parts, :(($(string(item.args[1])), $(item.args[2]))))
-        else
-            push!(parts, item)
+        if !(item isa Expr && item.head == :(=) && length(item.args) == 2 && item.args[1] isa Symbol)
+            error("@remember extra key tuple accepts only key=value pairs, got: $item")
         end
+        push!(parts, :(($(string(item.args[1])), $(item.args[2]))))
     end
     return :(Any[$(parts...)])
 end
@@ -92,53 +102,6 @@ function _require_active_worksession_and_project()
     isnothing(ws) && error("No active session. Call @session_init first.")
     proj = _Kernel.sim_project(sim)
     return ws, proj
-end
-
-function _ctx_hash_digest(parts...)::String
-    return _Kernel.blob_ref(("ctx_hash_v1", parts...)).hash
-end
-
-function _ctx_hash_extra_parts(extra_parts)::Vector{Any}
-    isnothing(extra_parts) && return Any[]
-
-    if extra_parts isa NamedTuple
-        parts = Any[]
-        for (k, v) in pairs(extra_parts)
-            push!(parts, (String(k), v))
-        end
-        return parts
-    end
-
-    if extra_parts isa Tuple || extra_parts isa AbstractVector
-        return Any[extra_parts...]
-    end
-
-    return Any[extra_parts]
-end
-
-function _ctx_hash_compose(ctx_hash, extra_parts = nothing)::String
-    h = strip(String(ctx_hash))
-    isempty(h) && error("Context hash must be a non-empty string.")
-
-    parts = _ctx_hash_extra_parts(extra_parts)
-    isempty(parts) && return h
-    return _ctx_hash_digest("ctx_hash_compose_v1", h, parts)
-end
-
-function _ctx_hash_from_named_entries(label::AbstractString, entries::AbstractVector{<:Tuple})::String
-    key_label = strip(String(label))
-    isempty(key_label) && error("@ctx_hash label must be a non-empty string.")
-
-    normalized = Tuple{String, Any}[]
-    for item in entries
-        length(item) == 2 || error("@ctx_hash internal error: expected (name, value) entries.")
-        name = strip(String(item[1]))
-        isempty(name) && error("@ctx_hash variable labels must be non-empty.")
-        push!(normalized, (name, item[2]))
-    end
-
-    # Keep the original @ctx_hash key layout to avoid unnecessary cache invalidation.
-    return _ctx_hash_digest(key_label, normalized)
 end
 
 function _ctx_hash_record!(label::AbstractString, entries::AbstractVector{<:Tuple})::String
@@ -174,13 +137,23 @@ function _queue_stage_commit!(ws::_Kernel.WorkSession, gh; label::String = "")::
     return commit
 end
 
-function _flush_pending_commits!(proj::_Kernel.SimuleosProject, ws::_Kernel.WorkSession)::Int
+function _flush_pending_commits!(proj::_Kernel.SimuleosProject, ws::_Kernel.WorkSession;
+        commit_writer = _Kernel.commit_to_tape!
+    )::Int
     n = length(ws.pending_commits)
     n == 0 && return 0
 
     tape = _Kernel.TapeIO(_Kernel.tape_path(proj, ws.session_id))
-    for commit in ws.pending_commits
-        _Kernel.commit_to_tape!(tape, commit)
+    flushed = 0
+    try
+        for i in 1:n
+            commit_writer(tape, ws.pending_commits[i])
+            flushed = i
+        end
+    catch
+        # Preserve only the unflushed suffix so retries do not duplicate writes.
+        flushed > 0 && deleteat!(ws.pending_commits, 1:flushed)
+        rethrow()
     end
     empty!(ws.pending_commits)
     return n
@@ -328,14 +301,17 @@ end
 
 Scope-oriented keyed cache macro.
 - `target` can be a variable (`x`) or tuple (`(a, b)`).
-- Optional `extra_key_parts` are composed into the context hash before lookup/store.
-  Use this to partition cache entries under the same base `ctx_hash` without
-  changing the original `@ctx_hash` registry entry.
+- Optional `extra_key_parts` must be `key=value` pairs. They are composed into
+  the context hash before lookup/store. Use this to partition cache entries
+  under the same base `ctx_hash` without changing the original `@ctx_hash`
+  registry entry.
 - On cache hit, assigns cached value(s) into caller scope and skips recomputation.
 - On cache miss, runs the miss branch, checks target assignment (block form),
-  stores the resulting value(s), and returns `:miss`.
+  stores the resulting value(s), and returns `:miss` if this caller stored first.
+- If another writer stores the same key first, reloads the canonical cached value,
+  reassigns the target(s), and returns `:race_lost`.
 
-Returns `:hit` or `:miss`.
+Returns `:hit`, `:miss`, or `:race_lost`.
 """
 macro remember(ctx_hash_expr, rest...)
     isempty(rest) && error("@remember expects a target and payload.")
@@ -380,19 +356,23 @@ macro remember(ctx_hash_expr, rest...)
     composed_ctx_expr = isnothing(extra_parts_expr) ?
         :(string($ctx_hash_expr)) :
         :($(_WS)._ctx_hash_compose(string($ctx_hash_expr), $extra_parts_expr))
+    store_input_expr = mode == :assign ? :_remember_miss_value : miss_value_expr
+    final_assign_expr = _remember_assign_expr(length(vars) == 1 ? vars[1] : vars, :_remember_final_value)
+
+    miss_store_expr = Expr(:block,
+        :(local _remember_final_value, _remember_miss_status),
+        :((_remember_final_value, _remember_miss_status) = $(_WS)._remember_store_result!(_remember_ns, _remember_ctx_hash, $store_input_expr)),
+        final_assign_expr,
+        :(_remember_miss_status),
+    )
 
     miss_branch_expr = if mode == :assign
-        Expr(:block,
-            _remember_assign_expr(length(vars) == 1 ? vars[1] : vars, :_remember_miss_value),
-            :($(_WS)._remember_store!(_remember_ns, _remember_ctx_hash, $miss_value_expr)),
-            QuoteNode(:miss),
-        )
+        miss_store_expr
     else
         Expr(:block,
             payload_expr,
             defined_checks...,
-            :($(_WS)._remember_store!(_remember_ns, _remember_ctx_hash, $miss_value_expr)),
-            QuoteNode(:miss),
+            miss_store_expr,
         )
     end
 

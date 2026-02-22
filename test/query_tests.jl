@@ -46,7 +46,7 @@ const exists = Simuleos.Kernel.exists
             @test blob_read(blob_storage, blob_ref_obj) == test_data
             @test blob_read(blob_storage, blob_key) == test_data
 
-            @test_throws Exception blob_write(blob_storage, blob_key, Dict("foo" => 99))
+            @test_throws Simuleos.Kernel.BlobAlreadyExistsError blob_write(blob_storage, blob_key, Dict("foo" => 99))
             overwritten = Dict("foo" => 99)
             force_ref = blob_write(blob_storage, blob_key, overwritten; overwrite=true)
             @test force_ref.hash == blob_hash

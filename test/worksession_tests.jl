@@ -269,6 +269,19 @@ using Dates
             @test (v2, s2) == (100, :hit)
             @test calls[] == 1
 
+            race_calls = Ref(0)
+            race_ctx_extra = (metric="race",)
+            v_race, s_race = Simuleos.remember!("demo"; ctx_hash=h, ctx_extra=race_ctx_extra) do
+                race_calls[] += 1
+                proj = kernel.sim_project(kernel._get_sim())
+                race_ctx_hash = wsmod._ctx_hash_compose(h, race_ctx_extra)
+                outcome = kernel.cache_store!(proj, "demo", race_ctx_hash, 111)
+                @test outcome.status == :stored
+                222
+            end
+            @test (v_race, s_race) == (111, :race_lost)
+            @test race_calls[] == 1
+
             v3, s3 = Simuleos.remember!("demo"; ctx_hash=h, ctx_extra=(metric="cube",)) do
                 calls[] += 1
                 x^3
@@ -320,6 +333,16 @@ using Dates
             @test status_a2 == :hit
             @test a == 11
             @test calls_a[] == 1
+
+            status_a_race = Simuleos.@remember h a_race = begin
+                proj = kernel.sim_project(kernel._get_sim())
+                ns = wsmod._remember_namespace(:a_race)
+                outcome = kernel.cache_store!(proj, ns, string(h), 41)
+                @test outcome.status == :stored
+                99
+            end
+            @test status_a_race == :race_lost
+            @test a_race == 41
 
             calls_b = Ref(0)
             status_b1 = Simuleos.@remember h b begin
@@ -417,6 +440,22 @@ using Dates
         end
     end
 
+    @testset "@remember macro extra-key tuple requires key=value pairs" begin
+        ex = :(Simuleos.@remember h (metric="A", fold=1) score = 1)
+        expanded = Base.macroexpand(@__MODULE__, ex)
+        @test expanded isa Expr
+
+        @test_throws ErrorException Base.macroexpand(
+            @__MODULE__,
+            :(Simuleos.@remember h (metric="A", fold) score = 1)
+        )
+
+        @test_throws ErrorException Base.macroexpand(
+            @__MODULE__,
+            :(Simuleos.@remember h ("A", 1) score = 1)
+        )
+    end
+
     @testset "queued commits and session finalizer" begin
         with_test_context() do _
             simos2 = kernel._get_sim()
@@ -464,6 +503,59 @@ using Dates
 
             commits = collect(kernel.iterate_tape(tape))
             @test [c.commit_label for c in commits] == ["c1", "c2", "c3", "tail"]
+        end
+    end
+
+    @testset "queued commit flush trims flushed prefix on error (retry-safe)" begin
+        with_test_context() do _
+            simos2 = kernel._get_sim()
+            proj2 = kernel.sim_project(simos2)
+
+            @session_init ("queue-flush-failure-" * string(uuid4()))
+            ws = kernel._get_sim().worksession
+            @test !isnothing(ws)
+
+            tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
+            @test isempty(collect(kernel.iterate_tape(tape)))
+
+            let x = 1
+                @scope_capture "s1"
+            end
+            wsmod.session_batch_commit("c1"; max_pending_commits=99)
+
+            let x = 2
+                @scope_capture "s2"
+            end
+            wsmod.session_batch_commit("c2"; max_pending_commits=99)
+
+            let x = 3
+                @scope_capture "s3"
+            end
+            wsmod.session_batch_commit("c3"; max_pending_commits=99)
+
+            @test [c.commit_label for c in ws.pending_commits] == ["c1", "c2", "c3"]
+
+            injected_calls = Ref(0)
+            failing_writer = function (t, commit)
+                injected_calls[] += 1
+                if injected_calls[] == 2
+                    error("injected flush failure")
+                end
+                kernel.commit_to_tape!(t, commit)
+            end
+
+            @test_throws ErrorException wsmod._flush_pending_commits!(proj2, ws; commit_writer=failing_writer)
+
+            @test [c.commit_label for c in ws.pending_commits] == ["c2", "c3"]
+            commits_after_fail = collect(kernel.iterate_tape(tape))
+            @test [c.commit_label for c in commits_after_fail] == ["c1"]
+
+            flushed_retry = wsmod._flush_pending_commits!(proj2, ws)
+            @test flushed_retry == 2
+            @test isempty(ws.pending_commits)
+
+            commits_after_retry = collect(kernel.iterate_tape(tape))
+            @test [c.commit_label for c in commits_after_retry] == ["c1", "c2", "c3"]
         end
     end
 

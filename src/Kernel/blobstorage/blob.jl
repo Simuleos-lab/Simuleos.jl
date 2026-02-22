@@ -7,6 +7,15 @@ import Serialization
 
 const BLOB_HASH_CHUNK_SIZE = 8192
 
+struct BlobAlreadyExistsError <: Exception
+    ref::BlobRef
+    path::String
+end
+
+function Base.showerror(io::IO, err::BlobAlreadyExistsError)
+    print(io, "Blob already exists: ", err.ref.hash, ". Use overwrite=true to replace.")
+end
+
 """
     blob_ref(key) -> BlobRef
 
@@ -51,7 +60,7 @@ exists(storage::BlobStorage, key) = exists(storage, blob_ref(key))
     blob_write(storage::BlobStorage, key, value; overwrite=false) -> BlobRef
 
 Write a value to blob storage. Returns the BlobRef.
-Throws if blob already exists and overwrite=false.
+Throws `BlobAlreadyExistsError` if blob already exists and `overwrite=false`.
 """
 function blob_write(storage::BlobStorage, key, value; overwrite::Bool=false)
     ref = blob_ref(key)
@@ -59,7 +68,7 @@ function blob_write(storage::BlobStorage, key, value; overwrite::Bool=false)
     ensure_dir(dirname(path))
 
     if isfile(path) && !overwrite
-        error("Blob already exists: $(ref.hash). Use overwrite=true to replace.")
+        throw(BlobAlreadyExistsError(ref, path))
     end
 
     open(path, "w") do io

@@ -36,6 +36,15 @@
   - flush all queued logical commits
   - does not implicitly end or clear the active session object
 
+## Keyed Cache Equivalence Assumption
+- Cache-key collisions are treated as semantic equivalence, not a correctness conflict.
+- If two computations resolve the same cache key, the system assumes they represent the same result contract.
+- Caller-owned responsibility:
+  - include all materially relevant inputs in the cache context/key composition
+  - use extra key parts when one context hash must be partitioned into distinct cached outputs
+- Current non-goal:
+  - do not add synchronization/ownership logic just to distinguish which equivalent writer "won" a collision
+
 
 ## Pipeline Workflow
 - Purpose: let numbered scripts exchange typed data through tapes instead of ad-hoc files
