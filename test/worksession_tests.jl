@@ -278,6 +278,103 @@ using Dates
         end
     end
 
+    @testset "@remember macro supports single/tuple targets and assignment shorthand" begin
+        with_test_context() do _
+            @session_init ("remember-macro-" * string(uuid4()))
+
+            model = "iJO1366"
+            eps = 1e-6
+            solver = "HiGHS"
+            h = Simuleos.@ctx_hash "solver-inputs" model eps solver
+
+            calls_a = Ref(0)
+            status_a1 = Simuleos.@remember h a = begin
+                calls_a[] += 1
+                11
+            end
+            @test status_a1 == :miss
+            @test a == 11
+
+            a = -1
+            status_a2 = Simuleos.@remember h a = begin
+                calls_a[] += 1
+                99
+            end
+            @test status_a2 == :hit
+            @test a == 11
+            @test calls_a[] == 1
+
+            calls_b = Ref(0)
+            status_b1 = Simuleos.@remember h b begin
+                calls_b[] += 1
+                b = a + 1
+            end
+            @test status_b1 == :miss
+            @test b == 12
+
+            b = -1
+            status_b2 = Simuleos.@remember h b begin
+                calls_b[] += 1
+                b = 999
+            end
+            @test status_b2 == :hit
+            @test b == 12
+            @test calls_b[] == 1
+
+            calls_tuple = Ref(0)
+            status_t1 = Simuleos.@remember h (u, v) begin
+                calls_tuple[] += 1
+                u, v = (3, 4)
+            end
+            @test status_t1 == :miss
+            @test (u, v) == (3, 4)
+
+            u, v = (30, 40)
+            status_t2 = Simuleos.@remember h (u, v) begin
+                calls_tuple[] += 1
+                u, v = (300, 400)
+            end
+            @test status_t2 == :hit
+            @test (u, v) == (3, 4)
+            @test calls_tuple[] == 1
+
+            calls_tuple_assign = Ref(0)
+            status_ta1 = Simuleos.@remember h (p, q) = begin
+                calls_tuple_assign[] += 1
+                (7, 8)
+            end
+            @test status_ta1 == :miss
+            @test (p, q) == (7, 8)
+
+            p, q = (70, 80)
+            status_ta2 = Simuleos.@remember h (p, q) = begin
+                calls_tuple_assign[] += 1
+                (700, 800)
+            end
+            @test status_ta2 == :hit
+            @test (p, q) == (7, 8)
+            @test calls_tuple_assign[] == 1
+        end
+    end
+
+    @testset "@remember macro checks miss-branch assignments" begin
+        with_test_context() do _
+            @session_init ("remember-check-" * string(uuid4()))
+            x = 1
+            h = Simuleos.@ctx_hash "check" x
+
+            @test_throws ErrorException Simuleos.@remember h z begin
+                nothing
+            end
+
+            @test_throws ErrorException begin
+                Simuleos.@remember h (m, n) begin
+                    m = 1
+                end
+            end
+        end
+    end
+
     @testset "queued commits and session finalizer" begin
         with_test_context() do _
             simos2 = kernel._get_sim()

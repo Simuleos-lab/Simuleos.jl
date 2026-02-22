@@ -15,6 +15,48 @@ function _extract_symbols(expr)
     return Symbol[]
 end
 
+function _remember_target_vars(target)
+    if target isa Symbol
+        return Symbol[target]
+    end
+    if target isa Expr && target.head == :tuple
+        vars = Symbol[]
+        for a in target.args
+            a isa Symbol || error("@remember tuple target expects variable names, got: $a")
+            push!(vars, a)
+        end
+        isempty(vars) && error("@remember tuple target cannot be empty.")
+        return vars
+    end
+    error("@remember expects a variable name or tuple of variable names as target, got: $target")
+end
+
+function _remember_assign_expr(var::Symbol, value_expr)
+    return :($(var) = $(value_expr))
+end
+
+function _remember_assign_expr(vars::Vector{Symbol}, value_expr)
+    lhs = Expr(:tuple, vars...)
+    return :($lhs = $(value_expr))
+end
+
+function _remember_value_expr(var::Symbol)
+    return :($var)
+end
+
+function _remember_value_expr(vars::Vector{Symbol})
+    return Expr(:tuple, vars...)
+end
+
+function _remember_defined_checks(vars::Vector{Symbol})
+    checks = Expr[]
+    for v in vars
+        msg = "@remember miss branch did not assign `" * String(v) * "`."
+        push!(checks, :((@isdefined $v) || error($msg)))
+    end
+    return checks
+end
+
 const _BATCH_COMMIT_MAX_PENDING_DEFAULT = 10
 const _BATCH_COMMIT_MAX_PENDING_KEY = "worksession.batch_commit.max_pending_commits"
 
@@ -212,6 +254,79 @@ macro ctx_hash(label, vars_or_pairs...)
             string($label),
             Tuple{String, Any}[$(entries...)]
         )
+    end |> esc
+end
+
+"""
+    @remember(ctx_hash, target, body)
+    @remember(ctx_hash, target = expr)
+
+Scope-oriented keyed cache macro.
+- `target` can be a variable (`x`) or tuple (`(a, b)`).
+- On cache hit, assigns cached value(s) into caller scope and skips recomputation.
+- On cache miss, runs the miss branch, checks target assignment (block form),
+  stores the resulting value(s), and returns `:miss`.
+
+Returns `:hit` or `:miss`.
+"""
+macro remember(ctx_hash_expr, rest...)
+    length(rest) in (1, 2) || error("@remember expects `@remember h target begin ... end` or `@remember h target = expr`.")
+
+    local target_expr
+    local payload_expr
+    local mode
+
+    if length(rest) == 1
+        arg = rest[1]
+        if !(arg isa Expr && arg.head == :(=) && length(arg.args) == 2)
+            error("@remember single-tail form expects assignment: `@remember h target = expr`.")
+        end
+        target_expr = arg.args[1]
+        payload_expr = arg.args[2]
+        mode = :assign
+    else
+        target_expr = rest[1]
+        payload_expr = rest[2]
+        mode = :block
+    end
+
+    vars = _remember_target_vars(target_expr)
+    ns_expr = length(vars) == 1 ?
+        :($(_WS)._remember_namespace($(QuoteNode(vars[1])))) :
+        :($(_WS)._remember_namespace(Symbol[$([QuoteNode(v) for v in vars]...)]))
+
+    hit_assign_expr = length(vars) == 1 ?
+        _remember_assign_expr(vars[1], :_remember_cached_value) :
+        _remember_assign_expr(vars, :_remember_cached_value)
+    miss_value_expr = length(vars) == 1 ? _remember_value_expr(vars[1]) : _remember_value_expr(vars)
+    defined_checks = _remember_defined_checks(vars)
+
+    miss_branch_expr = if mode == :assign
+        Expr(:block,
+            _remember_assign_expr(length(vars) == 1 ? vars[1] : vars, :_remember_miss_value),
+            :($(_WS)._remember_store!(_remember_ns, _remember_ctx_hash, $miss_value_expr)),
+            QuoteNode(:miss),
+        )
+    else
+        Expr(:block,
+            payload_expr,
+            defined_checks...,
+            :($(_WS)._remember_store!(_remember_ns, _remember_ctx_hash, $miss_value_expr)),
+            QuoteNode(:miss),
+        )
+    end
+
+    quote
+        local _remember_ctx_hash = string($ctx_hash_expr)
+        local _remember_ns = $ns_expr
+        local _remember_hit, _remember_cached_value = $(_WS)._remember_tryload(_remember_ns, _remember_ctx_hash)
+        if _remember_hit
+            $hit_assign_expr
+            $(QuoteNode(:hit))
+        else
+            $(mode == :assign ? :(local _remember_miss_value = $payload_expr) : nothing)
+            $miss_branch_expr
+        end
     end |> esc
 end
 

@@ -21,6 +21,25 @@ function _resolve_cache_ctx_hash(ws::_Kernel.WorkSession; ctx = nothing, ctx_has
     return h
 end
 
+function _remember_namespace(slot::Symbol)::String
+    return "slot:" * String(slot)
+end
+
+function _remember_namespace(slots::AbstractVector{Symbol})::String
+    isempty(slots) && error("@remember target tuple cannot be empty.")
+    return "slots:" * join(String.(slots), ",")
+end
+
+function _remember_tryload(namespace, ctx_hash)
+    _, proj = _require_active_worksession_and_project()
+    return _Kernel.cache_tryload(proj, namespace, ctx_hash)
+end
+
+function _remember_store!(namespace, ctx_hash, value)
+    _, proj = _require_active_worksession_and_project()
+    return _Kernel.cache_store!(proj, namespace, ctx_hash, value)
+end
+
 """
     remember!(namespace; ctx=..., ctx_hash=..., tags=String[]) do
         ...

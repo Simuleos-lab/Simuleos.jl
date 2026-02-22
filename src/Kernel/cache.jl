@@ -83,12 +83,32 @@ function _cache_meta_write_miss!(proj::SimuleosProject, namespace::String, ctx_h
 end
 
 """
-    cache_remember!(f, proj, namespace, ctx_hash; tags=String[]) -> (value, status)
+    cache_tryload(proj, namespace, ctx_hash; tags=String[]) -> (hit::Bool, value)
 
-Blob-backed keyed cache primitive used by higher-level workflow APIs.
-`status` is `:hit` or `:miss`.
+Lookup a cached value. On hit, refresh cache metadata.
 """
-function cache_remember!(f::Function, proj::SimuleosProject, namespace, ctx_hash; tags = String[])
+function cache_tryload(proj::SimuleosProject, namespace, ctx_hash; tags = String[])
+    ns = _cache_namespace(namespace)
+    ch = _cache_ctx_hash(ctx_hash)
+    tag_list = _cache_tags(tags)
+
+    storage = proj.blobstorage
+    value_key = _cache_value_key(ns, ch)
+    ref = blob_ref(value_key)
+    exists(storage, ref) || return (false, nothing)
+
+    value = blob_read(storage, ref)
+    _cache_meta_touch!(proj, ns, ch, ref; tags=tag_list)
+    return (true, value)
+end
+
+"""
+    cache_store!(proj, namespace, ctx_hash, value; tags=String[]) -> BlobRef
+
+Store a cache value and write cache metadata. If another writer stored the same
+key first, refresh metadata and reuse the existing value entry.
+"""
+function cache_store!(proj::SimuleosProject, namespace, ctx_hash, value; tags = String[])
     ns = _cache_namespace(namespace)
     ch = _cache_ctx_hash(ctx_hash)
     tag_list = _cache_tags(tags)
@@ -97,25 +117,34 @@ function cache_remember!(f::Function, proj::SimuleosProject, namespace, ctx_hash
     value_key = _cache_value_key(ns, ch)
     ref = blob_ref(value_key)
 
-    if exists(storage, ref)
-        value = blob_read(storage, ref)
-        _cache_meta_touch!(proj, ns, ch, ref; tags=tag_list)
-        return (value, :hit)
-    end
-
-    value = f()
     try
         blob_write(storage, value_key, value)
+        _cache_meta_write_miss!(proj, ns, ch, ref; tags=tag_list)
     catch err
         msg = sprint(showerror, err)
         if err isa ErrorException && occursin("Blob already exists", msg)
-            value2 = blob_read(storage, ref)
             _cache_meta_touch!(proj, ns, ch, ref; tags=tag_list)
-            return (value2, :hit)
+            return ref
         end
         rethrow()
     end
 
-    _cache_meta_write_miss!(proj, ns, ch, ref; tags=tag_list)
+    return ref
+end
+
+"""
+    cache_remember!(f, proj, namespace, ctx_hash; tags=String[]) -> (value, status)
+
+Blob-backed keyed cache primitive used by higher-level workflow APIs.
+`status` is `:hit` or `:miss`.
+"""
+function cache_remember!(f::Function, proj::SimuleosProject, namespace, ctx_hash; tags = String[])
+    hit, value = cache_tryload(proj, namespace, ctx_hash; tags=tags)
+    if hit
+        return (value, :hit)
+    end
+
+    value = f()
+    cache_store!(proj, namespace, ctx_hash, value; tags=tags)
     return (value, :miss)
 end
