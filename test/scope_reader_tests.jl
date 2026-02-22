@@ -35,14 +35,13 @@ global _simuleos_expand_global = 0
             "metadata" => Dict("timestamp" => "2026-02-18T12:00:01"),
             "scopes" => Any[
                 Dict(
-                    "label" => "scope-one",
                     "variables" => Dict(
                         "x" => Dict("src_type" => "Int64", "src" => "local", "value" => 42),
                         "b" => Dict("src_type" => "Dict", "src" => "local", "blob_ref" => blob_ref.hash),
                         "v" => Dict("src_type" => "Vector", "src" => "local"),
                         "_simuleos_expand_global" => Dict("src_type" => "Int64", "src" => "global", "value" => 7),
                     ),
-                    "labels" => Any["tag"]
+                    "labels" => Any["scope-one", "tag"]
                 )
             ]
         ))

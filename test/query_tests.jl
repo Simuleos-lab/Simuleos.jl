@@ -59,12 +59,11 @@ const exists = Simuleos.Kernel.exists
             "metadata" => Dict("git_branch" => "main", "timestamp" => "2024-01-15T10:30:00"),
             "scopes" => Any[
                 Dict(
-                    "label" => "scope1",
                     "variables" => Dict(
                         "x" => Dict("src_type" => "Int64", "src" => "local", "value" => 42),
                         "y" => Dict("src_type" => "Vector{Float64}", "src" => "local", "blob_ref" => blob_hash)
                     ),
-                    "labels" => Any["iteration", "step1"],
+                    "labels" => Any["scope1", "iteration", "step1"],
                     "metadata" => Dict("step" => 1)
                 )
             ],
@@ -76,7 +75,7 @@ const exists = Simuleos.Kernel.exists
             "metadata" => Dict("git_branch" => "main", "timestamp" => "2024-01-15T10:31:00"),
             "scopes" => Any[
                 Dict(
-                    "label" => "scope2",
+                    "labels" => Any["scope2"],
                     "variables" => Dict(
                         "z" => Dict("src_type" => "String", "src" => "global", "value" => "hello"),
                         "k" => Dict("src_type" => "Tuple{Int64, Int64}", "src" => "local")

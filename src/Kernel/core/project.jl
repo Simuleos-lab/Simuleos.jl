@@ -94,10 +94,6 @@ proj_json_path(project::SimuleosProject)::String = project_json_path(project.sim
 settings_path(project::SimuleosProject)::String = settings_json_path(project.simuleos_dir)
 blob_path(project::SimuleosProject, sha1::String)::String = blob_path(project.blobstorage, sha1)
 
-function _is_simuleos_dir_path(path::String)::Bool
-    return isfile(project_json_path(path))
-end
-
 function find_project_root(start_path::String)::Union{String, Nothing}
     sim_dir = find_simuleos_dir(start_path)
     return isnothing(sim_dir) ? nothing : dirname(sim_dir)
@@ -117,7 +113,6 @@ end
 
 function _explicit_project_root(simos::SimOs)::Union{Nothing, String}
     for candidate in (
-            get(simos.bootstrap, "projPath", nothing),
             get(simos.bootstrap, "project.root", nothing),
             env_project_root()
         )

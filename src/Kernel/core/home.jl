@@ -32,7 +32,7 @@ function init_home!(home::SimuleosHome)::SimuleosHome
 end
 
 function home_init!(simos::SimOs)
-    configured = get(simos.bootstrap, "homePath", nothing)
+    configured = get(simos.bootstrap, "home.path", nothing)
     home_path = if configured isa String && !isempty(strip(configured))
         configured
     else

@@ -19,11 +19,9 @@ const BLOB_EXT = ".jls"
 
 """Path to project.json inside a .simuleos directory."""
 project_json_path(simuleos_dir::String) = joinpath(simuleos_dir, PROJECT_JSON)
-_proj_json_path(project_root::String) = project_json_path(joinpath(project_root, SIMULEOS_DIR_NAME))
 
 """Path to settings.json inside a .simuleos directory."""
 settings_json_path(simuleos_dir::String) = joinpath(simuleos_dir, SETTINGS_JSON)
-_proj_settings_path(project_root::String) = settings_json_path(joinpath(project_root, SIMULEOS_DIR_NAME))
 
 """Path to the blobs directory."""
 blobs_dir(simuleos_dir::String) = joinpath(simuleos_dir, BLOBS_DIR)

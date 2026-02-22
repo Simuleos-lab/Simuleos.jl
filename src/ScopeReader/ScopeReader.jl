@@ -30,9 +30,6 @@ function _resolve_session_id(
     if session === :active
         return _active_session_id_for_project(project_driver)
     end
-    if session isa Base.UUID
-        return Kernel.resolve_session_id(project_driver, session)
-    end
     return Kernel.resolve_session_id(project_driver, session)
 end
 
@@ -47,30 +44,48 @@ end
 
 function each_scopes(
         project_driver::Kernel.SimuleosProject;
-        session::Union{Symbol, Base.UUID, String} = :active
+        session::Union{Symbol, Base.UUID, String} = :active,
+        commit_label::Union{String, Nothing} = nothing,
+        src_file::Union{String, Nothing} = nothing,
     )
     return (
         scope
         for commit in each_commits(project_driver; session=session)
+        if isnothing(commit_label) || commit.commit_label == commit_label
         for scope in commit.scopes
+        if isnothing(src_file) || _src_file_match(scope, src_file)
     )
 end
 
-"""
-    latest_scope(project_driver; session=:active) -> SimuleosScope
+function _src_file_match(scope::Kernel.SimuleosScope, pattern::String)::Bool
+    sf = get(scope.metadata, :src_file, nothing)
+    isnothing(sf) && return false
+    return endswith(string(sf), pattern)
+end
 
-Return the last scope available for the resolved session.
-Throws if the session has no recorded scopes.
+"""
+    latest_scope(project_driver; session=:active, commit_label=nothing, src_file=nothing) -> SimuleosScope
+
+Return the last scope available for the resolved session,
+optionally filtered by commit label and/or source file path.
+
+- `commit_label`: only consider scopes from commits with this label.
+- `src_file`: only consider scopes whose `src_file` metadata ends with this string.
 """
 function latest_scope(
         project_driver::Kernel.SimuleosProject;
-        session::Union{Symbol, Base.UUID, String} = :active
+        session::Union{Symbol, Base.UUID, String} = :active,
+        commit_label::Union{String, Nothing} = nothing,
+        src_file::Union{String, Nothing} = nothing,
     )
     latest = nothing
-    for scope in each_scopes(project_driver; session=session)
+    for scope in each_scopes(project_driver; session=session, commit_label=commit_label, src_file=src_file)
         latest = scope
     end
-    isnothing(latest) && error("No scopes found for session `$(string(session))`.")
+    isnothing(latest) && error("No scopes found for session `$(string(session))`" *
+        (isnothing(commit_label) ? "" : ", commit_label=`$(commit_label)`") *
+        (isnothing(src_file) ? "" : ", src_file=`$(src_file)`") *
+        ".")
     return latest
 end
 

@@ -26,11 +26,7 @@ end
 Parse a raw scope dict into a SimuleosScope.
 """
 function _parse_scope(data::AbstractDict)
-    # Labels: merge "label" (singular) with "labels" (plural)
     labels = String[]
-    if haskey(data, "label") && !isempty(data["label"])
-        push!(labels, string(data["label"]))
-    end
     if haskey(data, "labels")
         for l in data["labels"]
             s = string(l)

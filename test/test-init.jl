@@ -33,8 +33,8 @@ function test_init!()
     cd(project_path)
     kernel.sim_init!(
         bootstrap = Dict{String, Any}(
-            "projPath" => project_path,
-            "homePath" => home_path
+            "project.root" => project_path,
+            "home.path" => home_path
         )
     )
 
@@ -77,8 +77,8 @@ function with_test_context(f::Function)
     cd(temp_project_path)
     kernel.sim_init!(
         bootstrap = Dict{String, Any}(
-            "projPath" => temp_project_path,
-            "homePath" => temp_home_path
+            "project.root" => temp_project_path,
+            "home.path" => temp_home_path
         )
     )
 
@@ -95,8 +95,8 @@ function with_test_context(f::Function)
         cd(main_project_path)
         kernel.sim_init!(
             bootstrap = Dict{String, Any}(
-                "projPath" => main_project_path,
-                "homePath" => main_home_path
+                "project.root" => main_project_path,
+                "home.path" => main_home_path
             )
         )
         rm(temp_root_path; recursive=true, force=true)

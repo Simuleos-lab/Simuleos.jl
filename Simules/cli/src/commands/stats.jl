@@ -35,8 +35,6 @@ struct ProjectStats
     latest_session::Union{Nothing, SessionStats}
 end
 
-const _FRAGMENT_RE = r"^frag\d+\.jsonl$"
-
 function print_stats_help(io::IO = stdout)
     println(io, "Usage:")
     println(io, "  simules stats [path]")
@@ -74,42 +72,9 @@ function _stats_project_path(args::Vector{String})::Union{Nothing, String}
     return project_path
 end
 
-function _string_vector(raw)::Vector{String}
-    raw isa AbstractVector || return String[]
-    return String[string(item) for item in raw]
-end
-
-function _string_key_dict(raw)::Dict{String, Any}
-    if !(raw isa AbstractDict)
-        return Dict{String, Any}()
-    end
-    out = Dict{String, Any}()
-    for (k, v) in raw
-        out[string(k)] = v
-    end
-    return out
-end
-
-function _parse_timestamp(meta::Dict{String, Any})::Union{Nothing, Dates.DateTime}
-    raw = get(meta, "timestamp", nothing)
-    raw isa AbstractString || return nothing
-    try
-        return Dates.DateTime(String(raw))
-    catch
-        return nothing
-    end
-end
-
 function _tape_files(tape_path::String)::Vector{String}
     if isdir(tape_path)
-        files = String[]
-        for path in readdir(tape_path; join=true)
-            isfile(path) || continue
-            occursin(_FRAGMENT_RE, basename(path)) || continue
-            push!(files, path)
-        end
-        sort!(files)
-        return files
+        return Simuleos.Kernel._fragment_files(tape_path)
     end
     isfile(tape_path) && return String[tape_path]
     return String[]
@@ -172,13 +137,15 @@ end
 function _collect_sessions(project_driver::Simuleos.Kernel.SimuleosProject)::Vector{SessionStats}
     sessions = SessionStats[]
     Simuleos.WorkSession.scan_session_files(project_driver) do raw
-        payload = _string_key_dict(raw)
-        haskey(payload, "session_id") || error("Invalid session.json: missing session_id.")
-        session_id = UUIDs.UUID(string(payload["session_id"]))
+        payload = Simuleos.Kernel._string_keys(raw)
+        session_id_key = Simuleos.Kernel.SESSION_FILE_ID_KEY
+        haskey(payload, session_id_key) || error("Invalid session.json: missing $(session_id_key).")
+        session_id = UUIDs.UUID(string(payload[session_id_key]))
 
-        labels = _string_vector(get(payload, "labels", Any[]))
-        metadata = _string_key_dict(get(payload, "meta", Dict{String, Any}()))
-        timestamp = _parse_timestamp(metadata)
+        labels = Simuleos.Kernel._session_labels(payload)
+        metadata = Simuleos.Kernel._session_meta(payload)
+        timestamp_raw = Simuleos.Kernel._session_timestamp(metadata)
+        timestamp = timestamp_raw == Dates.DateTime(0) ? nothing : timestamp_raw
         tape_stats = _session_tape_stats(project_driver, session_id)
 
         push!(sessions, SessionStats(
