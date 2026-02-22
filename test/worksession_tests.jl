@@ -45,7 +45,7 @@ using Dates
         session_json = kernel.session_json_path(proj, sid)
         @test isfile(session_json)
         @test isdir(kernel._session_dir(proj.simuleos_dir, sid))
-        @test isdir(kernel._scopetapes_dir(proj.simuleos_dir, sid))
+        @test isdir(kernel._tapes_dir(proj.simuleos_dir, sid))
 
         loaded = wsmod.resolve_session(simos, proj; session_id=sid, labels=["ignored"])
         @test loaded.session_id == sid
@@ -54,6 +54,9 @@ using Dates
     end
 
     @testset "project scan and parse session files" begin
+        @test isdefined(wsmod, :scan_session_files)
+        @test !isdefined(wsmod, :proj_scan_session_files)
+
         scan_label = "scan-" * string(uuid4())
         sid = uuid4()
         session_json = kernel.session_json_path(proj, sid)
@@ -67,7 +70,7 @@ using Dates
         end
 
         raws = Dict{String, Any}[]
-        wsmod.proj_scan_session_files(raw -> push!(raws, raw), proj)
+        wsmod.scan_session_files(raw -> push!(raws, raw), proj)
         filtered = [raw for raw in raws if get(raw, "labels", Any[]) isa AbstractVector &&
             !isempty(raw["labels"]) && string(raw["labels"][1]) == scan_label]
         @test length(filtered) == 1
@@ -128,7 +131,7 @@ using Dates
         end
 
         try
-            @test_throws Exception wsmod.proj_scan_session_files(_ -> nothing, proj)
+            @test_throws Exception wsmod.scan_session_files(_ -> nothing, proj)
         finally
             rm(dirname(bad_json); recursive=true, force=true)
         end

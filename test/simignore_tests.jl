@@ -3,11 +3,7 @@ using Simuleos
 using UUIDs
 
 function _empty_stage()::Simuleos.Kernel.ScopeStage
-    return Simuleos.Kernel.ScopeStage(
-        Simuleos.Kernel.SimuleosScope[],
-        Simuleos.Kernel.SimuleosScope(),
-        Dict{Symbol, Simuleos.Kernel.BlobRef}()
-    )
+    return Simuleos.Kernel.ScopeStage()
 end
 
 function _test_worksession()::Simuleos.Kernel.WorkSession

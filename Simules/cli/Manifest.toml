@@ -2,7 +2,7 @@
 
 julia_version = "1.12.4"
 manifest_format = "2.0"
-project_hash = "bfef8ed7921035d6130c44a9eed01a9411e6c938"
+project_hash = "a00da110afc7a5de19d25c8e3dd12d99b668b552"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
@@ -95,7 +95,7 @@ version = "1.11.0"
 
 [[deps.Simuleos]]
 deps = ["Dates", "JSON3", "LibGit2", "SHA", "Serialization", "UUIDs"]
-path = "."
+path = "/Users/pereiro/.julia/dev/Simuleos"
 uuid = "583fa42a-a17c-4ad2-8932-70aab3cc9651"
 version = "0.1.0"
 

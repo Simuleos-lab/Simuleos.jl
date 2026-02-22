@@ -86,7 +86,12 @@ const exists = Simuleos.Kernel.exists
         ))
 
         @testset "TapeIO Raw Iteration" begin
-            commits = collect(tape)
+            rows = collect(tape)
+            @test length(rows) == 3
+            @test rows[1]["type"] == "tape_metadata"
+            @test rows[1]["tape_name"] == "main"
+
+            commits = filter(row -> get(row, "type", "") == "commit", rows)
             @test length(commits) == 2
             @test commits[1]["commit_label"] == "first_commit"
             @test commits[1]["metadata"]["git_branch"] == "main"
@@ -137,8 +142,58 @@ const exists = Simuleos.Kernel.exists
                 :scopes => Any[]
             ))
             rows = collect(normalized_tape)
-            @test length(rows) == 1
-            @test rows[1]["metadata"]["alpha"] == 1
+            @test length(rows) == 2
+            @test rows[1]["type"] == "tape_metadata"
+            @test rows[2]["metadata"]["alpha"] == 1
+        end
+
+        @testset "TapeIO Fragmented Directory Mode" begin
+            frag_dir = joinpath(simuleos_dir, "sessions", string(uuid4()), "tapes", "main")
+            fragmented_tape = TapeIO(frag_dir)
+
+            Simuleos.Kernel.append!(fragmented_tape, Dict(
+                "type" => "commit",
+                "commit_label" => "f1",
+                "metadata" => Dict("timestamp" => "2026-02-18T12:00:02"),
+                "scopes" => Any[]
+            ))
+            @test isfile(joinpath(frag_dir, "frag1.jsonl"))
+
+            # Add a second fragment explicitly and ensure directory iteration reads both.
+            frag2_path = joinpath(frag_dir, "frag2.jsonl")
+            open(frag2_path, "w") do io
+                println(io, Simuleos.Kernel._to_json_string(Dict(
+                    "type" => "commit",
+                    "commit_label" => "f2",
+                    "metadata" => Dict("timestamp" => "2026-02-18T12:00:03"),
+                    "scopes" => Any[]
+                )))
+            end
+
+            rows = collect(fragmented_tape)
+            @test length(rows) == 3
+            @test rows[1]["type"] == "tape_metadata"
+            commits = filter(row -> get(row, "type", "") == "commit", rows)
+            @test length(commits) == 2
+            @test commits[1]["commit_label"] == "f1"
+            @test commits[2]["commit_label"] == "f2"
+        end
+
+        @testset "TapeIO Single-File Metadata Record" begin
+            path = joinpath(simuleos_dir, "single-file-tape.jsonl")
+            file_tape = TapeIO(path)
+            Simuleos.Kernel.append!(file_tape, Dict(
+                "type" => "commit",
+                "commit_label" => "c1",
+                "metadata" => Dict("timestamp" => "2026-02-18T12:00:04"),
+                "scopes" => Any[]
+            ))
+
+            rows = collect(file_tape)
+            @test length(rows) == 2
+            @test rows[1]["type"] == "tape_metadata"
+            @test rows[1]["tape_name"] == "single-file-tape"
+            @test rows[2]["type"] == "commit"
         end
 
         @testset "TapeIO Empty/Malformed Cases" begin
