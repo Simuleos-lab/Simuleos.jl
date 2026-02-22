@@ -82,5 +82,25 @@ global _simuleos_expand_global = 0
 
         @test_throws ErrorException collect(Simuleos.each_scopes(project_driver; session="missing-label"))
         @test_throws ErrorException Simuleos.latest_scope(project_driver; session="missing-label")
+
+        @testset "scope_table" begin
+            rows = Simuleos.scope_table(project_driver; session="reader-test")
+            @test length(rows) == 1
+            row = rows[1]
+            @test row[:commit_label] == "c1"
+            @test row[:scope_labels] == "scope-one;tag"
+            # resolved variable values
+            @test row[:x] == 42
+            @test row[:b] == Dict("a" => 1)
+            @test row[:v] === nothing
+            @test row[:_simuleos_expand_global] == 7
+
+            # commit_label filtering
+            rows_miss = Simuleos.scope_table(project_driver; session="reader-test", commit_label="no-such")
+            @test isempty(rows_miss)
+
+            rows_hit = Simuleos.scope_table(project_driver; session="reader-test", commit_label="c1")
+            @test length(rows_hit) == 1
+        end
     end
 end

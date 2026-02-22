@@ -19,3 +19,35 @@
   - runtime snapshots are captured as scopes containing variable state plus contextual metadata.
   - captured scopes are accumulated in a session timeline and persisted as commit-grouped records.
   - stored records can be replayed/iterated later to reconstruct state evolution across a run.
+
+## Queued Commit Retention
+- Keep retention layers explicit and separate:
+  - staged scopes not yet grouped into a logical commit
+  - logical commits queued in memory before persistence
+  - physical tape fragmentation on disk (storage-level rollover)
+- Immediate commit path:
+  - flush older queued logical commits first, then persist the current staged commit
+  - preserves record order when immediate and queued modes are mixed
+- Queued commit path:
+  - convert the current staged scopes into one logical commit and enqueue it
+  - auto-flush the queue when the queued-commit threshold is reached
+- Explicit finalization point:
+  - create one tail logical commit from any remaining staged scopes
+  - flush all queued logical commits
+  - does not implicitly end or clear the active session object
+
+
+## Pipeline Workflow
+- Purpose: let numbered scripts exchange typed data through tapes instead of ad-hoc files
+on disk.
+- Typical use case: a multi-stage analysis where each script produces results the next
+script consumes (e.g. data prep → model fitting → summary report).
+- Pipeline workflows are implementable with existing scope recording and reading
+interfaces.
+- Convention: each script stage commits its output with a well-known commit label.
+- The next stage retrieves the upstream scope by commit_label + src_file.
+- No dedicated pipeline abstraction is needed:
+    - the commit label is the interface contract between stages.
+    - the tape provides lineage (who committed what, when, from which file).
+    - src_file filtering on latest_scope addresses the producer.
+- Reference: dev/live/504-stage-lineage-pipeline.jl

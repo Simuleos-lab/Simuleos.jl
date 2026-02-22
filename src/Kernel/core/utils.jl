@@ -32,6 +32,8 @@ const SESSION_META_TIMESTAMP_KEY = "timestamp"
 const SESSION_META_JULIA_VERSION_KEY = "julia_version"
 const SESSION_META_HOSTNAME_KEY = "hostname"
 const SESSION_META_SCRIPT_PATH_KEY = "script_path"
+const SESSION_META_INIT_FILE_KEY = "init_file"
+const SESSION_META_INIT_LINE_KEY = "init_line"
 const SESSION_META_GIT_COMMIT_KEY = "git_commit"
 const SESSION_META_GIT_DIRTY_KEY = "git_dirty"
 

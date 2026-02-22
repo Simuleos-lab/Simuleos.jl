@@ -20,6 +20,7 @@ include("core/env.jl")
 include("tapeio/json.jl")
 include("tapeio/tape.jl")
 include("blobstorage/blob.jl")
+include("cache.jl")
 
 # -- Scope subsystems --
 include("scoperias/base.jl")

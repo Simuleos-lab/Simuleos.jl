@@ -173,13 +173,17 @@ end
     WorkSession
 
 An active recording session. Manages staged scopes, simignore rules,
-and session metadata.
+queued commits pending tape flush, and session metadata.
 """
 mutable struct WorkSession
     session_id::Base.UUID
     labels::Vector{String}
     stage::ScopeStage
+    pending_commits::Vector{ScopeCommit}
+    is_finalized::Bool
     metadata::Dict{String, Any}
+    # Runtime-only registry of named context hashes (not persisted to session.json).
+    context_hash_reg::Dict{String, String}
     simignore_rules::Vector{Dict{Symbol, Any}}
     _settings_cache::Dict{String, Any}
 end

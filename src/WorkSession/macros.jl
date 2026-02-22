@@ -15,6 +15,72 @@ function _extract_symbols(expr)
     return Symbol[]
 end
 
+const _BATCH_COMMIT_MAX_PENDING_DEFAULT = 10
+const _BATCH_COMMIT_MAX_PENDING_KEY = "worksession.batch_commit.max_pending_commits"
+
+function _require_active_worksession_and_project()
+    sim = _Kernel._get_sim()
+    ws = sim.worksession
+    isnothing(ws) && error("No active session. Call @session_init first.")
+    proj = _Kernel.sim_project(sim)
+    return ws, proj
+end
+
+function _ctx_hash_record!(label::AbstractString, entries::AbstractVector{<:Tuple})::String
+    sim = _Kernel._get_sim()
+    ws = sim.worksession
+    isnothing(ws) && error("No active session. Call @session_init first.")
+
+    key_label = strip(String(label))
+    isempty(key_label) && error("@ctx_hash label must be a non-empty string.")
+
+    normalized = Tuple{String, Any}[]
+    for item in entries
+        length(item) == 2 || error("@ctx_hash internal error: expected (name, value) entries.")
+        name = strip(String(item[1]))
+        isempty(name) && error("@ctx_hash variable labels must be non-empty.")
+        push!(normalized, (name, item[2]))
+    end
+
+    hash = _Kernel.blob_ref(("ctx_hash_v1", key_label, normalized)).hash
+    ws.context_hash_reg[key_label] = hash
+    return hash
+end
+
+function _normalize_batch_commit_limit(value)::Int
+    value isa Integer || error("Batch commit threshold must be an integer, got: $(typeof(value))")
+    n = Int(value)
+    n >= 1 || error("Batch commit threshold must be >= 1, got: $(n)")
+    return n
+end
+
+function _batch_commit_limit(ws::_Kernel.WorkSession, max_pending_commits)::Int
+    raw = isnothing(max_pending_commits) ?
+        session_setting(ws, _BATCH_COMMIT_MAX_PENDING_KEY, _BATCH_COMMIT_MAX_PENDING_DEFAULT) :
+        max_pending_commits
+    return _normalize_batch_commit_limit(raw)
+end
+
+function _queue_stage_commit!(ws::_Kernel.WorkSession, gh; label::String = "")::_Kernel.ScopeCommit
+    meta = _session_commit_metadata(gh)
+    commit = _Kernel.take_stage_commit!(ws.stage; label=label, metadata=meta)
+    push!(ws.pending_commits, commit)
+    ws.is_finalized = false
+    return commit
+end
+
+function _flush_pending_commits!(proj::_Kernel.SimuleosProject, ws::_Kernel.WorkSession)::Int
+    n = length(ws.pending_commits)
+    n == 0 && return 0
+
+    tape = _Kernel.TapeIO(_Kernel.tape_path(proj, ws.session_id))
+    for commit in ws.pending_commits
+        _Kernel.commit_to_tape!(tape, commit)
+    end
+    empty!(ws.pending_commits)
+    return n
+end
+
 """
     @session_init(labels...)
 
@@ -29,8 +95,9 @@ sim_init!()
 """
 macro session_init(labels...)
     src = string(__source__.file)
+    src_line = __source__.line
     quote
-        $(_WS).session_init_from_macro!(Any[$(labels...)], $src)
+        $(_WS).session_init_from_macro!(Any[$(labels...)], $src, $src_line)
     end |> esc
 end
 
@@ -114,6 +181,41 @@ macro scope_meta(pairs...)
 end
 
 """
+    @ctx_hash(label, vars_or_pairs...)
+
+Compute a deterministic context hash from a user label plus selected values from
+the current scope, store it in the active session registry, and return the hash.
+
+Accepted inputs after `label`:
+- symbols (captured by current value): `x y`
+- explicit pairs: `tol=1e-6 method="fast"`
+
+# Example
+```julia
+h = @ctx_hash "solver-input" model eps tol=1e-6
+```
+"""
+macro ctx_hash(label, vars_or_pairs...)
+    entries = Expr[]
+    for item in vars_or_pairs
+        if item isa Symbol
+            push!(entries, :(($(string(item)), $item)))
+        elseif item isa Expr && item.head == :(=) && length(item.args) == 2 && item.args[1] isa Symbol
+            push!(entries, :(($(string(item.args[1])), $(item.args[2]))))
+        else
+            error("@ctx_hash expects variable names and/or key=value pairs, got: $item")
+        end
+    end
+
+    quote
+        $(_WS)._ctx_hash_record!(
+            string($label),
+            Tuple{String, Any}[$(entries...)]
+        )
+    end |> esc
+end
+
+"""
     @scope_capture(label="")
 
 Capture the current scope (local + global variables) and add it to
@@ -172,6 +274,33 @@ macro session_commit(label="")
     end |> esc
 end
 
+"""
+    @session_batch_commit(label="")
+
+Convert staged scopes into a `ScopeCommit`, queue it in memory, and flush the
+queued commits to tape when the pending-commit threshold is reached.
+"""
+macro session_batch_commit(label="")
+    quote
+        $(_WS).session_batch_commit(string($label))
+    end |> esc
+end
+
+"""
+    @session_finalize(label="")
+
+Flush session recording buffers:
+1. If staged scopes remain, convert them into one final queued commit.
+2. Flush all queued commits to tape.
+
+Does not end the active work session.
+"""
+macro session_finalize(label="")
+    quote
+        $(_WS).session_finalize(string($label))
+    end |> esc
+end
+
 function scope_capture(
         label::String,
         locals::AbstractDict{Symbol, Any},
@@ -212,17 +341,46 @@ function scope_capture(
     end
 
     push!(ws.stage.captures, scope)
+    ws.is_finalized = false
     return scope
 end
 
 function session_commit(label::String="")
-    sim = _Kernel._get_sim()
-    ws = sim.worksession
-    isnothing(ws) && error("No active session. Call @session_init first.")
-    proj = _Kernel.sim_project(sim)
+    ws, proj = _require_active_worksession_and_project()
 
+    # Preserve logical commit order when mixing queued and immediate commit paths.
+    _flush_pending_commits!(proj, ws)
     tape = _Kernel.TapeIO(_Kernel.tape_path(proj, ws.session_id))
     meta = _session_commit_metadata(proj.git_handler)
+    commit = _Kernel.commit_stage!(tape, ws.stage; label=label, metadata=meta)
+    ws.is_finalized = false
+    return commit
+end
 
-    return _Kernel.commit_stage!(tape, ws.stage; label=label, metadata=meta)
+function session_batch_commit(label::String=""; max_pending_commits = nothing)
+    ws, proj = _require_active_worksession_and_project()
+    limit = _batch_commit_limit(ws, max_pending_commits)
+
+    commit = _queue_stage_commit!(ws, proj.git_handler; label=label)
+    if length(ws.pending_commits) >= limit
+        _flush_pending_commits!(proj, ws)
+    end
+    return commit
+end
+
+function session_finalize(label::String="")
+    ws, proj = _require_active_worksession_and_project()
+
+    queued_tail_commit = false
+    if !isempty(ws.stage.captures)
+        _queue_stage_commit!(ws, proj.git_handler; label=label)
+        queued_tail_commit = true
+    end
+
+    flushed_commits = _flush_pending_commits!(proj, ws)
+    ws.is_finalized = true
+    return (
+        queued_tail_commit = queued_tail_commit,
+        flushed_commits = flushed_commits,
+    )
 end

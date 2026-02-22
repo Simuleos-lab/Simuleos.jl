@@ -157,4 +157,45 @@ macro scope_expand(scope_expr, project_expr, vars...)
     return Expr(:block, stmts...)
 end
 
+"""
+    scope_table(project_driver; session=:active, commit_label=nothing, src_file=nothing) -> Vector{Dict{Symbol, Any}}
+
+Flatten scope data into tabular rows suitable for `DataFrame()`.
+
+Each row contains:
+- `:commit_label` — the commit label string
+- `:scope_labels` — semicolon-joined scope labels
+- metadata keys (as-is)
+- variable names with resolved values (inline, blob, or `nothing` for void)
+"""
+function scope_table(
+        project_driver::Kernel.SimuleosProject;
+        session::Union{Symbol, Base.UUID, String} = :active,
+        commit_label::Union{String, Nothing} = nothing,
+        src_file::Union{String, Nothing} = nothing,
+    )::Vector{Dict{Symbol, Any}}
+    rows = Dict{Symbol, Any}[]
+    for commit in each_commits(project_driver; session=session)
+        if !isnothing(commit_label) && commit.commit_label != commit_label
+            continue
+        end
+        for scope in commit.scopes
+            if !isnothing(src_file) && !_src_file_match(scope, src_file)
+                continue
+            end
+            row = Dict{Symbol, Any}()
+            row[:commit_label] = commit.commit_label
+            row[:scope_labels] = join(scope.labels, ";")
+            for (k, v) in scope.metadata
+                row[k] = v
+            end
+            for (name, var) in scope.variables
+                row[name] = value(var, project_driver)
+            end
+            push!(rows, row)
+        end
+    end
+    return rows
+end
+
 end # module ScopeReader

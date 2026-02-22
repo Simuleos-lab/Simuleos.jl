@@ -7,13 +7,13 @@ function _empty_stage()::Simuleos.Kernel.ScopeStage
 end
 
 function _test_worksession()::Simuleos.Kernel.WorkSession
-    return Simuleos.Kernel.WorkSession(
-        uuid4(),
-        ["test"],
-        _empty_stage(),
-        Dict{String, Any}(),
-        Dict{Symbol, Any}[],
-        Dict{String, Any}()
+    return Simuleos.Kernel.WorkSession(;
+        session_id = uuid4(),
+        labels = ["test"],
+        stage = _empty_stage(),
+        metadata = Dict{String, Any}(),
+        simignore_rules = Dict{Symbol, Any}[],
+        _settings_cache = Dict{String, Any}(),
     )
 end
 

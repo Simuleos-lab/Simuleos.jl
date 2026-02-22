@@ -75,6 +75,7 @@ Write session.json to disk.
 """
 function _persist_session!(proj::_Kernel.SimuleosProject, ws::_Kernel.WorkSession)
     sjson = _Kernel._session_json_path(proj.simuleos_dir, ws.session_id)
+    # `context_hash_reg` is intentionally runtime-only and is not persisted in session.json.
     _Kernel._write_json_file(sjson, Dict(
         _Kernel.SESSION_FILE_ID_KEY => string(ws.session_id),
         _Kernel.SESSION_FILE_LABELS_KEY => ws.labels,
@@ -90,7 +91,46 @@ end
 Check if the work session has un-committed captures.
 """
 function isdirty(simos, ws::_Kernel.WorkSession)
-    return !isempty(ws.stage.captures)
+    _ = simos
+    return !isempty(ws.stage.captures) || !isempty(ws.pending_commits)
+end
+
+function _primary_session_label(ws::_Kernel.WorkSession)::Union{Nothing, String}
+    isempty(ws.labels) && return nothing
+    return ws.labels[1]
+end
+
+function _session_init_callsite(ws::_Kernel.WorkSession)::Union{Nothing, String}
+    file = get(ws.metadata, _Kernel.SESSION_META_INIT_FILE_KEY, "")
+    file isa AbstractString || return nothing
+    file_str = String(file)
+    isempty(file_str) && return nothing
+
+    line = get(ws.metadata, _Kernel.SESSION_META_INIT_LINE_KEY, nothing)
+    if line isa Integer && Int(line) > 0
+        return string(file_str, ":", Int(line))
+    end
+    return file_str
+end
+
+function _warn_if_switching_unfinalized_session!(current_ws::_Kernel.WorkSession, next_labels::Vector{String})
+    current_ws.is_finalized && return nothing
+    isempty(next_labels) && return nothing
+
+    prev_label = _primary_session_label(current_ws)
+    isnothing(prev_label) && return nothing
+
+    next_label = _Kernel._normalize_session_label(next_labels[1])
+    prev_label == next_label && return nothing
+
+    prev_init = _session_init_callsite(current_ws)
+    if isnothing(prev_init)
+        @warn "Switching to a new session without finalizing the previous one." previous_session=prev_label next_session=next_label
+        return nothing
+    end
+
+    @warn "Switching to a new session without finalizing the previous one. Previous session `$(prev_label)` was initialized at $(prev_init)." previous_session=prev_label next_session=next_label previous_session_init=prev_init
+    return nothing
 end
 
 """
@@ -102,13 +142,21 @@ Initialize a work session: resolve, capture metadata, persist, and bind to simos
 function session_init!(simos::_Kernel.SimOs, proj::_Kernel.SimuleosProject;
         session_id = nothing,
         labels::Vector{String} = String[],
-        script_path::String = ""
+        script_path::String = "",
+        init_file::String = "",
+        init_line::Int = 0,
     )
     ws = resolve_session(simos, proj; session_id, labels)
 
     # Capture metadata if not already present
     if isempty(ws.metadata)
         ws.metadata = _capture_session_metadata(; script_path)
+        if !isempty(init_file)
+            ws.metadata[_Kernel.SESSION_META_INIT_FILE_KEY] = init_file
+        end
+        if init_line > 0
+            ws.metadata[_Kernel.SESSION_META_INIT_LINE_KEY] = init_line
+        end
     end
     get(ws.metadata, _Kernel.SESSION_META_GIT_DIRTY_KEY, false) === true &&
         error("Cannot start session: git repository has uncommitted changes.")
@@ -125,7 +173,11 @@ end
 
 Global-state version: uses the current SimOs and project.
 """
-function session_init!(labels::Vector{String}, script_path::String; session_id = nothing)
+function session_init!(labels::Vector{String}, script_path::String;
+        session_id = nothing,
+        init_file::String = "",
+        init_line::Int = 0,
+    )
     simos = _Kernel._get_sim()
     proj = _Kernel.sim_project(simos)
 
@@ -133,18 +185,30 @@ function session_init!(labels::Vector{String}, script_path::String; session_id =
     if !isnothing(simos.worksession) && isdirty(simos, simos.worksession)
         error("Cannot reinitialize session: current session has uncommitted captures. Commit or reset first.")
     end
+    if !isnothing(simos.worksession)
+        _warn_if_switching_unfinalized_session!(simos.worksession, labels)
+    end
 
-    return session_init!(simos, proj; session_id, labels, script_path)
+    return session_init!(simos, proj;
+        session_id,
+        labels,
+        script_path,
+        init_file,
+        init_line,
+    )
 end
 
 """
-    session_init_from_macro!(labels::Vector, script_path::String)
+    session_init_from_macro!(labels::Vector, script_path::String, src_line::Int)
 
 Entry point from @session_init macro. Validates label types.
 """
-function session_init_from_macro!(labels::Vector, script_path::String)
+function session_init_from_macro!(labels::Vector, script_path::String, src_line::Int)
     for l in labels
         l isa AbstractString || error("Session labels must be strings, got: $(typeof(l))")
     end
-    session_init!(String[string(l) for l in labels], script_path)
+    return session_init!(String[string(l) for l in labels], script_path;
+        init_file = script_path,
+        init_line = src_line,
+    )
 end

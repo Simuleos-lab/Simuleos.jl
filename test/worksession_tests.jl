@@ -138,7 +138,7 @@ using Dates
     end
 
     @testset "macro init wrapper enforces string labels" begin
-        @test_throws ErrorException wsmod.session_init_from_macro!(Any[1], @__FILE__)
+        @test_throws ErrorException wsmod.session_init_from_macro!(Any[1], @__FILE__, 1)
     end
 
     @testset "isdirty and active-session reinit guard" begin
@@ -148,6 +148,10 @@ using Dates
         push!(simos.worksession.stage.captures, kernel.SimuleosScope())
         @test wsmod.isdirty(simos, simos.worksession) == true
         @test_throws ErrorException wsmod.session_init!(["another"], @__FILE__)
+
+        empty!(simos.worksession.stage.captures)
+        push!(simos.worksession.pending_commits, kernel.ScopeCommit("", Dict{String, Any}(), kernel.SimuleosScope[]))
+        @test wsmod.isdirty(simos, simos.worksession) == true
     end
 
     @testset "global session_init! with explicit session_id bypasses label lookup" begin
@@ -156,5 +160,200 @@ using Dates
         wsmod.session_init!(["label-a"], @__FILE__; session_id=sid)
         @test simos.worksession.session_id == sid
         @test simos.worksession.labels == ["label-a"]
+    end
+
+    @testset "@ctx_hash records named hashes from scope values" begin
+        with_test_context() do _
+            @session_init ("ctxhash-" * string(uuid4()))
+            ws = kernel._get_sim().worksession
+            @test !isnothing(ws)
+            @test isempty(ws.context_hash_reg)
+
+            x = 3
+            y = "alpha"
+            h1 = Simuleos.@ctx_hash "solver-input" x y tol=1e-6 mode="fast"
+            @test h1 isa String
+            @test length(h1) == 40
+            @test ws.context_hash_reg["solver-input"] == h1
+
+            h2 = Simuleos.@ctx_hash "solver-input" x y tol=1e-6 mode="fast"
+            @test h2 == h1
+
+            x = 4
+            h3 = Simuleos.@ctx_hash "solver-input" x y tol=1e-6 mode="fast"
+            @test h3 != h1
+            @test ws.context_hash_reg["solver-input"] == h3
+
+            h4 = Simuleos.@ctx_hash "alt-order" y x tol=1e-6 mode="fast"
+            @test h4 isa String
+            @test ws.context_hash_reg["alt-order"] == h4
+        end
+    end
+
+    @testset "@ctx_hash requires active session" begin
+        with_test_context() do _
+            kernel._get_sim().worksession = nothing
+            @test_throws ErrorException Simuleos.@ctx_hash "no-session" tol=1e-6
+        end
+    end
+
+    @testset "remember! reuses blob-backed values by named ctx hash" begin
+        with_test_context() do ctx
+            @session_init ("cache-a-" * string(uuid4()))
+            ws = kernel._get_sim().worksession
+            @test !isnothing(ws)
+
+            model = "iJO1366"
+            eps = 1e-6
+            solver = "HiGHS"
+            @test isempty(ws.context_hash_reg)
+            h = Simuleos.@ctx_hash "fva-inputs" model eps solver
+            @test ws.context_hash_reg["fva-inputs"] == h
+
+            calls = Ref(0)
+            value1, status1 = Simuleos.remember!("fva"; ctx="fva-inputs", tags=["fva", "expensive"]) do
+                calls[] += 1
+                Dict("status" => "ok", "objective" => 0.92)
+            end
+            @test status1 == :miss
+            @test calls[] == 1
+            @test value1["status"] == "ok"
+
+            value2, status2 = Simuleos.remember!("fva"; ctx="fva-inputs", tags=["fva", "expensive"]) do
+                calls[] += 1
+                Dict("status" => "ok", "objective" => 9.99)
+            end
+            @test status2 == :hit
+            @test calls[] == 1
+            @test value2 == value1
+
+            kernel.sim_reset!()
+            kernel.sim_init!(
+                bootstrap = Dict{String, Any}(
+                    "project.root" => ctx[:project_path],
+                    "home.path" => ctx[:home_path],
+                )
+            )
+            @session_init ("cache-b-" * string(uuid4()))
+            model = "iJO1366"
+            eps = 1e-6
+            solver = "HiGHS"
+            Simuleos.@ctx_hash "fva-inputs" model eps solver
+
+            value3, status3 = Simuleos.remember!("fva"; ctx="fva-inputs") do
+                calls[] += 1
+                Dict("status" => "ok", "objective" => 7.77)
+            end
+            @test status3 == :hit
+            @test calls[] == 1
+            @test value3 == value1
+        end
+    end
+
+    @testset "remember! supports explicit ctx_hash and validates inputs" begin
+        with_test_context() do _
+            @session_init ("cache-explicit-" * string(uuid4()))
+            x = 10
+            h = Simuleos.@ctx_hash "demo" x
+
+            calls = Ref(0)
+            v1, s1 = Simuleos.remember!("demo"; ctx_hash=h) do
+                calls[] += 1
+                x^2
+            end
+            v2, s2 = Simuleos.remember!("demo"; ctx_hash=h) do
+                calls[] += 1
+                x^3
+            end
+            @test (v1, s1) == (100, :miss)
+            @test (v2, s2) == (100, :hit)
+            @test calls[] == 1
+
+            @test_throws ErrorException Simuleos.remember!("demo"; ctx="demo", ctx_hash=h) do
+                1
+            end
+            @test_throws ErrorException Simuleos.remember!("demo"; ctx="missing") do
+                1
+            end
+        end
+    end
+
+    @testset "queued commits and session finalizer" begin
+        with_test_context() do _
+            simos2 = kernel._get_sim()
+            proj2 = kernel.sim_project(simos2)
+
+            @session_init ("queue-" * string(uuid4()))
+            ws = kernel._get_sim().worksession
+            @test !isnothing(ws)
+
+            tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
+            @test isempty(collect(kernel.iterate_tape(tape)))
+
+            let x = 1
+                @scope_capture "s1"
+            end
+            c1 = wsmod.session_batch_commit("c1"; max_pending_commits=2)
+            @test c1.commit_label == "c1"
+            @test length(ws.pending_commits) == 1
+            @test isempty(collect(kernel.iterate_tape(tape)))
+
+            let x = 2
+                @scope_capture "s2"
+            end
+            c2 = wsmod.session_batch_commit("c2"; max_pending_commits=2)
+            @test c2.commit_label == "c2"
+            @test isempty(ws.pending_commits)
+
+            commits = collect(kernel.iterate_tape(tape))
+            @test [c.commit_label for c in commits] == ["c1", "c2"]
+
+            let x = 3
+                @scope_capture "s3"
+            end
+            Simuleos.@session_batch_commit "c3"
+            @test length(ws.pending_commits) == 1
+
+            let x = 4
+                @scope_capture "s4"
+            end
+            result = Simuleos.@session_finalize "tail"
+            @test result.queued_tail_commit == true
+            @test result.flushed_commits == 2
+            @test isempty(ws.pending_commits)
+            @test isempty(ws.stage.captures)
+
+            commits = collect(kernel.iterate_tape(tape))
+            @test [c.commit_label for c in commits] == ["c1", "c2", "c3", "tail"]
+        end
+    end
+
+    @testset "session_init warns when switching from unfinalized session" begin
+        with_test_context() do _
+            expected_init_line = (@__LINE__) + 1
+            @session_init ("warn-a-" * string(uuid4()))
+            ws = kernel._get_sim().worksession
+            @test ws.is_finalized == false
+            @test haskey(ws.metadata, kernel.SESSION_META_INIT_FILE_KEY)
+            @test haskey(ws.metadata, kernel.SESSION_META_INIT_LINE_KEY)
+            @test basename(String(ws.metadata[kernel.SESSION_META_INIT_FILE_KEY])) == basename(@__FILE__)
+            @test Int(ws.metadata[kernel.SESSION_META_INIT_LINE_KEY]) == expected_init_line
+
+            @test_logs (:warn, r"initialized at .*:") wsmod.session_init!(["warn-b-" * string(uuid4())], @__FILE__)
+            ws2 = kernel._get_sim().worksession
+            @test ws2.labels[1] != ws.labels[1]
+            @test ws2.is_finalized == false
+        end
+    end
+
+    @testset "session_init does not warn after explicit finalization" begin
+        with_test_context() do _
+            @session_init ("final-a-" * string(uuid4()))
+            wsmod.session_finalize()
+            ws = kernel._get_sim().worksession
+            @test ws.is_finalized == true
+
+            @test_logs wsmod.session_init!(["final-b-" * string(uuid4())], @__FILE__)
+        end
     end
 end

@@ -34,11 +34,14 @@ function WorkSession(;
         session_id::Base.UUID = uuid4(),
         labels::Vector{String} = String[],
         stage::ScopeStage = ScopeStage(),
+        pending_commits::Vector{ScopeCommit} = ScopeCommit[],
+        is_finalized::Bool = false,
         metadata::Dict{String, Any} = Dict{String, Any}(),
+        context_hash_reg::Dict{String, String} = Dict{String, String}(),
         simignore_rules::Vector{Dict{Symbol, Any}} = Dict{Symbol, Any}[],
         _settings_cache::Dict{String, Any} = Dict{String, Any}(),
     )
-    WorkSession(session_id, labels, stage, metadata, simignore_rules, _settings_cache)
+    WorkSession(session_id, labels, stage, pending_commits, is_finalized, metadata, context_hash_reg, simignore_rules, _settings_cache)
 end
 
 # -- show methods --

@@ -74,6 +74,22 @@ function commit_to_tape!(tape::TapeIO, commit::ScopeCommit)
 end
 
 """
+    take_stage_commit!(stage::ScopeStage; label::String="", metadata::Dict{String,Any}=Dict{String,Any}())
+
+Build a `ScopeCommit` from the current stage and clear staged captures.
+Does not write to tape.
+"""
+function take_stage_commit!(stage::ScopeStage;
+        label::String = "",
+        metadata::Dict{String, Any} = Dict{String, Any}()
+    )
+    commit = ScopeCommit(label, copy(metadata), copy(stage.captures))
+    empty!(stage.captures)
+    empty!(stage.inline_vars)
+    return commit
+end
+
+"""
     commit_stage!(tape::TapeIO, stage::ScopeStage; label::String="", metadata::Dict{String,Any}=Dict{String,Any}())
 
 Flush the current stage to the tape as a single commit.
@@ -84,9 +100,7 @@ function commit_stage!(tape::TapeIO, stage::ScopeStage;
         label::String = "",
         metadata::Dict{String, Any} = Dict{String, Any}()
     )
-    commit = ScopeCommit(label, metadata, copy(stage.captures))
+    commit = take_stage_commit!(stage; label=label, metadata=metadata)
     commit_to_tape!(tape, commit)
-    empty!(stage.captures)
-    empty!(stage.inline_vars)
     return commit
 end
