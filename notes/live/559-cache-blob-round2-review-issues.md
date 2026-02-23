@@ -4,6 +4,7 @@ Focused review of the current cache/blob/worksession changes after closing `558`
 
 ## 1. `blob_write` has a TOCTOU race and can silently overwrite concurrent writes
 
+- Status: accepted non-goal (for now)
 - Severity: high
 - Location:
   - `src/Kernel/blobstorage/blob.jl:70`
@@ -18,6 +19,11 @@ Focused review of the current cache/blob/worksession changes after closing `558`
 - Why this matters:
   - Cache race semantics (`:stored`, `:already_exists`, `:race_lost`) become unreliable under true concurrency.
   - Final persisted value for a cache key can depend on write timing rather than deterministic race handling.
+- Decision (current scope):
+  - Cache-key collisions are treated as semantic equivalence.
+  - We do not manage writer races just to identify which equivalent computation "won".
+  - Caller responsibility is to compose keys so collisions only happen for equivalent results.
+  - Reference: `notes/index/006-workflow-surfaces.md` (`## Keyed Cache Equivalence Assumption`)
 - Improvement options:
   1. Use atomic create semantics (`O_CREAT | O_EXCL`) for new blob writes.
   2. Write to a temp file and atomically rename only when target does not exist.
@@ -25,6 +31,7 @@ Focused review of the current cache/blob/worksession changes after closing `558`
 
 ## 2. `@remember` and `remember!` have divergent extra-key APIs and key-shape semantics
 
+- Status: solved
 - Severity: medium
 - Location:
   - `src/WorkSession/macros.jl:64`
@@ -42,6 +49,11 @@ Focused review of the current cache/blob/worksession changes after closing `558`
   1. Define one canonical extra-key data model (recommended: labeled pairs / named data only) and apply it to both surfaces.
   2. If intentional, document the asymmetry explicitly with examples of accepted forms on each surface.
   3. Add parity tests that prove equivalent macro/function usage yields the same composed hash.
+- Solved how:
+  - `remember!` now narrows `ctx_extra` to named data only: `NamedTuple` (or `nothing`).
+  - Raw tuple/vector/scalar `ctx_extra` inputs now throw a clear error.
+  - `@remember` already required explicit `key=value` extra parts, so both surfaces now align on named-key semantics.
+  - Existing `NamedTuple`-based `remember!` uses remain valid.
 
 ## 3. Cache metadata tag updates are effectively write-once and silently lossy
 
@@ -99,8 +111,6 @@ Focused review of the current cache/blob/worksession changes after closing `558`
 
 ## Priority Order
 
-1. Fix `blob_write` atomicity / race detection (issue 1).
-2. Resolve extra-key API asymmetry between `@remember` and `remember!` (issue 2).
-3. Define and implement a tag update policy in cache metadata (issue 3).
-4. Reduce macro/function cache-path logic duplication or add parity tests (issue 4).
-5. Clean BlobStorage leftovers (issue 5).
+1. Define and implement a tag update policy in cache metadata (issue 3).
+2. Reduce macro/function cache-path logic duplication or add parity tests (issue 4).
+3. Clean BlobStorage leftovers (issue 5).

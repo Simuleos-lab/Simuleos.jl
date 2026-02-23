@@ -92,10 +92,12 @@ end
 value(var::Kernel.InlineScopeVariable, project_driver::Kernel.SimuleosProject) = var.value
 value(var::Kernel.BlobScopeVariable, project_driver::Kernel.SimuleosProject) = Kernel.blob_read(project_driver.blobstorage, var.blob_ref)
 value(var::Kernel.VoidScopeVariable, project_driver::Kernel.SimuleosProject) = nothing
+value(var::Kernel.HashedScopeVariable, project_driver::Kernel.SimuleosProject) = nothing
 
 _scope_expand_level(var::Kernel.InlineScopeVariable)::Symbol = var.level
 _scope_expand_level(var::Kernel.BlobScopeVariable)::Symbol = var.level
 _scope_expand_level(var::Kernel.VoidScopeVariable)::Symbol = var.level
+_scope_expand_level(var::Kernel.HashedScopeVariable)::Symbol = var.level
 
 function _scope_expand_runtime!(
         scope::Kernel.SimuleosScope,
@@ -116,46 +118,6 @@ function _scope_expand_setglobal!(target_module::Module, name::Symbol, value)
     return value
 end
 
-"""
-    @scope_expand(scope, project, vars...)
-
-Hydrate selected variables from a recorded scope into the caller context.
-
-- Variables recorded as `:local` are assigned in the caller scope.
-- Variables recorded as `:global` are assigned into the caller module globals.
-  The target global binding must already exist.
-"""
-macro scope_expand(scope_expr, project_expr, vars...)
-    isempty(vars) && error("@scope_expand expects at least one variable name.")
-
-    for v in vars
-        v isa Symbol || error("@scope_expand expects variable names, got: $v")
-    end
-
-    scope_in = esc(scope_expr)
-    project_in = esc(project_expr)
-    caller_module = QuoteNode(__module__)
-
-    stmts = Expr[]
-    for v in vars
-        name = QuoteNode(v)
-        level_sym = gensym(:scope_expand_level)
-        value_sym = gensym(:scope_expand_value)
-        push!(stmts, quote
-            local $level_sym, $value_sym
-            $level_sym, $value_sym = $(_SR)._scope_expand_runtime!($scope_in, $project_in, $name)
-            if $level_sym === :global
-                $(_SR)._scope_expand_setglobal!($caller_module, $name, $value_sym)
-            elseif $level_sym === :local
-                $(esc(v)) = $value_sym
-            else
-                error("Unsupported scope level `$($level_sym)` for variable `$(string($name))`.")
-            end
-        end)
-    end
-
-    return Expr(:block, stmts...)
-end
 
 """
     scope_table(project_driver; session=:active, commit_label=nothing, src_file=nothing) -> Vector{Dict{Symbol, Any}}

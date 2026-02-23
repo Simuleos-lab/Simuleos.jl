@@ -1,5 +1,5 @@
 # ============================================================
-# WorkSession/macros.jl — User-facing macros
+# WorkSession/macros.jl — Macro helpers and runtime functions
 # ============================================================
 
 function _extract_symbols(expr)
@@ -22,13 +22,13 @@ function _remember_target_vars(target)
     if target isa Expr && target.head == :tuple
         vars = Symbol[]
         for a in target.args
-            a isa Symbol || error("@remember tuple target expects variable names, got: $a")
+            a isa Symbol || error("@simos remember tuple target expects variable names, got: $a")
             push!(vars, a)
         end
-        isempty(vars) && error("@remember tuple target cannot be empty.")
+        isempty(vars) && error("@simos remember tuple target cannot be empty.")
         return vars
     end
-    error("@remember expects a variable name or tuple of variable names as target, got: $target")
+    error("@simos remember expects a variable name or tuple of variable names as target, got: $target")
 end
 
 function _remember_assign_expr(var::Symbol, value_expr)
@@ -50,12 +50,12 @@ end
 
 # NOTE: @isdefined is a best-effort guard — it catches unassigned targets but
 # cannot distinguish a fresh assignment from a pre-existing binding.  This is a
-# known limitation; the assign form (`@remember h x = expr`) is the reliable
+# known limitation; the assign form (`@simos remember h x = expr`) is the reliable
 # alternative when the target may already be in scope.
 function _remember_defined_checks(vars::Vector{Symbol})
     checks = Expr[]
     for v in vars
-        msg = "@remember miss branch did not leave `" * String(v) * "` defined."
+        msg = "@simos remember miss branch did not leave `" * String(v) * "` defined."
         push!(checks, :((@isdefined $v) || error($msg)))
     end
     return checks
@@ -65,7 +65,7 @@ function _remember_is_extra_spec(expr)::Bool
     if !(expr isa Expr && expr.head == :tuple)
         return false
     end
-    isempty(expr.args) && error("@remember extra key tuple cannot be empty.")
+    isempty(expr.args) && error("@simos remember extra key tuple cannot be empty.")
 
     is_pair(a) = a isa Expr && a.head == :(=) && length(a.args) == 2 && a.args[1] isa Symbol
     any_pairs = any(is_pair, expr.args)
@@ -75,18 +75,18 @@ function _remember_is_extra_spec(expr)::Bool
         return true
     end
     if any_pairs
-        error("@remember extra key tuple accepts only key=value pairs.")
+        error("@simos remember extra key tuple accepts only key=value pairs.")
     end
     return false
 end
 
 function _remember_extra_parts_expr(spec::Expr)
-    spec.head == :tuple || error("@remember internal error: expected tuple extra key spec.")
+    spec.head == :tuple || error("@simos remember internal error: expected tuple extra key spec.")
 
     parts = Expr[]
     for item in spec.args
         if !(item isa Expr && item.head == :(=) && length(item.args) == 2 && item.args[1] isa Symbol)
-            error("@remember extra key tuple accepts only key=value pairs, got: $item")
+            error("@simos remember extra key tuple accepts only key=value pairs, got: $item")
         end
         push!(parts, :(($(string(item.args[1])), $(item.args[2]))))
     end
@@ -99,7 +99,7 @@ const _BATCH_COMMIT_MAX_PENDING_KEY = "worksession.batch_commit.max_pending_comm
 function _require_active_worksession_and_project()
     sim = _Kernel._get_sim()
     ws = sim.worksession
-    isnothing(ws) && error("No active session. Call @session_init first.")
+    isnothing(ws) && error("No active session. Call @simos init first.")
     proj = _Kernel.sim_project(sim)
     return ws, proj
 end
@@ -107,9 +107,9 @@ end
 function _ctx_hash_record!(label::AbstractString, entries::AbstractVector{<:Tuple})::String
     sim = _Kernel._get_sim()
     ws = sim.worksession
-    isnothing(ws) && error("No active session. Call @session_init first.")
+    isnothing(ws) && error("No active session. Call @simos init first.")
     key_label = strip(String(label))
-    isempty(key_label) && error("@ctx_hash label must be a non-empty string.")
+    isempty(key_label) && error("@simos ctx_hash label must be a non-empty string.")
     hash = _ctx_hash_from_named_entries(label, entries)
     ws.context_hash_reg[key_label] = hash
     return hash
@@ -129,9 +129,21 @@ function _batch_commit_limit(ws::_Kernel.WorkSession, max_pending_commits)::Int
     return _normalize_batch_commit_limit(raw)
 end
 
-function _queue_stage_commit!(ws::_Kernel.WorkSession, gh; label::String = "")::_Kernel.ScopeCommit
+function _apply_commit_capture_filters!(ws::_Kernel.WorkSession, commit::_Kernel.ScopeCommit)::_Kernel.ScopeCommit
+    for i in eachindex(commit.scopes)
+        commit.scopes[i] = _WS.apply_capture_filters(commit.scopes[i], ws)
+    end
+    return commit
+end
+
+function _take_stage_commit_filtered!(ws::_Kernel.WorkSession, gh; label::String = "")::_Kernel.ScopeCommit
     meta = _session_commit_metadata(gh)
     commit = _Kernel.take_stage_commit!(ws.stage; label=label, metadata=meta)
+    return _apply_commit_capture_filters!(ws, commit)
+end
+
+function _queue_stage_commit!(ws::_Kernel.WorkSession, gh; label::String = "")::_Kernel.ScopeCommit
+    commit = _take_stage_commit_filtered!(ws, gh; label=label)
     push!(ws.pending_commits, commit)
     ws.is_finalized = false
     return commit
@@ -159,323 +171,6 @@ function _flush_pending_commits!(proj::_Kernel.SimuleosProject, ws::_Kernel.Work
     return n
 end
 
-"""
-    @session_init(labels...)
-
-Initialize a recording session with the given labels.
-Must be called after `sim_init!()`.
-
-# Example
-```julia
-sim_init!()
-@session_init "experiment1" "run-alpha"
-```
-"""
-macro session_init(labels...)
-    src = string(__source__.file)
-    src_line = __source__.line
-    quote
-        $(_WS).session_init_from_macro!(Any[$(labels...)], $src, $src_line)
-    end |> esc
-end
-
-"""
-    @session_store(vars...)
-
-Mark variables for blob storage instead of inline JSON.
-Use for large objects like arrays, DataFrames, etc.
-
-# Example
-```julia
-@session_store big_matrix results_df
-```
-"""
-macro session_store(vars...)
-    stmts = Expr[]
-    for v in vars
-        v isa Symbol || error("@session_store expects variable names, got: $v")
-        push!(stmts, quote
-            let sim = $(_Kernel)._get_sim()
-                isnothing(sim.worksession) && error("No active session. Call @session_init first.")
-                push!(sim.worksession.stage.blob_vars, $(QuoteNode(v)))
-            end
-        end)
-    end
-    esc(Expr(:block, stmts...))
-end
-
-"""
-    @scope_inline(vars...)
-
-Mark variables for inline JSON storage (overrides the default Void behavior
-for non-lite types). Use for values you want recorded in the tape JSON.
-
-# Example
-```julia
-@scope_inline my_vector config_dict
-```
-"""
-macro scope_inline(vars...)
-    stmts = Expr[]
-    for v in vars
-        v isa Symbol || error("@scope_inline expects variable names, got: $v")
-        push!(stmts, quote
-            let sim = $(_Kernel)._get_sim()
-                isnothing(sim.worksession) && error("No active session. Call @session_init first.")
-                push!(sim.worksession.stage.inline_vars, $(QuoteNode(v)))
-            end
-        end)
-    end
-    esc(Expr(:block, stmts...))
-end
-
-"""
-    @scope_meta(pairs...)
-
-Add metadata key-value pairs to the next scope capture.
-
-# Example
-```julia
-@scope_meta step=1 phase="training"
-```
-"""
-macro scope_meta(pairs...)
-    stmts = Expr[]
-    for p in pairs
-        if p isa Expr && p.head == :(=)
-            k = QuoteNode(p.args[1])
-            v = p.args[2]
-            push!(stmts, quote
-                let sim = $(_Kernel)._get_sim()
-                    isnothing(sim.worksession) && error("No active session.")
-                    sim.worksession.stage.meta_buffer[$k] = $v
-                end
-            end)
-        else
-            error("@scope_meta expects key=value pairs, got: $p")
-        end
-    end
-    esc(Expr(:block, stmts...))
-end
-
-"""
-    @ctx_hash(label, vars_or_pairs...)
-
-Compute a deterministic context hash from a user label plus selected values from
-the current scope, store it in the active session registry, and return the hash.
-
-Accepted inputs after `label`:
-- symbols (captured by current value): `x y`
-- explicit pairs: `tol=1e-6 method="fast"`
-
-# Example
-```julia
-h = @ctx_hash "solver-input" model eps tol=1e-6
-```
-"""
-macro ctx_hash(label, vars_or_pairs...)
-    entries = Expr[]
-    for item in vars_or_pairs
-        if item isa Symbol
-            push!(entries, :(($(string(item)), $item)))
-        elseif item isa Expr && item.head == :(=) && length(item.args) == 2 && item.args[1] isa Symbol
-            push!(entries, :(($(string(item.args[1])), $(item.args[2]))))
-        else
-            error("@ctx_hash expects variable names and/or key=value pairs, got: $item")
-        end
-    end
-
-    quote
-        $(_WS)._ctx_hash_record!(
-            string($label),
-            Tuple{String, Any}[$(entries...)]
-        )
-    end |> esc
-end
-
-"""
-    @remember(ctx_hash, target, body)
-    @remember(ctx_hash, target = expr)
-    @remember(ctx_hash, (extra_key_parts...), target, body)
-    @remember(ctx_hash, (extra_key_parts...), target = expr)
-
-Scope-oriented keyed cache macro.
-- `target` can be a variable (`x`) or tuple (`(a, b)`).
-- Optional `extra_key_parts` must be `key=value` pairs. They are composed into
-  the context hash before lookup/store. Use this to partition cache entries
-  under the same base `ctx_hash` without changing the original `@ctx_hash`
-  registry entry.
-- On cache hit, assigns cached value(s) into caller scope and skips recomputation.
-- On cache miss, runs the miss branch, checks target assignment (block form),
-  stores the resulting value(s), and returns `:miss` if this caller stored first.
-- If another writer stores the same key first, reloads the canonical cached value,
-  reassigns the target(s), and returns `:race_lost`.
-
-Returns `:hit`, `:miss`, or `:race_lost`.
-"""
-macro remember(ctx_hash_expr, rest...)
-    isempty(rest) && error("@remember expects a target and payload.")
-
-    args = Any[rest...]
-    extra_parts_expr = nothing
-    if _remember_is_extra_spec(args[1])
-        extra_parts_expr = _remember_extra_parts_expr(args[1])
-        args = args[2:end]
-        isempty(args) && error("@remember extra key tuple must be followed by a target.")
-    end
-    length(args) in (1, 2) || error("@remember expects `@remember h target begin ... end`, `@remember h target = expr`, or the same with an extra key tuple before `target`.")
-
-    local target_expr
-    local payload_expr
-    local mode
-
-    if length(args) == 1
-        arg = args[1]
-        if !(arg isa Expr && arg.head == :(=) && length(arg.args) == 2)
-            error("@remember single-tail form expects assignment: `@remember h target = expr`.")
-        end
-        target_expr = arg.args[1]
-        payload_expr = arg.args[2]
-        mode = :assign
-    else
-        target_expr = args[1]
-        payload_expr = args[2]
-        mode = :block
-    end
-
-    vars = _remember_target_vars(target_expr)
-    ns_expr = length(vars) == 1 ?
-        :($(_WS)._remember_namespace($(QuoteNode(vars[1])))) :
-        :($(_WS)._remember_namespace(Symbol[$([QuoteNode(v) for v in vars]...)]))
-
-    hit_assign_expr = length(vars) == 1 ?
-        _remember_assign_expr(vars[1], :_remember_cached_value) :
-        _remember_assign_expr(vars, :_remember_cached_value)
-    miss_value_expr = length(vars) == 1 ? _remember_value_expr(vars[1]) : _remember_value_expr(vars)
-    defined_checks = _remember_defined_checks(vars)
-    composed_ctx_expr = isnothing(extra_parts_expr) ?
-        :(string($ctx_hash_expr)) :
-        :($(_WS)._ctx_hash_compose(string($ctx_hash_expr), $extra_parts_expr))
-    store_input_expr = mode == :assign ? :_remember_miss_value : miss_value_expr
-    final_assign_expr = _remember_assign_expr(length(vars) == 1 ? vars[1] : vars, :_remember_final_value)
-
-    miss_store_expr = Expr(:block,
-        :(local _remember_final_value, _remember_miss_status),
-        :((_remember_final_value, _remember_miss_status) = $(_WS)._remember_store_result!(_remember_ns, _remember_ctx_hash, $store_input_expr)),
-        final_assign_expr,
-        :(_remember_miss_status),
-    )
-
-    miss_branch_expr = if mode == :assign
-        miss_store_expr
-    else
-        Expr(:block,
-            payload_expr,
-            defined_checks...,
-            miss_store_expr,
-        )
-    end
-
-    quote
-        local _remember_ctx_hash = $composed_ctx_expr
-        local _remember_ns = $ns_expr
-        local _remember_hit, _remember_cached_value = $(_WS)._remember_tryload(_remember_ns, _remember_ctx_hash)
-        if _remember_hit
-            $hit_assign_expr
-            $(QuoteNode(:hit))
-        else
-            $(mode == :assign ? :(local _remember_miss_value = $payload_expr) : nothing)
-            $miss_branch_expr
-        end
-    end |> esc
-end
-
-"""
-    @scope_capture(label="")
-
-Capture the current scope (local + global variables) and add it to
-the session's staging area.
-
-Variables are filtered by simignore rules.
-Variables marked with @session_store are saved as blobs.
-
-# Example
-```julia
-for i in 1:10
-    x = compute(i)
-    @scope_capture "iteration"
-end
-@session_commit "training_loop"
-```
-"""
-macro scope_capture(label="")
-    mod = __module__
-    src_file = string(__source__.file)
-    src_line = __source__.line
-    quote
-        let
-            _locals = Base.@locals
-            _globals = Dict{Symbol, Any}()
-            for name in names($mod; all=false)
-                haskey(_locals, name) && continue
-                isdefined($mod, name) || continue
-                _globals[name] = getfield($mod, name)
-            end
-
-            $(_WS).scope_capture(
-                string($label),
-                _locals,
-                _globals,
-                $src_file,
-                $src_line,
-            )
-        end
-    end |> esc
-end
-
-"""
-    @session_commit(label="")
-
-Commit all staged scopes to the tape file and clear the stage.
-
-# Example
-```julia
-@session_commit "epoch_1"
-```
-"""
-macro session_commit(label="")
-    quote
-        $(_WS).session_commit(string($label))
-    end |> esc
-end
-
-"""
-    @session_batch_commit(label="")
-
-Convert staged scopes into a `ScopeCommit`, queue it in memory, and flush the
-queued commits to tape when the pending-commit threshold is reached.
-"""
-macro session_batch_commit(label="")
-    quote
-        $(_WS).session_batch_commit(string($label))
-    end |> esc
-end
-
-"""
-    @session_finalize(label="")
-
-Flush session recording buffers:
-1. If staged scopes remain, convert them into one final queued commit.
-2. Flush all queued commits to tape.
-
-Does not end the active work session.
-"""
-macro session_finalize(label="")
-    quote
-        $(_WS).session_finalize(string($label))
-    end |> esc
-end
-
 function scope_capture(
         label::String,
         locals::AbstractDict{Symbol, Any},
@@ -486,25 +181,24 @@ function scope_capture(
     # Hot path: this runs on every capture call; allocation/perf optimizations are always welcome.
     sim = _Kernel._get_sim()
     ws = sim.worksession
-    isnothing(ws) && error("No active session. Call @session_init first.")
+    isnothing(ws) && error("No active session. Call @simos init first.")
     proj = _Kernel.sim_project(sim)
 
     scope = _Kernel.SimuleosScope()
     for (name, val) in locals
         _Kernel.is_capture_excluded(val) && continue
         scope.variables[name] = _Kernel._make_scope_variable(
-            :local, val, ws.stage.inline_vars, ws.stage.blob_vars, name, proj.blobstorage
+            :local, val, ws.stage.inline_vars, ws.stage.blob_vars, ws.stage.hash_vars, name, proj.blobstorage
         )
     end
     for (name, val) in globals
         _Kernel.is_capture_excluded(val) && continue
         haskey(scope.variables, name) && continue
         scope.variables[name] = _Kernel._make_scope_variable(
-            :global, val, ws.stage.inline_vars, ws.stage.blob_vars, name, proj.blobstorage
+            :global, val, ws.stage.inline_vars, ws.stage.blob_vars, ws.stage.hash_vars, name, proj.blobstorage
         )
     end
 
-    scope = _Kernel.filter_rules(scope, ws.simignore_rules)
     !isempty(label) && pushfirst!(scope.labels, label)
     scope.metadata[:src_file] = src_file
     scope.metadata[:src_line] = src_line
@@ -526,8 +220,8 @@ function session_commit(label::String="")
     # Preserve logical commit order when mixing queued and immediate commit paths.
     _flush_pending_commits!(proj, ws)
     tape = _Kernel.TapeIO(_Kernel.tape_path(proj, ws.session_id))
-    meta = _session_commit_metadata(proj.git_handler)
-    commit = _Kernel.commit_stage!(tape, ws.stage; label=label, metadata=meta)
+    commit = _take_stage_commit_filtered!(ws, proj.git_handler; label=label)
+    _Kernel.commit_to_tape!(tape, commit)
     ws.is_finalized = false
     return commit
 end

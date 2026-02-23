@@ -35,5 +35,5 @@ function _reset_settings_cache!(ws::_Kernel.WorkSession)
     return ws
 end
 
-settings(ws::_Kernel.WorkSession, key::String) = session_setting(ws, key, _Kernel.__MISSING__) === _Kernel.__MISSING__ ? error("Missing setting: $key") : session_setting(ws, key)
+settings(ws::_Kernel.WorkSession, key::String) = _Kernel._require_setting(key, session_setting(ws, key, _Kernel.__MISSING__))
 settings(ws::_Kernel.WorkSession, key::String, default) = session_setting(ws, key, default)

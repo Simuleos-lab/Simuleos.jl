@@ -52,3 +52,17 @@ function _session_commit_metadata(gh)::Dict{String, Any}
     _append_git_metadata!(meta, gh)
     return meta
 end
+
+function _set_session_init_callsite!(
+        meta::Dict{String, Any};
+        init_file::String = "",
+        init_line::Int = 0,
+    )::Dict{String, Any}
+    if !isempty(init_file)
+        meta[_Kernel.SESSION_META_INIT_FILE_KEY] = init_file
+    end
+    if init_line > 0
+        meta[_Kernel.SESSION_META_INIT_LINE_KEY] = init_line
+    end
+    return meta
+end

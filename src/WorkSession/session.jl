@@ -20,7 +20,7 @@ function resolve_session(simos::_Kernel.SimOs, proj::_Kernel.SimuleosProject;
     # Try to load existing session
     session_json = _Kernel.session_json_path(proj, sid)
     if isfile(session_json)
-        return parse_session(proj, _Kernel._read_json_file(session_json))
+        return _read_persisted_session(proj, sid)
     end
 
     # New session (not persisted yet)
@@ -39,8 +39,7 @@ function resolve_session(proj::_Kernel.SimuleosProject, label::String)
     sid = _Kernel.find_session_id(proj, stripped)
     isnothing(sid) && return _Kernel.WorkSession(; labels = [stripped])
 
-    session_json = _Kernel.session_json_path(proj, sid)
-    return parse_session(proj, _Kernel._read_json_file(session_json))
+    return _read_persisted_session(proj, sid)
 end
 
 """
@@ -68,13 +67,18 @@ function parse_session(proj::_Kernel.SimuleosProject, raw::AbstractDict)
     )
 end
 
+function _read_persisted_session(proj::_Kernel.SimuleosProject, session_id):: _Kernel.WorkSession
+    session_json = _Kernel.session_json_path(proj, session_id)
+    return parse_session(proj, _Kernel._read_json_file(session_json))
+end
+
 """
     _persist_session!(proj, ws::_Kernel.WorkSession)
 
 Write session.json to disk.
 """
 function _persist_session!(proj::_Kernel.SimuleosProject, ws::_Kernel.WorkSession)
-    sjson = _Kernel._session_json_path(proj.simuleos_dir, ws.session_id)
+    sjson = _Kernel.session_json_path(proj, ws.session_id)
     # `context_hash_reg` is intentionally runtime-only and is not persisted in session.json.
     _Kernel._write_json_file(sjson, Dict(
         _Kernel.SESSION_FILE_ID_KEY => string(ws.session_id),
@@ -151,12 +155,7 @@ function session_init!(simos::_Kernel.SimOs, proj::_Kernel.SimuleosProject;
     # Capture metadata if not already present
     if isempty(ws.metadata)
         ws.metadata = _capture_session_metadata(; script_path)
-        if !isempty(init_file)
-            ws.metadata[_Kernel.SESSION_META_INIT_FILE_KEY] = init_file
-        end
-        if init_line > 0
-            ws.metadata[_Kernel.SESSION_META_INIT_LINE_KEY] = init_line
-        end
+        _set_session_init_callsite!(ws.metadata; init_file, init_line)
     end
     get(ws.metadata, _Kernel.SESSION_META_GIT_DIRTY_KEY, false) === true &&
         error("Cannot start session: git repository has uncommitted changes.")

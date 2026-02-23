@@ -85,7 +85,7 @@ end
 Load settings from project's `.simuleos/settings.json`, or empty Dict.
 """
 function project_settings(proj::SimuleosProject)
-    path = settings_json_path(proj.simuleos_dir)
+    path = settings_path(proj)
     return _read_json_file_or_empty(path)
 end
 
@@ -170,7 +170,7 @@ function scan_project_sessions(callback::Function, proj::SimuleosProject)::Nothi
     isdir(sdir) || return nothing
 
     for entry in readdir(sdir)
-        sjson = _session_json_path(proj.simuleos_dir, entry)
+        sjson = session_json_path(proj, entry)
         isfile(sjson) || continue
         raw = _read_json_file(sjson)
         callback(raw)
@@ -179,7 +179,7 @@ function scan_project_sessions(callback::Function, proj::SimuleosProject)::Nothi
 end
 
 function resolve_session_id(proj::SimuleosProject, session_id::Base.UUID)::Base.UUID
-    sjson = _session_json_path(proj.simuleos_dir, session_id)
+    sjson = session_json_path(proj, session_id)
     isfile(sjson) || error("Session not found: $(session_id)")
     return session_id
 end

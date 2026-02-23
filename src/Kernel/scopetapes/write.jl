@@ -38,6 +38,17 @@ function _write_json(io::IO, var::VoidScopeVariable)
     return nothing
 end
 
+function _write_json(io::IO, var::HashedScopeVariable)
+    print(io, "{\"src_type\":")
+    _write_json(io, var.type_short)
+    print(io, ",\"src\":")
+    _write_json(io, string(var.level))
+    print(io, ",\"value_hash\":")
+    _write_json(io, var.value_hash)
+    print(io, "}")
+    return nothing
+end
+
 function _write_json(io::IO, scope::SimuleosScope)
     print(io, "{\"labels\":")
     _write_json(io, scope.labels)

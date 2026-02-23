@@ -5,14 +5,13 @@
 const HOME_REGISTRY_DIRNAME = "registry"
 
 """Default home directory path."""
-_default_home_path() = joinpath(homedir(), SIMULEOS_DIR_NAME)
+_default_home_path() = _simuleos_dir(homedir())
 home_simuleos_default_path()::String = _default_home_path()
-_home_settings_path(home_path::String)::String = joinpath(home_path, SETTINGS_JSON)
 
 simuleos_dir(home::SimuleosHome)::String = home.path
 registry_path(home::SimuleosHome)::String = joinpath(simuleos_dir(home), HOME_REGISTRY_DIRNAME)
 config_path(home::SimuleosHome)::String = joinpath(simuleos_dir(home), "config")
-settings_path(home::SimuleosHome)::String = _home_settings_path(simuleos_dir(home))
+settings_path(home::SimuleosHome)::String = settings_json_path(simuleos_dir(home))
 
 """
     home_init!() -> SimuleosHome

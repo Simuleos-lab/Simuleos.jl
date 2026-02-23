@@ -15,6 +15,8 @@ function _parse_scope_variable(name::String, data::AbstractDict)
         return BlobScopeVariable(level, string(src_type), BlobRef(string(data["blob_ref"])))
     elseif haskey(data, "value")
         return InlineScopeVariable(level, string(src_type), data["value"])
+    elseif haskey(data, "value_hash")
+        return HashedScopeVariable(level, string(src_type), string(data["value_hash"]))
     else
         return VoidScopeVariable(level, string(src_type))
     end

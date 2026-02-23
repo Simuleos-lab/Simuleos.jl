@@ -18,6 +18,7 @@ try
     include("scoperias_tests.jl")
     include("query_tests.jl")
     include("scope_reader_tests.jl")
+    include("simos_macro_tests.jl")
 finally
     test_cleanup!()
 end

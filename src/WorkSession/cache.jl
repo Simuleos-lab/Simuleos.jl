@@ -49,6 +49,12 @@ function _ctx_hash_from_named_entries(label::AbstractString, entries::AbstractVe
     return _ctx_hash_digest(key_label, normalized)
 end
 
+function _remember_ctx_extra_named_only(ctx_extra)
+    isnothing(ctx_extra) && return nothing
+    ctx_extra isa NamedTuple && return ctx_extra
+    error("remember! `ctx_extra` must be a NamedTuple of named key parts (e.g. `(metric=\"fva\", fold=1)`).")
+end
+
 function _resolve_cache_ctx_hash(ws::_Kernel.WorkSession; ctx = nothing, ctx_hash = nothing, ctx_extra = nothing)::String
     has_ctx = !isnothing(ctx)
     has_ctx_hash = !isnothing(ctx_hash)
@@ -68,7 +74,7 @@ function _resolve_cache_ctx_hash(ws::_Kernel.WorkSession; ctx = nothing, ctx_has
         base_ctx_hash = h
     end
 
-    return _ctx_hash_compose(base_ctx_hash, ctx_extra)
+    return _ctx_hash_compose(base_ctx_hash, _remember_ctx_extra_named_only(ctx_extra))
 end
 
 function _remember_namespace(slot::Symbol)::String
@@ -105,7 +111,7 @@ Compute-or-reuse a cached value using a namespace plus context hash.
 Resolve named context hashes from the active work session (`ctx`) or pass a hash
 directly (`ctx_hash`). `ctx_extra` lets callers compose additional
 disambiguation data into the resolved context hash without changing the original
-named hash registry entry.
+named hash registry entry. When provided, `ctx_extra` must be a `NamedTuple`.
 Returns `(value, :hit|:miss|:race_lost)`.
 """
 function remember!(f::Function, namespace;

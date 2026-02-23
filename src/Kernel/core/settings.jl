@@ -58,5 +58,10 @@ function get_setting(simos::SimOs, key::String, default=nothing)
     return get(simos.settings, key, default)
 end
 
-settings(simos::SimOs, key::String) = get_setting(simos, key, __MISSING__) === __MISSING__ ? error("Missing setting: $key") : get_setting(simos, key)
+function _require_setting(key::String, value)
+    value === __MISSING__ && error("Missing setting: $key")
+    return value
+end
+
+settings(simos::SimOs, key::String) = _require_setting(key, get_setting(simos, key, __MISSING__))
 settings(simos::SimOs, key::String, default) = get_setting(simos, key, default)

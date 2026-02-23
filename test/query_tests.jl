@@ -9,6 +9,7 @@ const SimuleosScope = Simuleos.Kernel.SimuleosScope
 const InlineScopeVariable = Simuleos.Kernel.InlineScopeVariable
 const BlobScopeVariable = Simuleos.Kernel.BlobScopeVariable
 const VoidScopeVariable = Simuleos.Kernel.VoidScopeVariable
+const HashedScopeVariable = Simuleos.Kernel.HashedScopeVariable
 const iterate_tape = Simuleos.Kernel.iterate_tape
 const BlobStorage = Simuleos.Kernel.BlobStorage
 const blob_ref = Simuleos.Kernel.blob_ref
@@ -95,6 +96,34 @@ const exists = Simuleos.Kernel.exists
             @test commits[1]["commit_label"] == "first_commit"
             @test commits[1]["metadata"]["git_branch"] == "main"
             @test !haskey(commits[2], "commit_label") || isempty(commits[2]["commit_label"])
+        end
+
+        @testset "HashedScopeVariable tape round-trip" begin
+            hashed_tape_path = joinpath(simuleos_dir, "hashed-tape.jsonl")
+            hashed_tape = TapeIO(hashed_tape_path)
+            test_hash = "abcdef1234567890abcdef1234567890abcdef12"
+            Simuleos.Kernel.append!(hashed_tape, Dict(
+                "type" => "commit",
+                "metadata" => Dict("timestamp" => "2026-02-22T12:00:00"),
+                "scopes" => Any[
+                    Dict(
+                        "labels" => Any["hashed-test"],
+                        "variables" => Dict(
+                            "h" => Dict("src_type" => "Vector{Int64}", "src" => "local", "value_hash" => test_hash)
+                        )
+                    )
+                ],
+                "commit_label" => "hashed_commit"
+            ))
+
+            commits = collect(iterate_tape(hashed_tape))
+            @test length(commits) == 1
+            s = commits[1].scopes[1]
+            var_h = s.variables[:h]
+            @test var_h isa HashedScopeVariable
+            @test var_h.type_short == "Vector{Int64}"
+            @test var_h.level == :local
+            @test var_h.value_hash == test_hash
         end
 
         @testset "ScopeTapes Typed Objects" begin

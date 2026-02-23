@@ -113,13 +113,15 @@ end
         Simuleos.Kernel.BlobRef("0123456789abcdef")
     )
     scope.variables[:voidv] = Simuleos.Kernel.VoidScopeVariable(:global, "Any")
+    scope.variables[:hashv] = Simuleos.Kernel.HashedScopeVariable(:local, "Vector{Int64}", "abcdef1234567890abcdef1234567890abcdef12")
 
     compact = sprint(show, scope)
     pretty = sprint(io -> show(io, MIME"text/plain"(), scope))
 
     @test occursin("SimuleosScope(labels=", compact)
-    @test occursin("variables (4):", pretty)
+    @test occursin("variables (5):", pretty)
     @test occursin("metadata:", pretty)
     @test occursin("blob:", pretty)
     @test occursin("void", pretty)
+    @test occursin("hash:", pretty)
 end

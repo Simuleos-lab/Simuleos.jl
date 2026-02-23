@@ -25,19 +25,21 @@ SimuleosScope(labels::Vector{String}) = SimuleosScope(labels, Dict{Symbol, Scope
 SimuleosScope(label::String) = SimuleosScope(String[label])
 
 """
-    _make_scope_variable(level, value, inline_vars, blob_vars, name, storage) -> ScopeVariable
+    _make_scope_variable(level, value, inline_vars, blob_vars, hash_vars, name, storage) -> ScopeVariable
 
 Create the appropriate ScopeVariable for a captured value.
 Routing priority:
 1. Module/Function → Void (never serialized)
 2. name ∈ inline_vars → Inline (user forced JSON)
 3. name ∈ blob_vars → Blob (user forced binary)
-4. _is_lite(value) → Inline (scalars are always safe)
-5. Otherwise → Void (type recorded, value skipped)
+4. name ∈ hash_vars → Hashed (SHA-1 fingerprint only)
+5. _is_lite(value) → Inline (scalars are always safe)
+6. Otherwise → Void (type recorded, value skipped)
 """
 function _make_scope_variable(
         level::Symbol, value,
         inline_vars::Set{Symbol}, blob_vars::Set{Symbol},
+        hash_vars::Set{Symbol},
         name::Symbol, storage::Union{BlobStorage, Nothing}
     )
     ts = type_short(value)
@@ -59,11 +61,26 @@ function _make_scope_variable(
         return BlobScopeVariable(level, ts, ref)
     end
 
-    # 4. Lite scalars inline automatically
+    # 4. Hash-only storage for marked variables
+    if name in hash_vars
+        vh = blob_ref(("value_hash_v1", string(name), value)).hash
+        return HashedScopeVariable(level, ts, vh)
+    end
+
+    # 5. Lite scalars inline automatically
     if _is_lite(value)
         return InlineScopeVariable(level, ts, value)
     end
 
-    # 5. Default: Void (type recorded, value skipped)
+    # 6. Default: Void (type recorded, value skipped)
     return VoidScopeVariable(level, ts)
+end
+
+# Backward-compatible 6-arg form (no hash_vars)
+function _make_scope_variable(
+        level::Symbol, value,
+        inline_vars::Set{Symbol}, blob_vars::Set{Symbol},
+        name::Symbol, storage::Union{BlobStorage, Nothing}
+    )
+    _make_scope_variable(level, value, inline_vars, blob_vars, Set{Symbol}(), name, storage)
 end

@@ -64,6 +64,18 @@ struct VoidScopeVariable <: ScopeVariable
     type_short::String
 end
 
+"""
+    HashedScopeVariable
+
+A variable whose value is stored as a SHA-1 fingerprint only.
+The value is not recoverable, but the hash enables change detection.
+"""
+struct HashedScopeVariable <: ScopeVariable
+    level::Symbol
+    type_short::String
+    value_hash::String   # SHA-1 hex of serialized value
+end
+
 # --------------------------------------------------
 # Scope & Commits
 # --------------------------------------------------
@@ -93,10 +105,11 @@ mutable struct ScopeStage
     captures::Vector{SimuleosScope}
     inline_vars::Set{Symbol}     # Variables marked for inline JSON
     blob_vars::Set{Symbol}       # Variables marked for blob storage
+    hash_vars::Set{Symbol}       # Variables marked for hash-only storage
     meta_buffer::Dict{Symbol, Any}  # Metadata to attach to next capture
 end
 
-ScopeStage() = ScopeStage(SimuleosScope[], Set{Symbol}(), Set{Symbol}(), Dict{Symbol, Any}())
+ScopeStage() = ScopeStage(SimuleosScope[], Set{Symbol}(), Set{Symbol}(), Set{Symbol}(), Dict{Symbol, Any}())
 
 """
     ScopeCommit
@@ -185,6 +198,8 @@ mutable struct WorkSession
     # Runtime-only registry of named context hashes (not persisted to session.json).
     context_hash_reg::Dict{String, String}
     simignore_rules::Vector{Dict{Symbol, Any}}
+    capture_filter_defs::Dict{String, Vector{Dict{Symbol, Any}}}
+    capture_filter_bindings::Dict{String, Vector{String}}
     _settings_cache::Dict{String, Any}
 end
 

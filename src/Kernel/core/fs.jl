@@ -35,7 +35,7 @@ _session_dir(simuleos_dir::String, session_id) =
 
 """Path to session.json for a specific session."""
 session_json_path(proj::SimuleosProject, session_id) =
-    joinpath(_session_dir(proj.simuleos_dir, session_id), SESSION_JSON)
+    _session_json_path(proj.simuleos_dir, session_id)
 _session_json_path(simuleos_dir::String, session_id) = joinpath(_session_dir(simuleos_dir, session_id), SESSION_JSON)
 
 """Path to tapes directory for a session."""
@@ -70,7 +70,7 @@ function find_simuleos_dir(start_path::String)
     path = abspath(start_path)
     while true
         candidate = joinpath(path, SIMULEOS_DIR_NAME)
-        if isfile(joinpath(candidate, PROJECT_JSON))
+        if isfile(project_json_path(candidate))
             return candidate
         end
         parent = dirname(path)

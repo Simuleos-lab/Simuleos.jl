@@ -39,9 +39,23 @@ function WorkSession(;
         metadata::Dict{String, Any} = Dict{String, Any}(),
         context_hash_reg::Dict{String, String} = Dict{String, String}(),
         simignore_rules::Vector{Dict{Symbol, Any}} = Dict{Symbol, Any}[],
+        capture_filter_defs::Dict{String, Vector{Dict{Symbol, Any}}} = Dict{String, Vector{Dict{Symbol, Any}}}(),
+        capture_filter_bindings::Dict{String, Vector{String}} = Dict{String, Vector{String}}(),
         _settings_cache::Dict{String, Any} = Dict{String, Any}(),
     )
-    WorkSession(session_id, labels, stage, pending_commits, is_finalized, metadata, context_hash_reg, simignore_rules, _settings_cache)
+    WorkSession(
+        session_id,
+        labels,
+        stage,
+        pending_commits,
+        is_finalized,
+        metadata,
+        context_hash_reg,
+        simignore_rules,
+        capture_filter_defs,
+        capture_filter_bindings,
+        _settings_cache,
+    )
 end
 
 # -- show methods --
@@ -63,6 +77,11 @@ function Base.show(io::IO, v::VoidScopeVariable)
     print(io, "Void(", v.level, ", ", v.type_short, ")")
 end
 
+function Base.show(io::IO, v::HashedScopeVariable)
+    h = length(v.value_hash) > 12 ? v.value_hash[1:12] * "..." : v.value_hash
+    print(io, "Hashed(", v.level, ", ", v.type_short, ", ", h, ")")
+end
+
 function Base.show(io::IO, scope::SimuleosScope)
     nv = length(scope.variables)
     print(io, "SimuleosScope(labels=", scope.labels, ", vars=", nv, ")")
@@ -81,6 +100,9 @@ function Base.show(io::IO, ::MIME"text/plain", scope::SimuleosScope)
             println(io, "    ", name, " [", var.level, "] ", var.type_short, " = ", val_str)
         elseif var isa BlobScopeVariable
             println(io, "    ", name, " [", var.level, "] ", var.type_short, " blob:", var.blob_ref)
+        elseif var isa HashedScopeVariable
+            h = length(var.value_hash) > 12 ? var.value_hash[1:12] * "..." : var.value_hash
+            println(io, "    ", name, " [", var.level, "] ", var.type_short, " hash:", h)
         elseif var isa VoidScopeVariable
             println(io, "    ", name, " [", var.level, "] ", var.type_short, " void")
         end

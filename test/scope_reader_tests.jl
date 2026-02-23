@@ -56,22 +56,22 @@ global _simuleos_expand_global = 0
         @test Simuleos.value(scopes_by_label[1].variables[:v], project_driver) === nothing
         @test Simuleos.value(scopes_by_label[1].variables[:b], project_driver) == Dict("a" => 1)
 
-        @testset "@scope_expand macro" begin
+        @testset "@simos expand macro" begin
             scope = scopes_by_label[1]
 
             let x = -1
-                @scope_expand scope project_driver x
+                @simos expand scope project_driver x
                 @test x == 42
             end
 
             let _simuleos_expand_global = -1
-                @scope_expand scope project_driver _simuleos_expand_global
+                @simos expand scope project_driver _simuleos_expand_global
                 @test _simuleos_expand_global == -1
             end
             @test _simuleos_expand_global == 7
 
             @test_throws ErrorException begin
-                @scope_expand scope project_driver does_not_exist_in_scope
+                @simos expand scope project_driver does_not_exist_in_scope
             end
         end
 
