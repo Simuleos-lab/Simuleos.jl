@@ -1,5 +1,5 @@
 # ============================================================
-# settings.jl — Layered settings system (replaces UXLayers)
+# settings.jl — Layered settings system
 # ============================================================
 
 const __MISSING__ = :__MISSING__

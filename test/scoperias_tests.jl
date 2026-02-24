@@ -3,36 +3,6 @@ using Simuleos
 
 const SimuleosScope = Simuleos.Kernel.SimuleosScope
 
-global __scoperia_global_value = 11
-global __scoperia_collision = :global
-global __scoperia_global_module = Simuleos.Kernel
-global __scoperia_global_function = string
-
-@testset "Scoperias capture macro" begin
-    let __scoperia_local_value = 22, __scoperia_collision = :local
-        scope = Simuleos.Kernel.@scope_capture
-
-        @test scope isa SimuleosScope
-        @test isempty(scope.labels)
-
-        @test Simuleos.Kernel.hasvar(scope, :__scoperia_local_value)
-        @test Simuleos.Kernel.hasvar(scope, :__scoperia_global_value)
-
-        @test scope.variables[:__scoperia_local_value] isa Simuleos.Kernel.InlineScopeVariable
-        @test scope.variables[:__scoperia_local_value].value == 22
-        @test scope.variables[:__scoperia_local_value].level == :local
-
-        @test scope.variables[:__scoperia_global_value].value == 11
-        @test scope.variables[:__scoperia_global_value].level == :global
-
-        @test scope.variables[:__scoperia_collision].value == :local
-        @test scope.variables[:__scoperia_collision].level == :local
-
-        @test !Simuleos.Kernel.hasvar(scope, :__scoperia_global_module)
-        @test !Simuleos.Kernel.hasvar(scope, :__scoperia_global_function)
-    end
-end
-
 @testset "Scoperias filter_rules" begin
     base_scope = SimuleosScope(
         ["dev"],

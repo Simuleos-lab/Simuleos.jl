@@ -6,7 +6,6 @@ const HOME_REGISTRY_DIRNAME = "registry"
 
 """Default home directory path."""
 _default_home_path() = _simuleos_dir(homedir())
-home_simuleos_default_path()::String = _default_home_path()
 
 simuleos_dir(home::SimuleosHome)::String = home.path
 registry_path(home::SimuleosHome)::String = joinpath(simuleos_dir(home), HOME_REGISTRY_DIRNAME)
@@ -24,10 +23,6 @@ function home_init!(path::String = _default_home_path())
     ensure_dir(registry_path(SimuleosHome(path)))
     ensure_dir(config_path(SimuleosHome(path)))
     return SimuleosHome(path)
-end
-
-function init_home!(home::SimuleosHome)::SimuleosHome
-    return home_init!(home.path)
 end
 
 function home_init!(simos::SimOs)

@@ -35,18 +35,17 @@ end
 
 function _ctx_hash_from_named_entries(label::AbstractString, entries::AbstractVector{<:Tuple})::String
     key_label = strip(String(label))
-    isempty(key_label) && error("@ctx_hash label must be a non-empty string.")
+    isempty(key_label) && error("@simos ctx_hash label must be a non-empty string.")
 
     normalized = Tuple{String, Any}[]
     for item in entries
-        length(item) == 2 || error("@ctx_hash internal error: expected (name, value) entries.")
+        length(item) == 2 || error("@simos ctx_hash internal error: expected (name, value) entries.")
         name = strip(String(item[1]))
-        isempty(name) && error("@ctx_hash variable labels must be non-empty.")
+        isempty(name) && error("@simos ctx_hash variable labels must be non-empty.")
         push!(normalized, (name, item[2]))
     end
 
-    # Keep the original @ctx_hash key layout to avoid unnecessary cache invalidation.
-    return _ctx_hash_digest(key_label, normalized)
+    return _ctx_hash_digest("ctx_hash_named_entries_v1", key_label, normalized)
 end
 
 function _remember_ctx_extra_named_only(ctx_extra)
@@ -66,7 +65,7 @@ function _resolve_cache_ctx_hash(ws::_Kernel.WorkSession; ctx = nothing, ctx_has
         label = strip(String(ctx))
         isempty(label) && error("remember! `ctx` label must be a non-empty string.")
         haskey(ws.context_hash_reg, label) ||
-            error("Unknown context hash label `$(label)`. Compute it first with @ctx_hash.")
+            error("Unknown context hash label `$(label)`. Compute it first with `@simos cache.key(...)`.")
         base_ctx_hash = ws.context_hash_reg[label]
     else
         h = strip(String(ctx_hash))
@@ -82,7 +81,7 @@ function _remember_namespace(slot::Symbol)::String
 end
 
 function _remember_namespace(slots::AbstractVector{Symbol})::String
-    isempty(slots) && error("@remember target tuple cannot be empty.")
+    isempty(slots) && error("@simos remember target tuple cannot be empty.")
     return "slots:" * join(String.(slots), ",")
 end
 

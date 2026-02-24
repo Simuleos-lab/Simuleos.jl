@@ -25,6 +25,24 @@ settings_json_path(simuleos_dir::String) = joinpath(simuleos_dir, SETTINGS_JSON)
 
 """Path to the blobs directory."""
 blobs_dir(simuleos_dir::String) = joinpath(simuleos_dir, BLOBS_DIR)
+blobs_dir(storage::BlobStorage)::String = storage.blobs_dir
+
+"""Path to blob metadata tapes directory under `.simuleos/blobs/tapes/`."""
+blob_tapes_dir(storage::BlobStorage)::String = joinpath(blobs_dir(storage), TAPES_DIR)
+
+function _blob_tape_shard_prefix(sha1::AbstractString)::String
+    s = lowercase(String(sha1))
+    length(s) >= 2 || error("Blob hash must have at least 2 characters, got `$(sha1)`.")
+    return s[1:2]
+end
+
+"""Path to the blob metadata shard tape for a blob hash (e.g. `00.jsonl`)."""
+blob_tape_shard_path_for_prefix(storage::BlobStorage, shard_prefix::AbstractString)::String =
+    joinpath(blob_tapes_dir(storage), _blob_tape_shard_prefix(shard_prefix) * ".jsonl")
+blob_tape_shard_path(storage::BlobStorage, sha1::AbstractString)::String =
+    blob_tape_shard_path_for_prefix(storage, sha1)
+blob_tape_shard_path(storage::BlobStorage, ref::BlobRef)::String =
+    blob_tape_shard_path(storage, ref.hash)
 
 """Path to the sessions directory."""
 sessions_dir(simuleos_dir::String) = joinpath(simuleos_dir, SESSIONS_DIR)

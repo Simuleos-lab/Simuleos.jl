@@ -18,6 +18,7 @@ include("base.jl")
 include("session.jl")
 include("settings.jl")
 include("simignore.jl")
+include("shared.jl")
 include("macros.jl")
 include("cache.jl")
 

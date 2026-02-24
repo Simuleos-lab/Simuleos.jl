@@ -73,17 +73,7 @@ function git_describe(gh::GitHandler)::String
     end
 end
 
-function git_remote(gh::GitHandler)::String
-    cmd = `git -C $(gh.root_path) config --get remote.origin.url`
-    try
-        return chomp(read(cmd, String))
-    catch
-        return ""
-    end
-end
-
 git_hash() = git_hash(sim_project().git_handler)
 git_dirty() = git_dirty(sim_project().git_handler)
 git_describe() = git_describe(sim_project().git_handler)
 git_branch() = git_branch(sim_project().git_handler)
-git_remote() = git_remote(sim_project().git_handler)

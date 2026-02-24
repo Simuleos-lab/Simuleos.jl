@@ -75,12 +75,3 @@ function _make_scope_variable(
     # 6. Default: Void (type recorded, value skipped)
     return VoidScopeVariable(level, ts)
 end
-
-# Backward-compatible 6-arg form (no hash_vars)
-function _make_scope_variable(
-        level::Symbol, value,
-        inline_vars::Set{Symbol}, blob_vars::Set{Symbol},
-        name::Symbol, storage::Union{BlobStorage, Nothing}
-    )
-    _make_scope_variable(level, value, inline_vars, blob_vars, Set{Symbol}(), name, storage)
-end

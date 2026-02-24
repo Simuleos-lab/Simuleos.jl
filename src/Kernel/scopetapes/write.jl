@@ -99,19 +99,3 @@ function take_stage_commit!(stage::ScopeStage;
     empty!(stage.inline_vars)
     return commit
 end
-
-"""
-    commit_stage!(tape::TapeIO, stage::ScopeStage; label::String="", metadata::Dict{String,Any}=Dict{String,Any}())
-
-Flush the current stage to the tape as a single commit.
-Clears the stage captures after writing.
-Returns the ScopeCommit that was written.
-"""
-function commit_stage!(tape::TapeIO, stage::ScopeStage;
-        label::String = "",
-        metadata::Dict{String, Any} = Dict{String, Any}()
-    )
-    commit = take_stage_commit!(stage; label=label, metadata=metadata)
-    commit_to_tape!(tape, commit)
-    return commit
-end

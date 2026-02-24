@@ -63,6 +63,42 @@ function _src_file_match(scope::Kernel.SimuleosScope, pattern::String)::Bool
     return endswith(string(sf), pattern)
 end
 
+function _latest_scope_filtered(
+        project_driver::Kernel.SimuleosProject,
+        session::Union{Symbol, Base.UUID, String},
+        commit_label::Union{String, Nothing},
+        src_file::Union{String, Nothing},
+    )
+    session_id = _resolve_session_id(project_driver, session)
+    tape = Kernel.TapeIO(Kernel.tape_path(project_driver, session_id))
+
+    function line_filter(line::AbstractString, ctx)
+        !isnothing(commit_label) && !isempty(commit_label) && !occursin(commit_label, line) && return false
+        !isnothing(src_file) && !isempty(src_file) && !occursin(src_file, line) && return false
+        return true
+    end
+
+    function json_filter(raw::AbstractDict, ctx)
+        get(raw, "type", "") == "commit" || return false
+        if !isnothing(commit_label)
+            string(get(raw, "commit_label", "")) == commit_label || return false
+        end
+        return true
+    end
+
+    latest = nothing
+    for raw in Kernel.each_tape_records_filtered(tape; line_filter=line_filter, json_filter=json_filter)
+        commit = Kernel._parse_commit(raw)
+        for scope in commit.scopes
+            if !isnothing(src_file) && !_src_file_match(scope, src_file)
+                continue
+            end
+            latest = scope
+        end
+    end
+    return latest
+end
+
 """
     latest_scope(project_driver; session=:active, commit_label=nothing, src_file=nothing) -> SimuleosScope
 
@@ -78,9 +114,14 @@ function latest_scope(
         commit_label::Union{String, Nothing} = nothing,
         src_file::Union{String, Nothing} = nothing,
     )
-    latest = nothing
-    for scope in each_scopes(project_driver; session=session, commit_label=commit_label, src_file=src_file)
-        latest = scope
+    latest = if isnothing(commit_label) && isnothing(src_file)
+        local _latest = nothing
+        for scope in each_scopes(project_driver; session=session, commit_label=commit_label, src_file=src_file)
+            _latest = scope
+        end
+        _latest
+    else
+        _latest_scope_filtered(project_driver, session, commit_label, src_file)
     end
     isnothing(latest) && error("No scopes found for session `$(string(session))`" *
         (isnothing(commit_label) ? "" : ", commit_label=`$(commit_label)`") *
@@ -93,6 +134,12 @@ value(var::Kernel.InlineScopeVariable, project_driver::Kernel.SimuleosProject) =
 value(var::Kernel.BlobScopeVariable, project_driver::Kernel.SimuleosProject) = Kernel.blob_read(project_driver.blobstorage, var.blob_ref)
 value(var::Kernel.VoidScopeVariable, project_driver::Kernel.SimuleosProject) = nothing
 value(var::Kernel.HashedScopeVariable, project_driver::Kernel.SimuleosProject) = nothing
+value(var::Kernel.InlineScopeVariable, ::Nothing) = var.value
+value(var::Kernel.VoidScopeVariable, ::Nothing) = nothing
+value(var::Kernel.HashedScopeVariable, ::Nothing) = nothing
+function value(var::Kernel.BlobScopeVariable, ::Nothing)
+    error("Cannot resolve blob-backed scope variable `$(var.type_short)` without a project driver.")
+end
 
 _scope_expand_level(var::Kernel.InlineScopeVariable)::Symbol = var.level
 _scope_expand_level(var::Kernel.BlobScopeVariable)::Symbol = var.level
@@ -101,7 +148,7 @@ _scope_expand_level(var::Kernel.HashedScopeVariable)::Symbol = var.level
 
 function _scope_expand_runtime!(
         scope::Kernel.SimuleosScope,
-        project_driver::Kernel.SimuleosProject,
+        project_driver,
         name::Symbol
     )::Tuple{Symbol, Any}
     haskey(scope.variables, name) || error("Variable `$(name)` not found in scope.")
@@ -112,7 +159,7 @@ end
 function _scope_expand_setglobal!(target_module::Module, name::Symbol, value)
     isdefined(target_module, name) || error(
         "Global `$(name)` is not defined in module `$(target_module)`. " *
-        "Define it before calling @scope_expand."
+        "Define it before calling @simos expand."
     )
     Core.setglobal!(target_module, name, value)
     return value

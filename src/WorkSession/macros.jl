@@ -2,19 +2,6 @@
 # WorkSession/macros.jl — Macro helpers and runtime functions
 # ============================================================
 
-function _extract_symbols(expr)
-    if expr isa Symbol
-        return Symbol[expr]
-    elseif expr isa Expr
-        out = Symbol[]
-        for a in expr.args
-            append!(out, _extract_symbols(a))
-        end
-        return out
-    end
-    return Symbol[]
-end
-
 function _remember_target_vars(target)
     if target isa Symbol
         return Symbol[target]
@@ -99,7 +86,7 @@ const _BATCH_COMMIT_MAX_PENDING_KEY = "worksession.batch_commit.max_pending_comm
 function _require_active_worksession_and_project()
     sim = _Kernel._get_sim()
     ws = sim.worksession
-    isnothing(ws) && error("No active session. Call @simos init first.")
+    isnothing(ws) && error("No active session. Call `@simos session.init(...)` first.")
     proj = _Kernel.sim_project(sim)
     return ws, proj
 end
@@ -107,7 +94,7 @@ end
 function _ctx_hash_record!(label::AbstractString, entries::AbstractVector{<:Tuple})::String
     sim = _Kernel._get_sim()
     ws = sim.worksession
-    isnothing(ws) && error("No active session. Call @simos init first.")
+    isnothing(ws) && error("No active session. Call `@simos session.init(...)` first.")
     key_label = strip(String(label))
     isempty(key_label) && error("@simos ctx_hash label must be a non-empty string.")
     hash = _ctx_hash_from_named_entries(label, entries)
@@ -181,7 +168,7 @@ function scope_capture(
     # Hot path: this runs on every capture call; allocation/perf optimizations are always welcome.
     sim = _Kernel._get_sim()
     ws = sim.worksession
-    isnothing(ws) && error("No active session. Call @simos init first.")
+    isnothing(ws) && error("No active session. Call `@simos session.init(...)` first.")
     proj = _Kernel.sim_project(sim)
 
     scope = _Kernel.SimuleosScope()

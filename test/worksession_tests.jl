@@ -164,27 +164,27 @@ using Dates
 
     @testset "@simos ctx_hash records named hashes from scope values" begin
         with_test_context() do _
-            @simos init ("ctxhash-" * string(uuid4()))
+            @simos session.init("ctxhash-" * string(uuid4()))
             ws = kernel._get_sim().worksession
             @test !isnothing(ws)
             @test isempty(ws.context_hash_reg)
 
             x = 3
             y = "alpha"
-            h1 = @simos ctx_hash "solver-input" x y tol=1e-6 mode="fast"
+            h1 = @simos cache.key("solver-input", x, y, tol=1e-6, mode="fast")
             @test h1 isa String
             @test length(h1) == 40
             @test ws.context_hash_reg["solver-input"] == h1
 
-            h2 = @simos ctx_hash "solver-input" x y tol=1e-6 mode="fast"
+            h2 = @simos cache.key("solver-input", x, y, tol=1e-6, mode="fast")
             @test h2 == h1
 
             x = 4
-            h3 = @simos ctx_hash "solver-input" x y tol=1e-6 mode="fast"
+            h3 = @simos cache.key("solver-input", x, y, tol=1e-6, mode="fast")
             @test h3 != h1
             @test ws.context_hash_reg["solver-input"] == h3
 
-            h4 = @simos ctx_hash "alt-order" y x tol=1e-6 mode="fast"
+            h4 = @simos cache.key("alt-order", y, x, tol=1e-6, mode="fast")
             @test h4 isa String
             @test ws.context_hash_reg["alt-order"] == h4
         end
@@ -193,13 +193,13 @@ using Dates
     @testset "@simos ctx_hash requires active session" begin
         with_test_context() do _
             kernel._get_sim().worksession = nothing
-            @test_throws ErrorException @simos ctx_hash "no-session" tol=1e-6
+            @test_throws ErrorException @simos cache.key("no-session", tol=1e-6)
         end
     end
 
     @testset "remember! reuses blob-backed values by named ctx hash" begin
         with_test_context() do ctx
-            @simos init ("cache-a-" * string(uuid4()))
+            @simos session.init("cache-a-" * string(uuid4()))
             ws = kernel._get_sim().worksession
             @test !isnothing(ws)
 
@@ -207,7 +207,7 @@ using Dates
             eps = 1e-6
             solver = "HiGHS"
             @test isempty(ws.context_hash_reg)
-            h = @simos ctx_hash "fva-inputs" model eps solver
+            h = @simos cache.key("fva-inputs", model, eps, solver)
             @test ws.context_hash_reg["fva-inputs"] == h
 
             calls = Ref(0)
@@ -234,11 +234,11 @@ using Dates
                     "home.path" => ctx[:home_path],
                 )
             )
-            @simos init ("cache-b-" * string(uuid4()))
+            @simos session.init("cache-b-" * string(uuid4()))
             model = "iJO1366"
             eps = 1e-6
             solver = "HiGHS"
-            @simos ctx_hash "fva-inputs" model eps solver
+            @simos cache.key("fva-inputs", model, eps, solver)
 
             value3, status3 = Simuleos.remember!("fva"; ctx="fva-inputs") do
                 calls[] += 1
@@ -252,9 +252,9 @@ using Dates
 
     @testset "remember! supports explicit ctx_hash and validates inputs" begin
         with_test_context() do _
-            @simos init ("cache-explicit-" * string(uuid4()))
+            @simos session.init("cache-explicit-" * string(uuid4()))
             x = 10
-            h = @simos ctx_hash "demo" x
+            h = @simos cache.key("demo", x)
 
             calls = Ref(0)
             v1, s1 = Simuleos.remember!("demo"; ctx_hash=h) do
@@ -317,17 +317,17 @@ using Dates
         end
     end
 
-    @testset "@simos remember supports single/tuple targets and assignment shorthand" begin
+    @testset "@simos cache.remember supports single/tuple targets and do-block" begin
         with_test_context() do _
-            @simos init ("remember-macro-" * string(uuid4()))
+            @simos session.init("remember-macro-" * string(uuid4()))
 
             model = "iJO1366"
             eps = 1e-6
             solver = "HiGHS"
-            h = @simos ctx_hash "solver-inputs" model eps solver
+            h = @simos cache.key("solver-inputs", model, eps, solver)
 
             calls_a = Ref(0)
-            status_a1 = @simos remember h a = begin
+            status_a1 = @simos cache.remember(h, a) do
                 calls_a[] += 1
                 11
             end
@@ -335,7 +335,7 @@ using Dates
             @test a == 11
 
             a = -1
-            status_a2 = @simos remember h a = begin
+            status_a2 = @simos cache.remember(h, a) do
                 calls_a[] += 1
                 99
             end
@@ -343,7 +343,7 @@ using Dates
             @test a == 11
             @test calls_a[] == 1
 
-            status_a_race = @simos remember h a_race = begin
+            status_a_race = @simos cache.remember(h, a_race) do
                 proj = kernel.sim_project(kernel._get_sim())
                 ns = wsmod._remember_namespace(:a_race)
                 outcome = kernel.cache_store!(proj, ns, string(h), 41)
@@ -354,41 +354,41 @@ using Dates
             @test a_race == 41
 
             calls_b = Ref(0)
-            status_b1 = @simos remember h b begin
+            status_b1 = @simos cache.remember(h, b) do
                 calls_b[] += 1
-                b = a + 1
+                a + 1
             end
             @test status_b1 == :miss
             @test b == 12
 
             b = -1
-            status_b2 = @simos remember h b begin
+            status_b2 = @simos cache.remember(h, b) do
                 calls_b[] += 1
-                b = 999
+                999
             end
             @test status_b2 == :hit
             @test b == 12
             @test calls_b[] == 1
 
             calls_tuple = Ref(0)
-            status_t1 = @simos remember h (u, v) begin
+            status_t1 = @simos cache.remember(h, (u, v)) do
                 calls_tuple[] += 1
-                u, v = (3, 4)
+                (3, 4)
             end
             @test status_t1 == :miss
             @test (u, v) == (3, 4)
 
             u, v = (30, 40)
-            status_t2 = @simos remember h (u, v) begin
+            status_t2 = @simos cache.remember(h, (u, v)) do
                 calls_tuple[] += 1
-                u, v = (300, 400)
+                (300, 400)
             end
             @test status_t2 == :hit
             @test (u, v) == (3, 4)
             @test calls_tuple[] == 1
 
             calls_tuple_assign = Ref(0)
-            status_ta1 = @simos remember h (p, q) = begin
+            status_ta1 = @simos cache.remember(h, (p, q)) do
                 calls_tuple_assign[] += 1
                 (7, 8)
             end
@@ -396,7 +396,7 @@ using Dates
             @test (p, q) == (7, 8)
 
             p, q = (70, 80)
-            status_ta2 = @simos remember h (p, q) = begin
+            status_ta2 = @simos cache.remember(h, (p, q)) do
                 calls_tuple_assign[] += 1
                 (700, 800)
             end
@@ -405,7 +405,7 @@ using Dates
             @test calls_tuple_assign[] == 1
 
             calls_partition = Ref(0)
-            status_part_1 = @simos remember h (metric="A", fold=1) score = begin
+            status_part_1 = @simos cache.remember(h, score; metric="A", fold=1) do
                 calls_partition[] += 1
                 41
             end
@@ -413,7 +413,7 @@ using Dates
             @test score == 41
 
             score = -1
-            status_part_2 = @simos remember h (metric="A", fold=1) score = begin
+            status_part_2 = @simos cache.remember(h, score; metric="A", fold=1) do
                 calls_partition[] += 1
                 999
             end
@@ -421,7 +421,7 @@ using Dates
             @test score == 41
 
             score = -1
-            status_part_3 = @simos remember h (metric="B", fold=1) score = begin
+            status_part_3 = @simos cache.remember(h, score; metric="B", fold=1) do
                 calls_partition[] += 1
                 42
             end
@@ -431,38 +431,10 @@ using Dates
         end
     end
 
-    @testset "@simos remember checks miss-branch assignments" begin
-        with_test_context() do _
-            @simos init ("remember-check-" * string(uuid4()))
-            x = 1
-            h = @simos ctx_hash "check" x
-
-            @test_throws ErrorException @simos remember h z begin
-                nothing
-            end
-
-            @test_throws ErrorException begin
-                @simos remember h (m, n) begin
-                    m = 1
-                end
-            end
-        end
-    end
-
-    @testset "@simos remember extra-key tuple requires key=value pairs" begin
-        ex = :(Simuleos.@simos remember h (metric="A", fold=1) score = 1)
+    @testset "@simos cache.remember extra-key kwargs expand correctly" begin
+        ex = :(Simuleos.@simos cache.remember(h, score, 1; metric="A", fold=1))
         expanded = Base.macroexpand(@__MODULE__, ex)
         @test expanded isa Expr
-
-        @test_throws ErrorException Base.macroexpand(
-            @__MODULE__,
-            :(Simuleos.@simos remember h (metric="A", fold) score = 1)
-        )
-
-        @test_throws ErrorException Base.macroexpand(
-            @__MODULE__,
-            :(Simuleos.@simos remember h ("A", 1) score = 1)
-        )
     end
 
     @testset "queued commits and session finalizer" begin
@@ -470,7 +442,7 @@ using Dates
             simos2 = kernel._get_sim()
             proj2 = kernel.sim_project(simos2)
 
-            @simos init ("queue-" * string(uuid4()))
+            @simos session.init("queue-" * string(uuid4()))
             ws = kernel._get_sim().worksession
             @test !isnothing(ws)
 
@@ -478,7 +450,7 @@ using Dates
             @test isempty(collect(kernel.iterate_tape(tape)))
 
             let x = 1
-                @simos capture "s1"
+                @simos scope.capture("s1")
             end
             c1 = wsmod.session_batch_commit("c1"; max_pending_commits=2)
             @test c1.commit_label == "c1"
@@ -486,7 +458,7 @@ using Dates
             @test isempty(collect(kernel.iterate_tape(tape)))
 
             let x = 2
-                @simos capture "s2"
+                @simos scope.capture("s2")
             end
             c2 = wsmod.session_batch_commit("c2"; max_pending_commits=2)
             @test c2.commit_label == "c2"
@@ -496,15 +468,15 @@ using Dates
             @test [c.commit_label for c in commits] == ["c1", "c2"]
 
             let x = 3
-                @simos capture "s3"
+                @simos scope.capture("s3")
             end
-            @simos batch_commit "c3"
+            @simos session.queue("c3")
             @test length(ws.pending_commits) == 1
 
             let x = 4
-                @simos capture "s4"
+                @simos scope.capture("s4")
             end
-            result = @simos finalize "tail"
+            result = @simos session.close("tail")
             @test result.queued_tail_commit == true
             @test result.flushed_commits == 2
             @test isempty(ws.pending_commits)
@@ -520,7 +492,7 @@ using Dates
             simos2 = kernel._get_sim()
             proj2 = kernel.sim_project(simos2)
 
-            @simos init ("filters-" * string(uuid4()))
+            @simos session.init("filters-" * string(uuid4()))
             ws = kernel._get_sim().worksession
             @test !isnothing(ws)
 
@@ -538,13 +510,13 @@ using Dates
             Simuleos.capture_filter_bind!(["label1", "label2"] => ["drop-debug", "keep-debug-main"])
 
             let __flt_debug = 1, __flt_debug_keep = 2, __flt_hidden = 3, __flt_result = 4
-                @simos capture "label1"
+                @simos scope.capture("label1")
             end
             let __flt_debug = 10, __flt_debug_keep = 20, __flt_hidden = 30, __flt_result = 40
-                @simos capture "label2"
+                @simos scope.capture("label2")
             end
             let __flt_debug = 100, __flt_debug_keep = 200, __flt_hidden = 300, __flt_result = 400
-                @simos capture "other"
+                @simos scope.capture("other")
             end
 
             @test length(ws.stage.captures) == 3
@@ -586,7 +558,7 @@ using Dates
             simos2 = kernel._get_sim()
             proj2 = kernel.sim_project(simos2)
 
-            @simos init ("queue-flush-failure-" * string(uuid4()))
+            @simos session.init("queue-flush-failure-" * string(uuid4()))
             ws = kernel._get_sim().worksession
             @test !isnothing(ws)
 
@@ -594,17 +566,17 @@ using Dates
             @test isempty(collect(kernel.iterate_tape(tape)))
 
             let x = 1
-                @simos capture "s1"
+                @simos scope.capture("s1")
             end
             wsmod.session_batch_commit("c1"; max_pending_commits=99)
 
             let x = 2
-                @simos capture "s2"
+                @simos scope.capture("s2")
             end
             wsmod.session_batch_commit("c2"; max_pending_commits=99)
 
             let x = 3
-                @simos capture "s3"
+                @simos scope.capture("s3")
             end
             wsmod.session_batch_commit("c3"; max_pending_commits=99)
 
@@ -637,7 +609,7 @@ using Dates
     @testset "session_init warns when switching from unfinalized session" begin
         with_test_context() do _
             expected_init_line = (@__LINE__) + 1
-            @simos init ("warn-a-" * string(uuid4()))
+            @simos session.init("warn-a-" * string(uuid4()))
             ws = kernel._get_sim().worksession
             @test ws.is_finalized == false
             @test haskey(ws.metadata, kernel.SESSION_META_INIT_FILE_KEY)
@@ -657,20 +629,20 @@ using Dates
             simos2 = kernel._get_sim()
             proj2 = kernel.sim_project(simos2)
 
-            @simos init ("store-hash-" * string(uuid4()))
+            @simos session.init("store-hash-" * string(uuid4()))
             ws = kernel._get_sim().worksession
             @test !isnothing(ws)
 
             data_a = [1, 2, 3]
             data_b = [4, 5, 6]
-            @simos hash data_a data_b
+            @simos stage.hash(data_a, data_b)
             @test :data_a in ws.stage.hash_vars
             @test :data_b in ws.stage.hash_vars
 
             let data_a = data_a, data_b = data_b
-                @simos capture "hashed"
+                @simos scope.capture("hashed")
             end
-            @simos commit "hash-commit"
+            @simos session.commit("hash-commit")
 
             tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
             commits = collect(kernel.iterate_tape(tape))
@@ -701,7 +673,7 @@ using Dates
 
     @testset "session_init does not warn after explicit finalization" begin
         with_test_context() do _
-            @simos init ("final-a-" * string(uuid4()))
+            @simos session.init("final-a-" * string(uuid4()))
             wsmod.session_finalize()
             ws = kernel._get_sim().worksession
             @test ws.is_finalized == true

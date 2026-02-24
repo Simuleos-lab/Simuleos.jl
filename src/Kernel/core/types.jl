@@ -38,7 +38,7 @@ abstract type ScopeVariable end
 A variable whose value is stored inline in the tape JSON.
 """
 struct InlineScopeVariable <: ScopeVariable
-    level::Symbol           # :local or :global
+    level::Symbol           # :local, :global, or :shared
     type_short::String      # Type name (truncated to 50 chars)
     value::Any
 end
@@ -179,6 +179,23 @@ mutable struct SimuleosHome
 end
 
 # --------------------------------------------------
+# Sandbox
+# --------------------------------------------------
+
+"""
+    SimuleosSandbox
+
+Runtime metadata for a sandboxed Simuleos home/project pair managed by `sim_init!`.
+"""
+struct SimuleosSandbox
+    root_path::String
+    home_path::String
+    project_root::String
+    cleanup_on_reset::Bool
+    origin::Symbol  # :explicit or :ephemeral
+end
+
+# --------------------------------------------------
 # WorkSession
 # --------------------------------------------------
 
@@ -215,10 +232,12 @@ settings, and the active work session.
 """
 mutable struct SimOs
     bootstrap::Dict{String, Any}
+    sandbox::Union{Nothing, SimuleosSandbox}
     project::Union{Nothing, SimuleosProject}
     home::Union{Nothing, SimuleosHome}
     worksession::Union{Nothing, WorkSession}
-    settings::Dict{String, Any}  # Merged settings (replaces UXLayers)
+    settings::Dict{String, Any}  # Merged settings
+    shared_scopes::Dict{String, SimuleosScope}  # In-memory named shared scopes
 end
 
 # --------------------------------------------------

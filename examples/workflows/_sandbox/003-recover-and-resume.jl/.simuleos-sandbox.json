@@ -1,0 +1,9 @@
+{
+    "origin": "explicit",
+    "kind": "simuleos-sandbox-v1",
+    "root_path": "/Users/pereiro/.julia/dev/Simuleos/examples/workflows/_sandbox/003-recover-and-resume.jl",
+    "home_path": "/Users/pereiro/.julia/dev/Simuleos/examples/workflows/_sandbox/003-recover-and-resume.jl/home",
+    "created_at": "2026-02-23T15:48:02.759",
+    "cleanup_on_reset": false,
+    "project_root": "/Users/pereiro/.julia/dev/Simuleos/examples/workflows/_sandbox/003-recover-and-resume.jl/proj"
+}

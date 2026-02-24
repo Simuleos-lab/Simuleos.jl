@@ -1,0 +1,9 @@
+{
+    "origin": "explicit",
+    "kind": "simuleos-sandbox-v1",
+    "root_path": "/Users/pereiro/.julia/dev/Simuleos/examples/workflows/_sandbox/001-record-read-roundtrip.jl",
+    "home_path": "/Users/pereiro/.julia/dev/Simuleos/examples/workflows/_sandbox/001-record-read-roundtrip.jl/home",
+    "created_at": "2026-02-23T15:47:55.928",
+    "cleanup_on_reset": false,
+    "project_root": "/Users/pereiro/.julia/dev/Simuleos/examples/workflows/_sandbox/001-record-read-roundtrip.jl/proj"
+}

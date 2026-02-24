@@ -7,12 +7,14 @@ import UUIDs: uuid4
 # -- SimOs --
 function SimOs(;
         bootstrap = Dict{String, Any}(),
+        sandbox = nothing,
         project = nothing,
         home = nothing,
         worksession = nothing,
         settings = Dict{String, Any}(),
+        shared_scopes::Dict{String, SimuleosScope} = Dict{String, SimuleosScope}(),
     )
-    SimOs(bootstrap, project, home, worksession, settings)
+    SimOs(bootstrap, sandbox, project, home, worksession, settings, shared_scopes)
 end
 
 # -- SimuleosProject --

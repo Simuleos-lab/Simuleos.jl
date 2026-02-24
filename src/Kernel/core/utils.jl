@@ -19,14 +19,10 @@ end
 
 """Check whether a SimuleosScope has a variable with the given name."""
 hasvar(scope::SimuleosScope, name::Symbol) = haskey(scope.variables, name)
-getvariable(scope::SimuleosScope, name::Symbol) = scope.variables[name]
-variables(scope::SimuleosScope) = scope.variables
-setvariable!(scope::SimuleosScope, name::Symbol, value::ScopeVariable) = (scope.variables[name] = value)
 
 const LITE_TYPES = Union{Bool, Int, Float64, String, Nothing, Missing, Symbol}
 _is_lite(::LITE_TYPES) = true
 _is_lite(::Any) = false
-_liteify(x) = x
 
 const SESSION_META_TIMESTAMP_KEY = "timestamp"
 const SESSION_META_JULIA_VERSION_KEY = "julia_version"
@@ -50,15 +46,3 @@ function _string_keys(d::AbstractDict)
     return out
 end
 
-"""
-    _symbol_keys(d::AbstractDict)
-
-Convert top-level keys to Symbol.
-"""
-function _symbol_keys(d::AbstractDict)
-    out = Dict{Symbol, Any}()
-    for (k, v) in d
-        out[Symbol(k)] = v
-    end
-    return out
-end

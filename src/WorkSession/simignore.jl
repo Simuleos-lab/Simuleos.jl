@@ -129,12 +129,6 @@ function set_simignore_rules!(ws::_Kernel.WorkSession, rules::AbstractVector{<:A
     return ws
 end
 
-function append_simignore_rule!(ws::_Kernel.WorkSession, rule::AbstractDict{Symbol, <:Any})
-    validate_rules(rule; allow_scope=true)
-    push!(ws.simignore_rules, _copy_rule(rule))
-    return ws
-end
-
 function capture_filter_register!(ws::_Kernel.WorkSession, name::AbstractString, rules::AbstractVector{<:AbstractDict})
     fname = _nonempty_string(name, "Capture filter name")
     ws.capture_filter_defs[fname] = _normalized_rules(rules; allow_scope=false)

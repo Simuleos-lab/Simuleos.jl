@@ -89,8 +89,6 @@ function project_settings(proj::SimuleosProject)
     return _read_json_file_or_empty(path)
 end
 
-proj_path(project::SimuleosProject)::String = project.root_path
-proj_json_path(project::SimuleosProject)::String = project_json_path(project.simuleos_dir)
 settings_path(project::SimuleosProject)::String = settings_json_path(project.simuleos_dir)
 blob_path(project::SimuleosProject, sha1::String)::String = blob_path(project.blobstorage, sha1)
 

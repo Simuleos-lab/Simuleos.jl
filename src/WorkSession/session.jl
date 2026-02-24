@@ -197,16 +197,77 @@ function session_init!(labels::Vector{String}, script_path::String;
     )
 end
 
-"""
-    session_init_from_macro!(labels::Vector, script_path::String, src_line::Int)
-
-Entry point from @session_init macro. Validates label types.
-"""
-function session_init_from_macro!(labels::Vector, script_path::String, src_line::Int)
+function _macro_labels_to_strings(labels::Vector)::Vector{String}
     for l in labels
         l isa AbstractString || error("Session labels must be strings, got: $(typeof(l))")
     end
-    return session_init!(String[string(l) for l in labels], script_path;
+    return String[string(l) for l in labels]
+end
+
+function _macro_ensure_engine_initialized!(;
+        bootstrap = nothing,
+        sandbox = nothing,
+        reinit::Bool = false,
+        sandbox_cleanup::Symbol = :auto,
+    )
+    sim = _Kernel._get_sim_or_nothing()
+
+    if reinit && !isnothing(sim)
+        _Kernel.sim_reset!(; sandbox_cleanup = sandbox_cleanup)
+        sim = nothing
+    end
+
+    has_engine_options = reinit || !isnothing(bootstrap) || !isnothing(sandbox)
+
+    if isnothing(sim)
+        if isnothing(bootstrap)
+            _Kernel.sim_init!(; sandbox = sandbox)
+        else
+            bootstrap isa Dict || error("@simos system.init `bootstrap` option must be a Dict.")
+            _Kernel.sim_init!(; bootstrap = bootstrap, sandbox = sandbox)
+        end
+        return nothing
+    end
+
+    if has_engine_options
+        error("Simuleos is already initialized. Use `reinit=true` with `@simos system.init(...)` to reset/reconfigure the engine.")
+    end
+
+    return nothing
+end
+
+"""
+    engine_init_from_macro!(script_path::String, src_line::Int; ...) -> SimOs
+
+Entry point from `@simos system.init(...)`. Initializes or reinitializes the Simuleos
+engine only. Does not start a recording session.
+"""
+function engine_init_from_macro!(script_path::String, src_line::Int;
+        bootstrap = nothing,
+        sandbox = nothing,
+        reinit::Bool = false,
+        sandbox_cleanup::Symbol = :auto,
+    )
+    _ = script_path
+    _ = src_line
+    _macro_ensure_engine_initialized!(;
+        bootstrap,
+        sandbox,
+        reinit,
+        sandbox_cleanup,
+    )
+    return _Kernel._get_sim()
+end
+
+"""
+    session_init_from_macro!(labels::Vector, script_path::String, src_line::Int) -> WorkSession
+
+Entry point from `@simos session.init(...)`. Starts or switches the active
+recording session using the already-initialized engine.
+"""
+function session_init_from_macro!(labels::Vector, script_path::String, src_line::Int)
+    labels_s = _macro_labels_to_strings(labels)
+    return session_init!(labels_s, script_path;
         init_file = script_path,
         init_line = src_line,
     )

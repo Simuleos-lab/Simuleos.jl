@@ -15,3 +15,4 @@
 - `006-workflow-surfaces.md` — High-level user workflow surfaces and invariants.
 - `007-index-governance.md` — Rules for what belongs in the index and how it is curated.
 - `008-anti-patterns-to-avoid.md` — Project-wide implementation anti-patterns that should trigger review.
+- `009-usage-pattern-mining-findings.md` — Pressure points and opportunities mined from real-world simulation repositories.
