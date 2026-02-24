@@ -204,6 +204,60 @@ using UUIDs
         end
     end
 
+    @testset "@simos shared.* in-memory scope registry" begin
+        with_test_context() do _
+            @simos session.init("simos-shared-" * string(uuid4()))
+
+            @test (@simos shared.keys()) == String[]
+            @test (@simos shared.has("params")) == false
+            @test (@simos shared.drop("params")) == false
+            @test (@simos shared.clear()) == 0
+
+            capture_filter_register!("hide-dropme", [Dict(:regex => r"^dropme$", :action => :exclude)])
+            capture_filter_bind!("params", ["hide-dropme"])
+
+            keep = 10
+            dropme = 99
+            @simos shared.capture("params")
+
+            @test (@simos shared.has("params")) == true
+            @test (@simos shared.keys()) == ["params"]
+
+            scope_params = Simuleos.WorkSession.shared_get("params")
+            @test haskey(scope_params.variables, :keep)
+            @test !haskey(scope_params.variables, :dropme)
+            @test scope_params.variables[:keep].level === :shared
+
+            x = 1.5
+            y = 7
+            @simos shared.capture("typed", x, y)
+
+            x = 0.0
+            y = 0
+            @simos shared.bind("typed", x::Float64, y::Int)
+            @test x == 1.5
+            @test y == 7
+
+            z = "ok"
+            @simos shared.capture("extra", z)
+            merged = @simos shared.merge("typed", "extra")
+            @test merged isa kernel.SimuleosScope
+
+            z = ""
+            @simos shared.bind("typed", z::String)
+            @test z == "ok"
+
+            @test sort(@simos shared.keys()) == ["extra", "params", "typed"]
+            @test (@simos shared.drop("extra")) == true
+            @test (@simos shared.has("extra")) == false
+            @test sort(@simos shared.keys()) == ["params", "typed"]
+
+            cleared = @simos shared.clear()
+            @test cleared == 2
+            @test (@simos shared.keys()) == String[]
+        end
+    end
+
     @testset "@simos session.commit" begin
         with_test_context() do _
             simos2 = kernel._get_sim()
@@ -218,7 +272,7 @@ using UUIDs
             @simos session.commit("c1")
 
             tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
-            commits = collect(kernel.iterate_tape(tape))
+            commits = collect(kernel.iterate_commits(tape))
             @test length(commits) == 1
             @test commits[1].commit_label == "c1"
         end
@@ -246,8 +300,48 @@ using UUIDs
             @test isempty(ws.pending_commits)
 
             tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
-            commits = collect(kernel.iterate_tape(tape))
+            commits = collect(kernel.iterate_commits(tape))
             @test [c.commit_label for c in commits] == ["bc1", "tail"]
+        end
+    end
+
+    @testset "@simos session.queue supports cmt_every kwarg" begin
+        with_test_context() do _
+            simos2 = kernel._get_sim()
+            proj2 = kernel.sim_project(simos2)
+
+            @simos session.init("simos-batch-gated-" * string(uuid4()))
+            ws = kernel._get_sim().worksession
+
+            let x = 1
+                @simos scope.capture("g1")
+            end
+            r1 = @simos session.queue("bcg"; cmt_every = 2)
+            @test isnothing(r1)
+            @test isempty(ws.pending_commits)
+            @test length(ws.stage.captures) == 1
+
+            let x = 2
+                @simos scope.capture("g2")
+            end
+            r2 = @simos session.queue("bcg"; cmt_every = 2)
+            @test !isnothing(r2)
+            @test length(ws.pending_commits) == 1
+            @test isempty(ws.stage.captures)
+            @test length(ws.pending_commits[1].scopes) == 2
+
+            let x = 3
+                @simos scope.capture("g3")
+            end
+            result = @simos session.close("tail")
+            @test result.queued_tail_commit == true
+            @test isempty(ws.pending_commits)
+
+            tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
+            commits = collect(kernel.iterate_commits(tape))
+            @test [c.commit_label for c in commits] == ["bcg", "tail"]
+            @test length(commits[1].scopes) == 2
+            @test length(commits[2].scopes) == 1
         end
     end
 

@@ -214,6 +214,8 @@ mutable struct WorkSession
     metadata::Dict{String, Any}
     # Runtime-only registry of named context hashes (not persisted to session.json).
     context_hash_reg::Dict{String, String}
+    # Runtime-only counters for gated `session.queue(...; cmt_every=...)` calls.
+    queue_counters::Dict{String, Int}
     simignore_rules::Vector{Dict{Symbol, Any}}
     capture_filter_defs::Dict{String, Vector{Dict{Symbol, Any}}}
     capture_filter_bindings::Dict{String, Vector{String}}

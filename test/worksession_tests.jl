@@ -447,7 +447,7 @@ using Dates
             @test !isnothing(ws)
 
             tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
-            @test isempty(collect(kernel.iterate_tape(tape)))
+            @test isempty(collect(kernel.iterate_commits(tape)))
 
             let x = 1
                 @simos scope.capture("s1")
@@ -455,7 +455,7 @@ using Dates
             c1 = wsmod.session_batch_commit("c1"; max_pending_commits=2)
             @test c1.commit_label == "c1"
             @test length(ws.pending_commits) == 1
-            @test isempty(collect(kernel.iterate_tape(tape)))
+            @test isempty(collect(kernel.iterate_commits(tape)))
 
             let x = 2
                 @simos scope.capture("s2")
@@ -464,7 +464,7 @@ using Dates
             @test c2.commit_label == "c2"
             @test isempty(ws.pending_commits)
 
-            commits = collect(kernel.iterate_tape(tape))
+            commits = collect(kernel.iterate_commits(tape))
             @test [c.commit_label for c in commits] == ["c1", "c2"]
 
             let x = 3
@@ -482,7 +482,7 @@ using Dates
             @test isempty(ws.pending_commits)
             @test isempty(ws.stage.captures)
 
-            commits = collect(kernel.iterate_tape(tape))
+            commits = collect(kernel.iterate_commits(tape))
             @test [c.commit_label for c in commits] == ["c1", "c2", "c3", "tail"]
         end
     end
@@ -545,7 +545,7 @@ using Dates
             @test haskey(s3.variables, :__flt_result)
 
             tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
-            commits = collect(kernel.iterate_tape(tape))
+            commits = collect(kernel.iterate_commits(tape))
             @test length(commits) == 1
             @test [c.commit_label for c in commits] == ["filtered"]
             @test !haskey(commits[1].scopes[1].variables, :__flt_debug)
@@ -563,7 +563,7 @@ using Dates
             @test !isnothing(ws)
 
             tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
-            @test isempty(collect(kernel.iterate_tape(tape)))
+            @test isempty(collect(kernel.iterate_commits(tape)))
 
             let x = 1
                 @simos scope.capture("s1")
@@ -594,14 +594,14 @@ using Dates
             @test_throws ErrorException wsmod._flush_pending_commits!(proj2, ws; commit_writer=failing_writer)
 
             @test [c.commit_label for c in ws.pending_commits] == ["c2", "c3"]
-            commits_after_fail = collect(kernel.iterate_tape(tape))
+            commits_after_fail = collect(kernel.iterate_commits(tape))
             @test [c.commit_label for c in commits_after_fail] == ["c1"]
 
             flushed_retry = wsmod._flush_pending_commits!(proj2, ws)
             @test flushed_retry == 2
             @test isempty(ws.pending_commits)
 
-            commits_after_retry = collect(kernel.iterate_tape(tape))
+            commits_after_retry = collect(kernel.iterate_commits(tape))
             @test [c.commit_label for c in commits_after_retry] == ["c1", "c2", "c3"]
         end
     end
@@ -645,7 +645,7 @@ using Dates
             @simos session.commit("hash-commit")
 
             tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
-            commits = collect(kernel.iterate_tape(tape))
+            commits = collect(kernel.iterate_commits(tape))
             @test length(commits) == 1
             s = commits[1].scopes[1]
 

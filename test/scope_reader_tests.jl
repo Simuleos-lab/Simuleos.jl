@@ -64,6 +64,11 @@ global _simuleos_expand_global = 0
                 @test x == 42
             end
 
+            let x = -1
+                @simos scope.bind(scope, project_driver, x::Int)
+                @test x == 42
+            end
+
             let _simuleos_expand_global = -1
                 @simos scope.bind(scope, project_driver, _simuleos_expand_global)
                 @test _simuleos_expand_global == -1
@@ -167,6 +172,38 @@ global _simuleos_expand_global = 0
                 project_driver; session="reader-filter", commit_label="stage-output", src_file="stage.jl")
             @test latest_both.metadata[:step] == 2
             @test latest_both.labels == ["second"]
+
+            scopes_by_commit_label = collect(Simuleos.each_scopes(
+                project_driver; session="reader-filter", commit_label="stage-output"))
+            @test [s.metadata[:step] for s in scopes_by_commit_label] == [1, 2]
+            @test [s.labels[1] for s in scopes_by_commit_label] == ["first", "second"]
+
+            scopes_by_src = collect(Simuleos.each_scopes(
+                project_driver; session="reader-filter", src_file="stage.jl"))
+            @test [s.metadata[:step] for s in scopes_by_src] == [1, 2]
+            @test [s.labels[1] for s in scopes_by_src] == ["first", "second"]
+
+            scopes_both = collect(Simuleos.each_scopes(
+                project_driver; session="reader-filter", commit_label="stage-output", src_file="stage.jl"))
+            @test [s.metadata[:step] for s in scopes_both] == [1, 2]
+            @test [s.labels[1] for s in scopes_both] == ["first", "second"]
+
+            rows_by_commit_label = Simuleos.scope_table(
+                project_driver; session="reader-filter", commit_label="stage-output")
+            @test [row[:step] for row in rows_by_commit_label] == [1, 2]
+            @test [row[:commit_label] for row in rows_by_commit_label] == ["stage-output", "stage-output"]
+            @test [row[:x] for row in rows_by_commit_label] == [1, 2]
+
+            rows_by_src = Simuleos.scope_table(
+                project_driver; session="reader-filter", src_file="stage.jl")
+            @test [row[:step] for row in rows_by_src] == [1, 2]
+            @test [row[:commit_label] for row in rows_by_src] == ["stage-output", "stage-output"]
+
+            rows_both = Simuleos.scope_table(
+                project_driver; session="reader-filter", commit_label="stage-output", src_file="stage.jl")
+            @test [row[:step] for row in rows_both] == [1, 2]
+            @test isempty(Simuleos.scope_table(
+                project_driver; session="reader-filter", commit_label="other-output", src_file="stage.jl"))
         end
     end
 end

@@ -44,6 +44,10 @@ const _SIMOS_COMMANDS = (
     (:shared, :capture),
     (:shared, :bind),
     (:shared, :merge),
+    (:shared, :keys),
+    (:shared, :has),
+    (:shared, :drop),
+    (:shared, :clear),
     (:cache, :key),
     (:cache, :remember),
 )
@@ -185,9 +189,8 @@ function _simos_dispatch_call(mod, src, path::Tuple, posargs::Vector{Any}, kwarg
         _simos_disallow_do(path, payload_expr)
         return _simos_commit(mod, src, posargs)
     elseif path == (:session, :queue)
-        _simos_disallow_kwargs(path, kwargs)
         _simos_disallow_do(path, payload_expr)
-        return _simos_batch_commit(mod, src, posargs)
+        return _simos_batch_commit(mod, src, posargs, kwargs)
     elseif path == (:session, :close)
         _simos_disallow_kwargs(path, kwargs)
         _simos_disallow_do(path, payload_expr)
@@ -228,6 +231,22 @@ function _simos_dispatch_call(mod, src, path::Tuple, posargs::Vector{Any}, kwarg
         _simos_disallow_kwargs(path, kwargs)
         _simos_disallow_do(path, payload_expr)
         return _simos_shared_merge(mod, src, posargs)
+    elseif path == (:shared, :keys)
+        _simos_disallow_kwargs(path, kwargs)
+        _simos_disallow_do(path, payload_expr)
+        return _simos_shared_keys(mod, src, posargs)
+    elseif path == (:shared, :has)
+        _simos_disallow_kwargs(path, kwargs)
+        _simos_disallow_do(path, payload_expr)
+        return _simos_shared_has(mod, src, posargs)
+    elseif path == (:shared, :drop)
+        _simos_disallow_kwargs(path, kwargs)
+        _simos_disallow_do(path, payload_expr)
+        return _simos_shared_drop(mod, src, posargs)
+    elseif path == (:shared, :clear)
+        _simos_disallow_kwargs(path, kwargs)
+        _simos_disallow_do(path, payload_expr)
+        return _simos_shared_clear(mod, src, posargs)
     elseif path == (:cache, :key)
         _simos_disallow_do(path, payload_expr)
         args = Any[posargs...]
@@ -434,10 +453,15 @@ function _simos_commit(mod, src, args)
     end
 end
 
-function _simos_batch_commit(mod, src, args)
+function _simos_batch_commit(mod, src, args, kwargs::Vector{Expr}=Expr[])
     label_expr = isempty(args) ? "" : args[1]
+    if isempty(kwargs)
+        return quote
+            $(_SimWS).session_batch_commit(string($label_expr))
+        end
+    end
     return quote
-        $(_SimWS).session_batch_commit(string($label_expr))
+        $(_SimWS).session_batch_commit(string($label_expr); $(kwargs...))
     end
 end
 
@@ -571,10 +595,8 @@ function _simos_bind_value_expr(value_sym::Symbol, type_expr)
 end
 
 function _simos_bind_assign_expr(var::Symbol, value_expr, type_expr)
-    if isnothing(type_expr)
-        return :($(var) = $(value_expr))
-    end
-    return :($(var)::$(type_expr) = $(value_expr))
+    _ = type_expr
+    return :($(var) = $(value_expr))
 end
 
 function _simos_bind_from_scope(mod, scope_expr, project_expr, bind_args, cmd::AbstractString)
@@ -676,6 +698,44 @@ function _simos_shared_merge(mod, src, args)
     end
 end
 
+function _simos_shared_keys(mod, src, args)
+    _ = mod
+    _ = src
+    isempty(args) || error("@simos shared.keys expects no positional arguments.")
+    return quote
+        $(_SimWS).shared_keys()
+    end
+end
+
+function _simos_shared_has(mod, src, args)
+    _ = mod
+    _ = src
+    length(args) == 1 || error("@simos shared.has expects exactly one key.")
+    key_expr = args[1]
+    return quote
+        $(_SimWS).shared_has(string($key_expr))
+    end
+end
+
+function _simos_shared_drop(mod, src, args)
+    _ = mod
+    _ = src
+    length(args) == 1 || error("@simos shared.drop expects exactly one key.")
+    key_expr = args[1]
+    return quote
+        $(_SimWS).shared_drop!(string($key_expr))
+    end
+end
+
+function _simos_shared_clear(mod, src, args)
+    _ = mod
+    _ = src
+    isempty(args) || error("@simos shared.clear expects no positional arguments.")
+    return quote
+        $(_SimWS).shared_clear!()
+    end
+end
+
 # ------------------------------------------------------------------
 # Dispatcher macro
 # ------------------------------------------------------------------
@@ -712,6 +772,10 @@ call syntax so the command path is clearly separated from the arguments.
 | `shared.capture` | Capture vars into in-memory shared scope |
 | `shared.bind` | Bind vars from in-memory shared scope |
 | `shared.merge` | Merge shared scope variables (shallow overwrite) |
+| `shared.keys` | List shared scope keys |
+| `shared.has` | Check if shared scope key exists |
+| `shared.drop` | Delete one shared scope key |
+| `shared.clear` | Clear shared scope registry |
 | `cache.key` | Compute a named context hash |
 | `cache.remember` | Cache-or-compute with context hash |
 """

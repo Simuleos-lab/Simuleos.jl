@@ -1,0 +1,9 @@
+{
+    "origin": "explicit",
+    "kind": "simuleos-sandbox-v1",
+    "root_path": "/Users/pereiro/.julia/dev/Simuleos/examples/workflows/_sandbox/006-shared-scope-handoff.jl",
+    "home_path": "/Users/pereiro/.julia/dev/Simuleos/examples/workflows/_sandbox/006-shared-scope-handoff.jl/home",
+    "created_at": "2026-02-23T22:03:35.580",
+    "cleanup_on_reset": false,
+    "project_root": "/Users/pereiro/.julia/dev/Simuleos/examples/workflows/_sandbox/006-shared-scope-handoff.jl/proj"
+}

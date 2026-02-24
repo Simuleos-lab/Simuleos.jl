@@ -15,6 +15,82 @@ function _session_json(labels::Vector{String}, timestamp::Dates.DateTime, sessio
     )
 end
 
+@testset "Simules CLI system.init" begin
+    mktempdir() do root
+        # First call: creates the project
+        out = IOBuffer()
+        err = IOBuffer()
+        exit_code = SimulesCLI.main(["system.init", root]; io=out, err_io=err)
+        @test exit_code == 0
+        out_str = String(take!(out))
+        @test occursin("System initialized.", out_str)
+        @test occursin("status:       created", out_str)
+        @test isempty(String(take!(err)))
+
+        # Second call: loads the existing project
+        out = IOBuffer()
+        err = IOBuffer()
+        exit_code = SimulesCLI.main(["system.init", root]; io=out, err_io=err)
+        @test exit_code == 0
+        out_str = String(take!(out))
+        @test occursin("status:       loaded", out_str)
+        @test isempty(String(take!(err)))
+    end
+end
+
+@testset "Simules CLI project.current" begin
+    mktempdir() do root
+        # No project yet — should fail
+        out = IOBuffer()
+        err = IOBuffer()
+        exit_code = SimulesCLI.main(["project.current", root]; io=out, err_io=err)
+        @test exit_code == 1
+        @test occursin("No .simuleos project", String(take!(err)))
+
+        # Init project, then find it
+        Simuleos.Kernel.proj_init_at(root)
+        out = IOBuffer()
+        err = IOBuffer()
+        exit_code = SimulesCLI.main(["project.current", root]; io=out, err_io=err)
+        @test exit_code == 0
+        out_str = String(take!(out))
+        @test occursin("Project", out_str)
+        @test occursin("root:", out_str)
+        @test occursin("simuleos_dir:", out_str)
+        @test occursin("id:", out_str)
+        @test isempty(String(take!(err)))
+    end
+end
+
+@testset "Simules CLI blob.meta" begin
+    mktempdir() do root
+        project_driver = Simuleos.Kernel.proj_init_at(root)
+
+        # Write a blob and get its hash
+        ref = Simuleos.Kernel.blob_write(project_driver.blobstorage, :test_key, [1, 2, 3])
+        hash = ref.hash
+
+        # Found
+        out = IOBuffer()
+        err = IOBuffer()
+        exit_code = SimulesCLI.main(["blob.meta", hash, "--project=$(root)"]; io=out, err_io=err)
+        @test exit_code == 0
+        out_str = String(take!(out))
+        @test occursin("blob_hash", out_str)
+        @test occursin(hash, out_str)
+        @test isempty(String(take!(err)))
+
+        # Not found
+        missing_hash = "a" ^ 40
+        out = IOBuffer()
+        err = IOBuffer()
+        exit_code = SimulesCLI.main(["blob.meta", missing_hash, "--project=$(root)"]; io=out, err_io=err)
+        @test exit_code == 1
+        @test occursin("(not found)", String(take!(out)))
+        @test isempty(String(take!(err)))
+    end
+end
+
 @testset "Simules CLI stats" begin
     mktempdir() do root
         project_driver = Simuleos.Kernel.proj_init_at(root)

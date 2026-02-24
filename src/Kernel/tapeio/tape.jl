@@ -223,6 +223,14 @@ function Base.collect(tape::TapeIO)
     return records
 end
 
+"""
+    iterate_tape(tape::TapeIO)
+
+Return the raw tape-record iterator (all records), including tape metadata rows.
+Equivalent to iterating the `TapeIO` handle directly.
+"""
+iterate_tape(tape::TapeIO) = tape
+
 # -- Lazy filtered iteration (string prefilter -> parse -> JSON filter) --
 
 """

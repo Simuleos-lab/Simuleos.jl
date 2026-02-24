@@ -39,7 +39,7 @@ function each_commits(
     )
     session_id = _resolve_session_id(project_driver, session)
     tape = Kernel.TapeIO(Kernel.tape_path(project_driver, session_id))
-    return Kernel.iterate_tape(tape)
+    return Kernel.iterate_commits(tape)
 end
 
 function each_scopes(
@@ -48,9 +48,14 @@ function each_scopes(
         commit_label::Union{String, Nothing} = nothing,
         src_file::Union{String, Nothing} = nothing,
     )
+    commits = if isnothing(commit_label) && isnothing(src_file)
+        each_commits(project_driver; session=session)
+    else
+        _each_commits_filtered(project_driver, session, commit_label, src_file)
+    end
     return (
         scope
-        for commit in each_commits(project_driver; session=session)
+        for commit in commits
         if isnothing(commit_label) || commit.commit_label == commit_label
         for scope in commit.scopes
         if isnothing(src_file) || _src_file_match(scope, src_file)
@@ -63,7 +68,7 @@ function _src_file_match(scope::Kernel.SimuleosScope, pattern::String)::Bool
     return endswith(string(sf), pattern)
 end
 
-function _latest_scope_filtered(
+function _each_commits_filtered(
         project_driver::Kernel.SimuleosProject,
         session::Union{Symbol, Base.UUID, String},
         commit_label::Union{String, Nothing},
@@ -86,17 +91,8 @@ function _latest_scope_filtered(
         return true
     end
 
-    latest = nothing
-    for raw in Kernel.each_tape_records_filtered(tape; line_filter=line_filter, json_filter=json_filter)
-        commit = Kernel._parse_commit(raw)
-        for scope in commit.scopes
-            if !isnothing(src_file) && !_src_file_match(scope, src_file)
-                continue
-            end
-            latest = scope
-        end
-    end
-    return latest
+    raws = Kernel.each_tape_records_filtered(tape; line_filter=line_filter, json_filter=json_filter)
+    return (Kernel._parse_commit(raw) for raw in raws)
 end
 
 """
@@ -114,14 +110,9 @@ function latest_scope(
         commit_label::Union{String, Nothing} = nothing,
         src_file::Union{String, Nothing} = nothing,
     )
-    latest = if isnothing(commit_label) && isnothing(src_file)
-        local _latest = nothing
-        for scope in each_scopes(project_driver; session=session, commit_label=commit_label, src_file=src_file)
-            _latest = scope
-        end
-        _latest
-    else
-        _latest_scope_filtered(project_driver, session, commit_label, src_file)
+    latest = nothing
+    for scope in each_scopes(project_driver; session=session, commit_label=commit_label, src_file=src_file)
+        latest = scope
     end
     isnothing(latest) && error("No scopes found for session `$(string(session))`" *
         (isnothing(commit_label) ? "" : ", commit_label=`$(commit_label)`") *
@@ -184,7 +175,12 @@ function scope_table(
         src_file::Union{String, Nothing} = nothing,
     )::Vector{Dict{Symbol, Any}}
     rows = Dict{Symbol, Any}[]
-    for commit in each_commits(project_driver; session=session)
+    commits = if isnothing(commit_label) && isnothing(src_file)
+        each_commits(project_driver; session=session)
+    else
+        _each_commits_filtered(project_driver, session, commit_label, src_file)
+    end
+    for commit in commits
         if !isnothing(commit_label) && commit.commit_label != commit_label
             continue
         end

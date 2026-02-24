@@ -11,6 +11,7 @@ const BlobScopeVariable = Simuleos.Kernel.BlobScopeVariable
 const VoidScopeVariable = Simuleos.Kernel.VoidScopeVariable
 const HashedScopeVariable = Simuleos.Kernel.HashedScopeVariable
 const iterate_tape = Simuleos.Kernel.iterate_tape
+const iterate_commits = Simuleos.Kernel.iterate_commits
 const each_tape_records_filtered = Simuleos.Kernel.each_tape_records_filtered
 const findfirst_tape_record = Simuleos.Kernel.findfirst_tape_record
 const any_tape_record = Simuleos.Kernel.any_tape_record
@@ -161,7 +162,7 @@ const exists = Simuleos.Kernel.exists
         ))
 
         @testset "TapeIO Raw Iteration" begin
-            rows = collect(tape)
+            rows = collect(iterate_tape(tape))
             @test length(rows) == 3
             @test rows[1]["type"] == "tape_metadata"
             @test rows[1]["tape_name"] == "main"
@@ -263,7 +264,7 @@ const exists = Simuleos.Kernel.exists
                 "commit_label" => "hashed_commit"
             ))
 
-            commits = collect(iterate_tape(hashed_tape))
+            commits = collect(iterate_commits(hashed_tape))
             @test length(commits) == 1
             s = commits[1].scopes[1]
             var_h = s.variables[:h]
@@ -274,7 +275,7 @@ const exists = Simuleos.Kernel.exists
         end
 
         @testset "ScopeTapes Typed Objects" begin
-            commits = collect(iterate_tape(tape))
+            commits = collect(iterate_commits(tape))
             @test length(commits) == 2
 
             c1 = commits[1]

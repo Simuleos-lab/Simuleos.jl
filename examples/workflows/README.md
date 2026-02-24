@@ -32,6 +32,7 @@ julia --project=. examples/workflows/002-compare-sessions-and-export.jl
 julia --project=. examples/workflows/003-recover-and-resume.jl
 julia --project=. examples/workflows/004-keyed-cache-remember.jl
 julia --project=. examples/workflows/005-pipeline-stage-lineage.jl
+julia --project=. examples/workflows/006-shared-scope-handoff.jl
 ```
 
 ## Scripts
@@ -41,3 +42,4 @@ julia --project=. examples/workflows/005-pipeline-stage-lineage.jl
 - `003-recover-and-resume.jl`: recover state from `latest_scope`, hydrate variables with `@simos scope.bind(...)`, and resume in a new session.
 - `004-keyed-cache-remember.jl`: compute context hashes and reuse cached results with `remember!` and `@simos cache.key(...)` / `@simos cache.remember(...)`.
 - `005-pipeline-stage-lineage.jl`: multi-stage pipeline pattern using commit labels and `src_file` filtering as stage contracts.
+- `006-shared-scope-handoff.jl`: in-memory `@simos shared.*` workflow using filtered capture, typed bind, merge, and registry helpers (`keys/has/drop/clear`).

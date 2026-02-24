@@ -116,6 +116,27 @@ function _batch_commit_limit(ws::_Kernel.WorkSession, max_pending_commits)::Int
     return _normalize_batch_commit_limit(raw)
 end
 
+function _normalize_commit_every(value)::Int
+    value isa Integer || error("`cmt_every` must be an integer, got: $(typeof(value))")
+    n = Int(value)
+    n >= 1 || error("`cmt_every` must be >= 1, got: $(n)")
+    return n
+end
+
+function _batch_commit_gate_allows_queue!(ws::_Kernel.WorkSession, label::String, cmt_every)::Bool
+    isnothing(cmt_every) && return true
+
+    every = _normalize_commit_every(cmt_every)
+    next_count = get(ws.queue_counters, label, 0) + 1
+    if next_count >= every
+        ws.queue_counters[label] = 0
+        return true
+    end
+
+    ws.queue_counters[label] = next_count
+    return false
+end
+
 function _apply_commit_capture_filters!(ws::_Kernel.WorkSession, commit::_Kernel.ScopeCommit)::_Kernel.ScopeCommit
     for i in eachindex(commit.scopes)
         commit.scopes[i] = _WS.apply_capture_filters(commit.scopes[i], ws)
@@ -213,8 +234,9 @@ function session_commit(label::String="")
     return commit
 end
 
-function session_batch_commit(label::String=""; max_pending_commits = nothing)
+function session_batch_commit(label::String=""; max_pending_commits = nothing, cmt_every = nothing)
     ws, proj = _require_active_worksession_and_project()
+    _batch_commit_gate_allows_queue!(ws, label, cmt_every) || return nothing
     limit = _batch_commit_limit(ws, max_pending_commits)
 
     commit = _queue_stage_commit!(ws, proj.git_handler; label=label)
@@ -234,6 +256,7 @@ function session_finalize(label::String="")
     end
 
     flushed_commits = _flush_pending_commits!(proj, ws)
+    empty!(ws.queue_counters)
     ws.is_finalized = true
     return (
         queued_tail_commit = queued_tail_commit,

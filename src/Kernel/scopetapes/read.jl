@@ -3,57 +3,57 @@
 # ============================================================
 
 """
-    TapeIterator
+    CommitIterator
 
 Wraps a TapeIO to yield typed ScopeCommit objects instead of raw Dicts.
 """
-struct TapeIterator
-    tape::TapeIO
+struct CommitIterator
+    raw_iter::FilteredTapeRecordIterator
 end
 
 """
-    iterate_tape(tape::TapeIO) -> TapeIterator
+    iterate_commits(tape::TapeIO) -> CommitIterator
 
 Create a typed iterator over a tape file.
 Returns ScopeCommit objects.
 """
-iterate_tape(tape::TapeIO) = TapeIterator(tape)
-
-function _next_commit_raw(tape::TapeIO, state = nothing)
-    result = isnothing(state) ? iterate(tape) : iterate(tape, state)
-    while !isnothing(result)
-        (raw, new_state) = result
-        get(raw, "type", "commit") == "commit" && return (raw, new_state)
-        result = iterate(tape, new_state)
+function iterate_commits(tape::TapeIO)
+    line_filter = function (line::AbstractString, ctx)
+        # Fast skip for common non-commit record; keep lines without a top-level-like
+        # type marker as candidates so older/malformed commit rows still reach JSON check.
+        occursin("\"type\":\"tape_metadata\"", line) && return false
+        occursin("\"type\":", line) || return true
+        return occursin("\"type\":\"commit\"", line)
     end
-    return nothing
+    json_filter = (raw, ctx) -> get(raw, "type", "commit") == "commit"
+    return CommitIterator(each_tape_records_filtered(tape; line_filter=line_filter, json_filter=json_filter))
 end
 
-function Base.iterate(ti::TapeIterator)
-    result = _next_commit_raw(ti.tape)
+function Base.iterate(ci::CommitIterator)
+    result = iterate(ci.raw_iter)
     isnothing(result) && return nothing
     (raw, state) = result
     return (_parse_commit(raw), state)
 end
 
-function Base.iterate(ti::TapeIterator, state)
-    result = _next_commit_raw(ti.tape, state)
+function Base.iterate(ci::CommitIterator, state)
+    result = iterate(ci.raw_iter, state)
     isnothing(result) && return nothing
     (raw, new_state) = result
     return (_parse_commit(raw), new_state)
 end
 
-Base.IteratorSize(::Type{TapeIterator}) = Base.SizeUnknown()
-Base.eltype(::Type{TapeIterator}) = ScopeCommit
+Base.IteratorSize(::Type{CommitIterator}) = Base.SizeUnknown()
+Base.eltype(::Type{CommitIterator}) = ScopeCommit
 
-function Base.collect(ti::TapeIterator)
+function Base.collect(ci::CommitIterator)
     commits = ScopeCommit[]
-    for commit in ti
+    for commit in ci
         push!(commits, commit)
     end
     return commits
 end
 
 function Base.collect(::Type{Vector{ScopeCommit}}, tape::TapeIO)
-    return collect(iterate_tape(tape))
+    return collect(iterate_commits(tape))
 end

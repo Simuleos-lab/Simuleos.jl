@@ -98,6 +98,33 @@ function shared_get(key::AbstractString)::_Kernel.SimuleosScope
     return reg[key_s]
 end
 
+function shared_keys()::Vector{String}
+    reg = _shared_registry()
+    return sort!(collect(keys(reg)))
+end
+
+function shared_has(key::AbstractString)::Bool
+    reg = _shared_registry()
+    return haskey(reg, _shared_key(key))
+end
+
+function shared_drop!(key::AbstractString)::Bool
+    reg = _shared_registry()
+    key_s = _shared_key(key)
+    if haskey(reg, key_s)
+        delete!(reg, key_s)
+        return true
+    end
+    return false
+end
+
+function shared_clear!()::Int
+    reg = _shared_registry()
+    n = length(reg)
+    empty!(reg)
+    return n
+end
+
 function shared_merge!(dest_key::AbstractString, src_key::AbstractString)::_Kernel.SimuleosScope
     reg = _shared_registry()
     dest_s = _shared_key(dest_key)
