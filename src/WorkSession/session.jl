@@ -162,7 +162,7 @@ function session_init!(simos::_Kernel.SimOs, proj::_Kernel.SimuleosProject;
 
     _persist_session!(proj, ws)
 
-    _reset_settings_cache!(ws)
+    _reset_session_settings!(ws)
     simos.worksession = ws
     return ws
 end

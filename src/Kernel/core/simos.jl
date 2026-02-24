@@ -217,7 +217,7 @@ function sim_init!(; bootstrap::Dict = Dict{String, Any}(), sandbox = nothing)
     proj_init!(simos)
 
     # Phase 3: Settings
-    simos.settings = load_all_settings(simos)
+    load_settings_stack!(simos)
 
     # Phase 4: Git handler
     if !isnothing(simos.project)

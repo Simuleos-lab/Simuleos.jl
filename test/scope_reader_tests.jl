@@ -51,6 +51,8 @@ global _simuleos_expand_global = 0
         @test scopes_by_label[1].labels == ["scope-one", "tag"]
         latest = Simuleos.latest_scope(project_driver; session="reader-test")
         @test latest.labels == ["scope-one", "tag"]
+        latest_by_scope_label = Simuleos.latest_scope(project_driver; session="reader-test", scope_label="tag")
+        @test latest_by_scope_label.labels == ["scope-one", "tag"]
 
         @test Simuleos.value(scopes_by_label[1].variables[:x], project_driver) == 42
         @test Simuleos.value(scopes_by_label[1].variables[:v], project_driver) === nothing
@@ -106,6 +108,11 @@ global _simuleos_expand_global = 0
 
             rows_hit = Simuleos.scope_table(project_driver; session="reader-test", commit_label="c1")
             @test length(rows_hit) == 1
+
+            rows_by_scope_label = Simuleos.scope_table(project_driver; session="reader-test", scope_label="tag")
+            @test length(rows_by_scope_label) == 1
+            @test rows_by_scope_label[1][:scope_labels] == "scope-one;tag"
+            @test isempty(Simuleos.scope_table(project_driver; session="reader-test", scope_label="no-such"))
         end
 
         @testset "latest_scope filtered lookup" begin
@@ -188,6 +195,20 @@ global _simuleos_expand_global = 0
             @test [s.metadata[:step] for s in scopes_both] == [1, 2]
             @test [s.labels[1] for s in scopes_both] == ["first", "second"]
 
+            scopes_by_scope_label = collect(Simuleos.each_scopes(
+                project_driver; session="reader-filter", scope_label="second"))
+            @test [s.metadata[:step] for s in scopes_by_scope_label] == [2]
+            @test [s.labels[1] for s in scopes_by_scope_label] == ["second"]
+
+            scopes_all_filters = collect(Simuleos.each_scopes(
+                project_driver;
+                session="reader-filter",
+                commit_label="stage-output",
+                src_file="stage.jl",
+                scope_label="second",
+            ))
+            @test [s.metadata[:step] for s in scopes_all_filters] == [2]
+
             rows_by_commit_label = Simuleos.scope_table(
                 project_driver; session="reader-filter", commit_label="stage-output")
             @test [row[:step] for row in rows_by_commit_label] == [1, 2]
@@ -204,6 +225,30 @@ global _simuleos_expand_global = 0
             @test [row[:step] for row in rows_both] == [1, 2]
             @test isempty(Simuleos.scope_table(
                 project_driver; session="reader-filter", commit_label="other-output", src_file="stage.jl"))
+
+            rows_by_scope_label = Simuleos.scope_table(
+                project_driver; session="reader-filter", scope_label="second")
+            @test [row[:step] for row in rows_by_scope_label] == [2]
+            @test [row[:commit_label] for row in rows_by_scope_label] == ["stage-output"]
+
+            latest_by_scope_label = Simuleos.latest_scope(
+                project_driver; session="reader-filter", scope_label="second")
+            @test latest_by_scope_label.metadata[:step] == 2
+            @test latest_by_scope_label.labels == ["second"]
+
+            latest_all_filters = Simuleos.latest_scope(
+                project_driver;
+                session="reader-filter",
+                commit_label="stage-output",
+                src_file="stage.jl",
+                scope_label="second",
+            )
+            @test latest_all_filters.metadata[:step] == 2
+
+            @test isempty(Simuleos.scope_table(
+                project_driver; session="reader-filter", scope_label="missing-scope"))
+            @test_throws ErrorException Simuleos.latest_scope(
+                project_driver; session="reader-filter", scope_label="missing-scope")
         end
     end
 end

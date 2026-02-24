@@ -15,6 +15,7 @@ try
     include("git_tests.jl")
     include("simignore_tests.jl")
     include("worksession_tests.jl")
+    include("settings_tests.jl")
     include("scoperias_tests.jl")
     include("query_tests.jl")
     include("scope_reader_tests.jl")

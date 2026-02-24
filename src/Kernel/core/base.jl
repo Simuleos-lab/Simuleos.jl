@@ -11,10 +11,11 @@ function SimOs(;
         project = nothing,
         home = nothing,
         worksession = nothing,
+        settings_stack = nothing,
         settings = Dict{String, Any}(),
         shared_scopes::Dict{String, SimuleosScope} = Dict{String, SimuleosScope}(),
     )
-    SimOs(bootstrap, sandbox, project, home, worksession, settings, shared_scopes)
+    SimOs(bootstrap, sandbox, project, home, worksession, settings_stack, settings, shared_scopes)
 end
 
 # -- SimuleosProject --
@@ -44,7 +45,6 @@ function WorkSession(;
         simignore_rules::Vector{Dict{Symbol, Any}} = Dict{Symbol, Any}[],
         capture_filter_defs::Dict{String, Vector{Dict{Symbol, Any}}} = Dict{String, Vector{Dict{Symbol, Any}}}(),
         capture_filter_bindings::Dict{String, Vector{String}} = Dict{String, Vector{String}}(),
-        _settings_cache::Dict{String, Any} = Dict{String, Any}(),
     )
     WorkSession(
         session_id,
@@ -58,7 +58,6 @@ function WorkSession(;
         simignore_rules,
         capture_filter_defs,
         capture_filter_bindings,
-        _settings_cache,
     )
 end
 

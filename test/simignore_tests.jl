@@ -13,7 +13,6 @@ function _test_worksession()::Simuleos.Kernel.WorkSession
         stage = _empty_stage(),
         metadata = Dict{String, Any}(),
         simignore_rules = Dict{Symbol, Any}[],
-        _settings_cache = Dict{String, Any}(),
     )
 end
 

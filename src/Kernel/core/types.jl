@@ -219,7 +219,38 @@ mutable struct WorkSession
     simignore_rules::Vector{Dict{Symbol, Any}}
     capture_filter_defs::Dict{String, Vector{Dict{Symbol, Any}}}
     capture_filter_bindings::Dict{String, Vector{String}}
-    _settings_cache::Dict{String, Any}
+end
+
+# --------------------------------------------------
+# Settings Stack
+# --------------------------------------------------
+
+"""
+    SettingsLayer
+
+One named settings layer with normalized key/value data and source metadata.
+"""
+mutable struct SettingsLayer
+    name::Symbol
+    kind::Symbol
+    is_mutable::Bool
+    persistent::Bool
+    origin::Dict{String, Any}
+    data::Dict{String, Any}
+end
+
+"""
+    SettingsStack
+
+Ordered layered settings plus lazy cached effective resolution state.
+"""
+mutable struct SettingsStack
+    layers::Vector{SettingsLayer}
+    effective::Dict{String, Any}      # memoized resolved winners (may be partial)
+    effective_missing::Set{String}    # negative cache for missing keys
+    effective_version::Int            # cache epoch; must match `version`
+    effective_complete::Bool          # true when `effective` is a full resolved snapshot
+    version::Int                      # bumps on any layer/source mutation
 end
 
 # --------------------------------------------------
@@ -238,7 +269,8 @@ mutable struct SimOs
     project::Union{Nothing, SimuleosProject}
     home::Union{Nothing, SimuleosHome}
     worksession::Union{Nothing, WorkSession}
-    settings::Dict{String, Any}  # Merged settings
+    settings_stack::Union{Nothing, SettingsStack}  # Structured layered settings SSOT
+    settings::Dict{String, Any}  # Legacy alias to settings_stack.effective (lazy cache)
     shared_scopes::Dict{String, SimuleosScope}  # In-memory named shared scopes
 end
 

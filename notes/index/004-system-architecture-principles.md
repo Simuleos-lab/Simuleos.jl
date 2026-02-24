@@ -24,3 +24,12 @@
 - Pattern: `const _ModAlias = ActualModule`, then interpolate `$(_ModAlias).symbol` in `quote` blocks.
 - This ensures generated code resolves correctly regardless of the caller's namespace.
 - Review trigger: bare `$(ModuleName).func` in a `quote` block without a corresponding `const` alias.
+
+## Settings Bootstrap Phase Boundary
+
+- Some config values are intentionally resolved before the merged settings stack exists.
+- Early bootstrap inputs (`bootstrap` / environment) may set locator keys such as `home.path` and `project.root`.
+- Rationale: home/project settings files cannot be read until home/project locations are already known.
+- Therefore, `~/.simuleos/settings.json` and project `.simuleos/settings.json` do not define where to find themselves.
+- Treat this as a bootstrap simplification boundary, not a settings inconsistency.
+- When extending the settings stack, keep "engine location/bootstrap" inputs conceptually separate from regular runtime settings.

@@ -47,6 +47,7 @@ function each_scopes(
         session::Union{Symbol, Base.UUID, String} = :active,
         commit_label::Union{String, Nothing} = nothing,
         src_file::Union{String, Nothing} = nothing,
+        scope_label::Union{String, Nothing} = nothing,
     )
     commits = if isnothing(commit_label) && isnothing(src_file)
         each_commits(project_driver; session=session)
@@ -58,7 +59,8 @@ function each_scopes(
         for commit in commits
         if isnothing(commit_label) || commit.commit_label == commit_label
         for scope in commit.scopes
-        if isnothing(src_file) || _src_file_match(scope, src_file)
+        if (isnothing(src_file) || _src_file_match(scope, src_file)) &&
+            (isnothing(scope_label) || _scope_label_match(scope, scope_label))
     )
 end
 
@@ -66,6 +68,10 @@ function _src_file_match(scope::Kernel.SimuleosScope, pattern::String)::Bool
     sf = get(scope.metadata, :src_file, nothing)
     isnothing(sf) && return false
     return endswith(string(sf), pattern)
+end
+
+function _scope_label_match(scope::Kernel.SimuleosScope, label::String)::Bool
+    return any(==(label), scope.labels)
 end
 
 function _each_commits_filtered(
@@ -96,27 +102,30 @@ function _each_commits_filtered(
 end
 
 """
-    latest_scope(project_driver; session=:active, commit_label=nothing, src_file=nothing) -> SimuleosScope
+    latest_scope(project_driver; session=:active, commit_label=nothing, src_file=nothing, scope_label=nothing) -> SimuleosScope
 
 Return the last scope available for the resolved session,
 optionally filtered by commit label and/or source file path.
 
 - `commit_label`: only consider scopes from commits with this label.
 - `src_file`: only consider scopes whose `src_file` metadata ends with this string.
+- `scope_label`: only consider scopes whose `labels` contain this string.
 """
 function latest_scope(
         project_driver::Kernel.SimuleosProject;
         session::Union{Symbol, Base.UUID, String} = :active,
         commit_label::Union{String, Nothing} = nothing,
         src_file::Union{String, Nothing} = nothing,
+        scope_label::Union{String, Nothing} = nothing,
     )
     latest = nothing
-    for scope in each_scopes(project_driver; session=session, commit_label=commit_label, src_file=src_file)
+    for scope in each_scopes(project_driver; session=session, commit_label=commit_label, src_file=src_file, scope_label=scope_label)
         latest = scope
     end
     isnothing(latest) && error("No scopes found for session `$(string(session))`" *
         (isnothing(commit_label) ? "" : ", commit_label=`$(commit_label)`") *
         (isnothing(src_file) ? "" : ", src_file=`$(src_file)`") *
+        (isnothing(scope_label) ? "" : ", scope_label=`$(scope_label)`") *
         ".")
     return latest
 end
@@ -158,7 +167,7 @@ end
 
 
 """
-    scope_table(project_driver; session=:active, commit_label=nothing, src_file=nothing) -> Vector{Dict{Symbol, Any}}
+    scope_table(project_driver; session=:active, commit_label=nothing, src_file=nothing, scope_label=nothing) -> Vector{Dict{Symbol, Any}}
 
 Flatten scope data into tabular rows suitable for `DataFrame()`.
 
@@ -173,6 +182,7 @@ function scope_table(
         session::Union{Symbol, Base.UUID, String} = :active,
         commit_label::Union{String, Nothing} = nothing,
         src_file::Union{String, Nothing} = nothing,
+        scope_label::Union{String, Nothing} = nothing,
     )::Vector{Dict{Symbol, Any}}
     rows = Dict{Symbol, Any}[]
     commits = if isnothing(commit_label) && isnothing(src_file)
@@ -186,6 +196,9 @@ function scope_table(
         end
         for scope in commit.scopes
             if !isnothing(src_file) && !_src_file_match(scope, src_file)
+                continue
+            end
+            if !isnothing(scope_label) && !_scope_label_match(scope, scope_label)
                 continue
             end
             row = Dict{Symbol, Any}()
