@@ -1,6 +1,7 @@
 using Test
 using Simuleos
 using UUIDs
+using SQLite
 
 @testset "@simos dispatch macro" begin
     kernel = Simuleos.Kernel
@@ -342,6 +343,61 @@ using UUIDs
             @test [c.commit_label for c in commits] == ["bcg", "tail"]
             @test length(commits[1].scopes) == 2
             @test length(commits[2].scopes) == 1
+        end
+    end
+
+    @testset "@simos sqlite.* metadata-index interface" begin
+        with_test_context() do _
+            @simos session.init("simos-sqlite-" * string(uuid4()))
+
+            let x = 1
+                @simos scope.capture("sample")
+            end
+            @simos session.commit("c1")
+
+            idx_path = @simos sqlite.path()
+            @test endswith(idx_path, joinpath("index", "metadata-v1.sqlite"))
+
+            db0 = @simos sqlite.open(; sync = :refresh)
+            @test db0 isa SQLite.DB
+            sim = kernel._get_sim()
+            @test sim.sqlite_db === db0
+            @test sim.sqlite_db_path == idx_path
+            @test (@simos sqlite.current()) === db0
+
+            n_c1 = let vals = [SQLite.values(row) for row in @simos sqlite.execute(
+                    "SELECT COUNT(*) AS n FROM commits WHERE commit_label = ?",
+                    ("c1",),
+                )]
+                only(vals)[1]
+            end
+            @test n_c1 == 1
+
+            n_sample_labels = let vals = [SQLite.values(row) for row in @simos sqlite.execute(
+                    "SELECT COUNT(*) AS n FROM scope_labels WHERE label = ?",
+                    ("sample",),
+                )]
+                only(vals)[1]
+            end
+            @test n_sample_labels == 1
+
+            path_after_refresh = @simos sqlite.refresh()
+            @test path_after_refresh == idx_path
+            db1 = @simos sqlite.current()
+            @test db1 isa SQLite.DB
+            @test sim.sqlite_db === db1
+
+            path_after_rebuild = @simos sqlite.rebuild()
+            @test path_after_rebuild == idx_path
+            db2 = @simos sqlite.current()
+            @test db2 isa SQLite.DB
+            @test sim.sqlite_db === db2
+
+            @test (@simos sqlite.close()) == true
+            @test isnothing(sim.sqlite_db)
+            @test isnothing(sim.sqlite_db_path)
+            @test (@simos sqlite.close()) == false
+            @test_throws ErrorException (@simos sqlite.execute("SELECT 1"))
         end
     end
 

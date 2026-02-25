@@ -5,6 +5,8 @@
 const _SimWS = WorkSession
 const _SimSR = ScopeReader
 const _SimKrn = Kernel
+const _SimSQLI = SQLiteIndex
+const _SQLite = SQLite
 const _SimosAPI = SimosAPI
 
 """
@@ -30,6 +32,13 @@ const _SIMOS_COMMANDS = (
     (:system, :init),
     (:system, :reset),
     (:project, :current),
+    (:sqlite, :path),
+    (:sqlite, :open),
+    (:sqlite, :current),
+    (:sqlite, :execute),
+    (:sqlite, :refresh),
+    (:sqlite, :rebuild),
+    (:sqlite, :close),
     (:blob, :meta),
     (:session, :init),
     (:session, :commit),
@@ -160,6 +169,130 @@ function _simos_disallow_do(path, payload_expr)
     isnothing(payload_expr) || error("@simos $(_simos_path_str(path)) does not accept a `do` block.")
 end
 
+# ------------------------------------------------------------------
+# SQLite index runtime helpers (used by @simos sqlite.* handlers)
+# ------------------------------------------------------------------
+
+function _simos_sqlite_sync_mode(sync)::Symbol
+    if sync isa Symbol
+        mode = sync
+    elseif sync isa AbstractString
+        mode = Symbol(String(sync))
+    else
+        error("@simos sqlite.open `sync` must be Symbol/String (:none, :refresh, :rebuild), got $(typeof(sync)).")
+    end
+    mode in (:none, :refresh, :rebuild) ||
+        error("@simos sqlite.open unknown `sync=$(repr(mode))`. Valid options: :none, :refresh, :rebuild.")
+    return mode
+end
+
+function _simos_sqlite_require_sim_project()
+    sim = _SimKrn._get_sim()
+    proj = _SimKrn.sim_project(sim)
+    return sim, proj
+end
+
+function _simos_sqlite_expected_path(sim, proj)::String
+    _ = sim
+    return _SimSQLI.sqlite_index_path(proj)
+end
+
+function _simos_sqlite_close_cached_if_any!(sim)::Bool
+    return _SimKrn._simos_close_cached_sqlite_db!(sim)
+end
+
+function _simos_sqlite_assert_cached_matches_project!(sim, proj)
+    isnothing(sim.sqlite_db) && return nothing
+    expected_path = _simos_sqlite_expected_path(sim, proj)
+    if isnothing(sim.sqlite_db_path)
+        sim.sqlite_db_path = expected_path
+        return nothing
+    end
+    if abspath(String(sim.sqlite_db_path)) != abspath(expected_path)
+        _simos_sqlite_close_cached_if_any!(sim)
+        error("Cached SQLite DB belongs to a different active project. Call `@simos sqlite.open(...)`.")
+    end
+    return nothing
+end
+
+function _simos_sqlite_current_runtime()
+    sim, proj = _simos_sqlite_require_sim_project()
+    _simos_sqlite_assert_cached_matches_project!(sim, proj)
+    isnothing(sim.sqlite_db) && error("No open SQLite metadata-index connection. Call `@simos sqlite.open(...)` first.")
+    return sim.sqlite_db
+end
+
+function _simos_sqlite_path_runtime()
+    sim, proj = _simos_sqlite_require_sim_project()
+    return _simos_sqlite_expected_path(sim, proj)
+end
+
+function _simos_sqlite_open_runtime!(; sync = :refresh)
+    sim, proj = _simos_sqlite_require_sim_project()
+    mode = _simos_sqlite_sync_mode(sync)
+
+    _simos_sqlite_assert_cached_matches_project!(sim, proj)
+
+    if mode === :none && !isnothing(sim.sqlite_db)
+        return sim.sqlite_db
+    end
+
+    if !isnothing(sim.sqlite_db)
+        _simos_sqlite_close_cached_if_any!(sim)
+    end
+
+    if mode === :refresh
+        _SimSQLI.sqlite_index_refresh!(proj)
+    elseif mode === :rebuild
+        _SimSQLI.sqlite_index_rebuild!(proj)
+    elseif mode === :none
+        # no-op
+    else
+        error("Unhandled sqlite sync mode: $(mode)")
+    end
+
+    db = _SimSQLI.sqlite_index_open(proj)
+    sim.sqlite_db = db
+    sim.sqlite_db_path = _simos_sqlite_expected_path(sim, proj)
+    return db
+end
+
+function _simos_sqlite_refresh_runtime!()
+    sim, proj = _simos_sqlite_require_sim_project()
+    _simos_sqlite_assert_cached_matches_project!(sim, proj)
+    reopen = !isnothing(sim.sqlite_db)
+    reopen && _simos_sqlite_close_cached_if_any!(sim)
+    path = _SimSQLI.sqlite_index_refresh!(proj)
+    if reopen
+        sim.sqlite_db = _SimSQLI.sqlite_index_open(proj)
+        sim.sqlite_db_path = _simos_sqlite_expected_path(sim, proj)
+    end
+    return path
+end
+
+function _simos_sqlite_rebuild_runtime!()
+    sim, proj = _simos_sqlite_require_sim_project()
+    _simos_sqlite_assert_cached_matches_project!(sim, proj)
+    reopen = !isnothing(sim.sqlite_db)
+    reopen && _simos_sqlite_close_cached_if_any!(sim)
+    path = _SimSQLI.sqlite_index_rebuild!(proj)
+    if reopen
+        sim.sqlite_db = _SimSQLI.sqlite_index_open(proj)
+        sim.sqlite_db_path = _simos_sqlite_expected_path(sim, proj)
+    end
+    return path
+end
+
+function _simos_sqlite_close_runtime!()
+    sim = _SimKrn._get_sim()
+    return _simos_sqlite_close_cached_if_any!(sim)
+end
+
+_simos_sqlite_execute_runtime(sql::AbstractString) =
+    _SQLite.DBInterface.execute(_simos_sqlite_current_runtime(), String(sql))
+_simos_sqlite_execute_runtime(sql::AbstractString, params) =
+    _SQLite.DBInterface.execute(_simos_sqlite_current_runtime(), String(sql), params)
+
 function _simos_dispatch_call(mod, src, path::Tuple, posargs::Vector{Any}, kwargs::Vector{Expr}, payload_expr)
     if path == (:system, :init)
         _simos_disallow_do(path, payload_expr)
@@ -176,6 +309,39 @@ function _simos_dispatch_call(mod, src, path::Tuple, posargs::Vector{Any}, kwarg
         _simos_disallow_do(path, payload_expr)
         isempty(posargs) || error("@simos project.current accepts no positional arguments.")
         return _simos_project_current(mod, src)
+    elseif path == (:sqlite, :path)
+        _simos_disallow_kwargs(path, kwargs)
+        _simos_disallow_do(path, payload_expr)
+        isempty(posargs) || error("@simos sqlite.path accepts no positional arguments.")
+        return _simos_sqlite_path(mod, src)
+    elseif path == (:sqlite, :open)
+        _simos_disallow_do(path, payload_expr)
+        isempty(posargs) || error("@simos sqlite.open accepts only keyword arguments (e.g. `sync=:refresh`).")
+        return _simos_sqlite_open(mod, src, kwargs)
+    elseif path == (:sqlite, :current)
+        _simos_disallow_kwargs(path, kwargs)
+        _simos_disallow_do(path, payload_expr)
+        isempty(posargs) || error("@simos sqlite.current accepts no positional arguments.")
+        return _simos_sqlite_current(mod, src)
+    elseif path == (:sqlite, :execute)
+        _simos_disallow_kwargs(path, kwargs)
+        _simos_disallow_do(path, payload_expr)
+        return _simos_sqlite_execute(mod, src, posargs)
+    elseif path == (:sqlite, :refresh)
+        _simos_disallow_kwargs(path, kwargs)
+        _simos_disallow_do(path, payload_expr)
+        isempty(posargs) || error("@simos sqlite.refresh accepts no positional arguments.")
+        return _simos_sqlite_refresh(mod, src)
+    elseif path == (:sqlite, :rebuild)
+        _simos_disallow_kwargs(path, kwargs)
+        _simos_disallow_do(path, payload_expr)
+        isempty(posargs) || error("@simos sqlite.rebuild accepts no positional arguments.")
+        return _simos_sqlite_rebuild(mod, src)
+    elseif path == (:sqlite, :close)
+        _simos_disallow_kwargs(path, kwargs)
+        _simos_disallow_do(path, payload_expr)
+        isempty(posargs) || error("@simos sqlite.close accepts no positional arguments.")
+        return _simos_sqlite_close(mod, src)
     elseif path == (:blob, :meta)
         _simos_disallow_kwargs(path, kwargs)
         _simos_disallow_do(path, payload_expr)
@@ -347,6 +513,84 @@ function _simos_project_current(mod, src)
     _ = src
     return quote
         $(_SimKrn).sim_project()
+    end
+end
+
+function _simos_sqlite_path(mod, src)
+    _ = mod
+    _ = src
+    return quote
+        $(_SimosAPI)._simos_sqlite_path_runtime()
+    end
+end
+
+function _simos_sqlite_open(mod, src, kwargs::Vector{Expr}=Expr[])
+    _ = mod
+    _ = src
+    seen = Set{Symbol}()
+    for kw in kwargs
+        kw isa Expr && kw.head === :kw && length(kw.args) == 2 && kw.args[1] isa Symbol ||
+            error("@simos sqlite.open internal parse error: expected keyword expr, got: $kw")
+        key = kw.args[1]
+        key in (:sync,) || error("@simos sqlite.open unknown option `$(key)`. Valid options: sync.")
+        key in seen && error("@simos sqlite.open duplicate option `$(key)`.")
+        push!(seen, key)
+    end
+    if isempty(kwargs)
+        return quote
+            $(_SimosAPI)._simos_sqlite_open_runtime!()
+        end
+    end
+    return quote
+        $(_SimosAPI)._simos_sqlite_open_runtime!(; $(kwargs...))
+    end
+end
+
+function _simos_sqlite_current(mod, src)
+    _ = mod
+    _ = src
+    return quote
+        $(_SimosAPI)._simos_sqlite_current_runtime()
+    end
+end
+
+function _simos_sqlite_execute(mod, src, args)
+    _ = mod
+    _ = src
+    length(args) in (1, 2) || error("@simos sqlite.execute expects `(sql)` or `(sql, params)`.")
+    sql_expr = args[1]
+    if length(args) == 1
+        return quote
+            $(_SimosAPI)._simos_sqlite_execute_runtime($(sql_expr))
+        end
+    end
+    params_expr = args[2]
+    return quote
+        $(_SimosAPI)._simos_sqlite_execute_runtime($(sql_expr), $(params_expr))
+    end
+end
+
+function _simos_sqlite_refresh(mod, src)
+    _ = mod
+    _ = src
+    return quote
+        $(_SimosAPI)._simos_sqlite_refresh_runtime!()
+    end
+end
+
+function _simos_sqlite_rebuild(mod, src)
+    _ = mod
+    _ = src
+    return quote
+        $(_SimosAPI)._simos_sqlite_rebuild_runtime!()
+    end
+end
+
+function _simos_sqlite_close(mod, src)
+    _ = mod
+    _ = src
+    return quote
+        $(_SimosAPI)._simos_sqlite_close_runtime!()
     end
 end
 
@@ -758,6 +1002,13 @@ call syntax so the command path is clearly separated from the arguments.
 | `system.init` | Engine init/reinit |
 | `system.reset` | Reset engine state |
 | `project.current` | Active `SimuleosProject` |
+| `sqlite.path` | SQLite metadata-index path for active project |
+| `sqlite.open` | Open/cache SQLite metadata-index DB (`sync=:none|:refresh|:rebuild`) |
+| `sqlite.current` | Current cached SQLite DB handle |
+| `sqlite.execute` | Execute SQL on cached SQLite DB |
+| `sqlite.refresh` | Refresh metadata index (reopen cached DB if needed) |
+| `sqlite.rebuild` | Rebuild metadata index (reopen cached DB if needed) |
+| `sqlite.close` | Close cached SQLite DB handle |
 | `blob.meta` | Latest metadata record for a blob |
 | `session.init` | Initialize a work session |
 | `session.commit` | Commit staged scopes |

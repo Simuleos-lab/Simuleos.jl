@@ -14,8 +14,10 @@ function SimOs(;
         settings_stack = nothing,
         settings = Dict{String, Any}(),
         shared_scopes::Dict{String, SimuleosScope} = Dict{String, SimuleosScope}(),
+        sqlite_db = nothing,
+        sqlite_db_path::Union{Nothing, String} = nothing,
     )
-    SimOs(bootstrap, sandbox, project, home, worksession, settings_stack, settings, shared_scopes)
+    SimOs(bootstrap, sandbox, project, home, worksession, settings_stack, settings, shared_scopes, sqlite_db, sqlite_db_path)
 end
 
 # -- SimuleosProject --

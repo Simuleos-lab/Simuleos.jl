@@ -272,6 +272,8 @@ mutable struct SimOs
     settings_stack::Union{Nothing, SettingsStack}  # Structured layered settings SSOT
     settings::Dict{String, Any}  # Legacy alias to settings_stack.effective (lazy cache)
     shared_scopes::Dict{String, SimuleosScope}  # In-memory named shared scopes
+    sqlite_db::Any  # Cached SQLite metadata-index connection (owned by @simos sqlite.*)
+    sqlite_db_path::Union{Nothing, String}  # Canonical path for the cached SQLite DB
 end
 
 # --------------------------------------------------

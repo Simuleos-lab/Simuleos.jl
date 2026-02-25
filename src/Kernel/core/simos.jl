@@ -57,6 +57,24 @@ function set_sim!(new_sim::SimOs)
     return new_sim
 end
 
+function _simos_close_cached_sqlite_db!(sim::SimOs)
+    db = sim.sqlite_db
+    if isnothing(db)
+        sim.sqlite_db_path = nothing
+        return false
+    end
+
+    try
+        close(db)
+    catch
+        # Reset should not fail solely because a cached SQLite handle was already closed.
+    finally
+        sim.sqlite_db = nothing
+        sim.sqlite_db_path = nothing
+    end
+    return true
+end
+
 const _SANDBOX_MARKER_FILE = ".simuleos-sandbox.json"
 
 function _sandbox_marker_path(root_path::String)::String
@@ -235,6 +253,9 @@ Reset the global SimOs to nothing.
 """
 function sim_reset!(; sandbox_cleanup::Symbol = :auto)
     sim = SIMOS[]
+    if !isnothing(sim)
+        _simos_close_cached_sqlite_db!(sim)
+    end
     if !isnothing(sim) && !isnothing(sim.sandbox) && _sandbox_cleanup_mode(sim.sandbox, sandbox_cleanup)
         _sandbox_cleanup!(sim.sandbox)
     end

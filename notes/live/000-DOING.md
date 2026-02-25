@@ -1,3 +1,13 @@
+## 
+
+
+## DOING
+- at sqlite sequential update
+- we can extract even more context from trying to deserialize blobs
+- like dict kesys and data types
+- this is an extremely cold path, so, it should be ok...
+
+## DONE
 Read jsonl line by line, filter the line and later parse... this is faster...
 
 ## DOING 
