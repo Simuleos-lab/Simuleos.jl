@@ -303,6 +303,15 @@ end
             @test _sqlite_rowcol(manifest, :project_root) == project_driver.root_path
             @test _sqlite_rowcol(manifest, :simuleos_dir) == project_driver.simuleos_dir
 
+            scope_subsys = _sqlite_one(db, """
+                SELECT subsystem_id, adapter_version, enabled
+                FROM subsystems
+                WHERE subsystem_id = 'scope'
+            """)
+            @test _sqlite_rowcol(scope_subsys, :subsystem_id) == "scope"
+            @test startswith(String(_sqlite_rowcol(scope_subsys, :adapter_version)), "phase4b.")
+            @test _sqlite_rowcol(scope_subsys, :enabled) == 1
+
             counts = _sqlite_one(db, """
                 SELECT
                     (SELECT COUNT(*) FROM sessions) AS n_sessions,

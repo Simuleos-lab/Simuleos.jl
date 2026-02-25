@@ -32,6 +32,12 @@ const _SIMOS_COMMANDS = (
     (:system, :init),
     (:system, :reset),
     (:project, :current),
+    (:settings, :get),
+    (:settings, :explain),
+    (:settings, :layers),
+    (:settings, :registry, :register),
+    (:settings, :registry, :unregister),
+    (:settings, :registry, :list),
     (:sqlite, :path),
     (:sqlite, :open),
     (:sqlite, :current),
@@ -293,6 +299,43 @@ _simos_sqlite_execute_runtime(sql::AbstractString) =
 _simos_sqlite_execute_runtime(sql::AbstractString, params) =
     _SQLite.DBInterface.execute(_simos_sqlite_current_runtime(), String(sql), params)
 
+# ------------------------------------------------------------------
+# Settings runtime helpers (used by @simos settings.* handlers)
+# ------------------------------------------------------------------
+
+function _simos_settings_layer_symbol(layer)::Symbol
+    if layer isa Symbol
+        return layer
+    elseif layer isa AbstractString
+        s = strip(String(layer))
+        isempty(s) && error("@simos settings layer cannot be empty.")
+        return Symbol(s)
+    else
+        error("@simos settings layer must be a Symbol/String, got $(typeof(layer)).")
+    end
+end
+
+function _simos_settings_get_runtime(key_in; default=nothing, layer=:effective)
+    sim = _SimKrn._get_sim()
+    key = string(key_in)
+    layer_sym = _simos_settings_layer_symbol(layer)
+    if layer_sym === :effective
+        return _SimKrn.get_setting(sim, key, default)
+    end
+    ex = _SimKrn.settings_explain(sim, key; layer = layer_sym)
+    return ex.found ? ex.value : default
+end
+
+function _simos_settings_explain_runtime(key_in; layer=:effective)
+    sim = _SimKrn._get_sim()
+    return _SimKrn.settings_explain(sim, string(key_in); layer = _simos_settings_layer_symbol(layer))
+end
+
+function _simos_settings_layers_runtime()
+    sim = _SimKrn._get_sim()
+    return _SimKrn.settings_source_list(sim)
+end
+
 function _simos_dispatch_call(mod, src, path::Tuple, posargs::Vector{Any}, kwargs::Vector{Expr}, payload_expr)
     if path == (:system, :init)
         _simos_disallow_do(path, payload_expr)
@@ -309,6 +352,29 @@ function _simos_dispatch_call(mod, src, path::Tuple, posargs::Vector{Any}, kwarg
         _simos_disallow_do(path, payload_expr)
         isempty(posargs) || error("@simos project.current accepts no positional arguments.")
         return _simos_project_current(mod, src)
+    elseif path == (:settings, :get)
+        _simos_disallow_do(path, payload_expr)
+        return _simos_settings_get(mod, src, posargs, kwargs)
+    elseif path == (:settings, :explain)
+        _simos_disallow_do(path, payload_expr)
+        return _simos_settings_explain(mod, src, posargs, kwargs)
+    elseif path == (:settings, :layers)
+        _simos_disallow_kwargs(path, kwargs)
+        _simos_disallow_do(path, payload_expr)
+        isempty(posargs) || error("@simos settings.layers accepts no positional arguments.")
+        return _simos_settings_layers(mod, src)
+    elseif path == (:settings, :registry, :register)
+        _simos_disallow_do(path, payload_expr)
+        return _simos_settings_registry_register(mod, src, posargs, kwargs)
+    elseif path == (:settings, :registry, :unregister)
+        _simos_disallow_kwargs(path, kwargs)
+        _simos_disallow_do(path, payload_expr)
+        return _simos_settings_registry_unregister(mod, src, posargs)
+    elseif path == (:settings, :registry, :list)
+        _simos_disallow_kwargs(path, kwargs)
+        _simos_disallow_do(path, payload_expr)
+        isempty(posargs) || error("@simos settings.registry.list accepts no positional arguments.")
+        return _simos_settings_registry_list(mod, src)
     elseif path == (:sqlite, :path)
         _simos_disallow_kwargs(path, kwargs)
         _simos_disallow_do(path, payload_expr)
@@ -513,6 +579,123 @@ function _simos_project_current(mod, src)
     _ = src
     return quote
         $(_SimKrn).sim_project()
+    end
+end
+
+function _simos_settings_get(mod, src, args, kwargs::Vector{Expr}=Expr[])
+    _ = mod
+    _ = src
+    length(args) == 1 || error("@simos settings.get expects exactly one key.")
+
+    seen = Set{Symbol}()
+    for kw in kwargs
+        kw isa Expr && kw.head === :kw && length(kw.args) == 2 && kw.args[1] isa Symbol ||
+            error("@simos settings.get internal parse error: expected keyword expr, got: $kw")
+        key = kw.args[1]
+        key in (:default, :layer) ||
+            error("@simos settings.get unknown option `$(key)`. Valid options: default, layer.")
+        key in seen && error("@simos settings.get duplicate option `$(key)`.")
+        push!(seen, key)
+    end
+
+    key_expr = args[1]
+    if isempty(kwargs)
+        return quote
+            $(_SimosAPI)._simos_settings_get_runtime(string($(key_expr)))
+        end
+    end
+    return quote
+        $(_SimosAPI)._simos_settings_get_runtime(string($(key_expr)); $(kwargs...))
+    end
+end
+
+function _simos_settings_explain(mod, src, args, kwargs::Vector{Expr}=Expr[])
+    _ = mod
+    _ = src
+    length(args) == 1 || error("@simos settings.explain expects exactly one key.")
+
+    seen = Set{Symbol}()
+    for kw in kwargs
+        kw isa Expr && kw.head === :kw && length(kw.args) == 2 && kw.args[1] isa Symbol ||
+            error("@simos settings.explain internal parse error: expected keyword expr, got: $kw")
+        key = kw.args[1]
+        key in (:layer,) ||
+            error("@simos settings.explain unknown option `$(key)`. Valid options: layer.")
+        key in seen && error("@simos settings.explain duplicate option `$(key)`.")
+        push!(seen, key)
+    end
+
+    key_expr = args[1]
+    if isempty(kwargs)
+        return quote
+            $(_SimosAPI)._simos_settings_explain_runtime(string($(key_expr)))
+        end
+    end
+    return quote
+        $(_SimosAPI)._simos_settings_explain_runtime(string($(key_expr)); $(kwargs...))
+    end
+end
+
+function _simos_settings_layers(mod, src)
+    _ = mod
+    _ = src
+    return quote
+        $(_SimosAPI)._simos_settings_layers_runtime()
+    end
+end
+
+function _simos_settings_registry_register(mod, src, args, kwargs::Vector{Expr}=Expr[])
+    _ = mod
+    _ = src
+    length(args) == 2 || error("@simos settings.registry.register expects exactly `(canonical_key, spec)`.")
+
+    seen = Set{Symbol}()
+    for kw in kwargs
+        kw isa Expr && kw.head === :kw && length(kw.args) == 2 && kw.args[1] isa Symbol ||
+            error("@simos settings.registry.register internal parse error: expected keyword expr, got: $kw")
+        key = kw.args[1]
+        key in (:replace,) ||
+            error("@simos settings.registry.register unknown option `$(key)`. Valid options: replace.")
+        key in seen && error("@simos settings.registry.register duplicate option `$(key)`.")
+        push!(seen, key)
+    end
+
+    canonical_expr = args[1]
+    spec_expr = args[2]
+    if isempty(kwargs)
+        return quote
+            $(_SimKrn).settings_registry_register!(
+                $(_SimKrn)._get_sim(),
+                string($(canonical_expr)),
+                $(spec_expr),
+            )
+        end
+    end
+    return quote
+        $(_SimKrn).settings_registry_register!(
+            $(_SimKrn)._get_sim(),
+            string($(canonical_expr)),
+            $(spec_expr);
+            $(kwargs...),
+        )
+    end
+end
+
+function _simos_settings_registry_unregister(mod, src, args)
+    _ = mod
+    _ = src
+    length(args) == 1 || error("@simos settings.registry.unregister expects exactly one key or alias.")
+    key_expr = args[1]
+    return quote
+        $(_SimKrn).settings_registry_unregister!($(_SimKrn)._get_sim(), string($(key_expr)))
+    end
+end
+
+function _simos_settings_registry_list(mod, src)
+    _ = mod
+    _ = src
+    return quote
+        $(_SimKrn).settings_registry_list($(_SimKrn)._get_sim())
     end
 end
 
@@ -1002,6 +1185,12 @@ call syntax so the command path is clearly separated from the arguments.
 | `system.init` | Engine init/reinit |
 | `system.reset` | Reset engine state |
 | `project.current` | Active `SimuleosProject` |
+| `settings.get` | Read one setting (`default`, `layer`) |
+| `settings.explain` | Explain resolved value/layer candidates |
+| `settings.layers` | List active settings layers/sources |
+| `settings.registry.register` | Register a settings registry entry |
+| `settings.registry.unregister` | Remove a settings registry entry |
+| `settings.registry.list` | List settings registry entries |
 | `sqlite.path` | SQLite metadata-index path for active project |
 | `sqlite.open` | Open/cache SQLite metadata-index DB (`sync=:none|:refresh|:rebuild`) |
 | `sqlite.current` | Current cached SQLite DB handle |

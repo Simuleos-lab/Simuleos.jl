@@ -144,6 +144,66 @@ using SQLite
         end
     end
 
+    @testset "@simos settings.registry.*" begin
+        with_test_context() do _
+            sim = kernel._get_sim()
+
+            kernel.settings_layer_set!(sim, :script, "macro.registry.demo", "script-value")
+
+            entry = @simos settings.registry.register(
+                "macro.registry.demo",
+                Dict("alias" => ["macroRegistryDemo"]),
+            )
+            @test entry.canonical == "macro.registry.demo"
+            @test kernel.get_setting(sim, "macroRegistryDemo") == "script-value"
+
+            listed = @simos settings.registry.list()
+            @test listed isa Vector
+            @test any(x -> x.canonical == "macro.registry.demo", listed)
+
+            entry2 = @simos settings.registry.register(
+                "macro.registry.demo",
+                Dict("alias" => ["macroRegistryDemo2"]);
+                replace = true,
+            )
+            @test entry2.canonical == "macro.registry.demo"
+            @test kernel.get_setting(sim, "macroRegistryDemo", :missing) == :missing
+            @test kernel.get_setting(sim, "macroRegistryDemo2") == "script-value"
+
+            @test (@simos settings.registry.unregister("macroRegistryDemo2")) == true
+            @test (@simos settings.registry.unregister("macroRegistryDemo2")) == false
+        end
+    end
+
+    @testset "@simos settings.get / settings.explain / settings.layers" begin
+        with_test_context() do _
+            sim = kernel._get_sim()
+
+            kernel.settings_layer_set!(sim, :script, "macro.settings.demo", "script-value")
+            kernel.settings_layer_set!(sim, :session, "macro.settings.demo", "session-value")
+
+            @test (@simos settings.get("macro.settings.demo")) == "session-value"
+            @test (@simos settings.get("macro.settings.demo"; layer = :script)) == "script-value"
+            @test (@simos settings.get("macro.settings.demo"; layer = "script")) == "script-value"
+            @test (@simos settings.get("macro.settings.miss"; default = :missing)) == :missing
+            @test (@simos settings.get("macro.settings.miss"; layer = :script, default = :missing)) == :missing
+
+            ex_eff = @simos settings.explain("macro.settings.demo")
+            @test ex_eff.found == true
+            @test ex_eff.winner_layer == :session
+
+            ex_script = @simos settings.explain("macro.settings.demo"; layer = "script")
+            @test ex_script.found == true
+            @test ex_script.winner_layer == :script
+            @test ex_script.value == "script-value"
+
+            layers = @simos settings.layers()
+            @test layers isa Vector
+            @test any(x -> x.name == :script, layers)
+            @test any(x -> x.name == :session, layers)
+        end
+    end
+
     @testset "@simos system.init + session.init round-trip" begin
         with_test_context() do _
             kernel.sim_reset!()
