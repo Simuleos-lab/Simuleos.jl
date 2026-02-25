@@ -275,4 +275,62 @@ let
             @test isempty(ex2.candidates)
         end
     end
+
+    @testset "settings registry is a strict resolver layer on top of default system" begin
+        with_test_context() do _
+            sim = kernel._get_sim()
+
+            # Default system behavior for unregistered keys remains unchanged.
+            kernel.settings_layer_set!(sim, :script, "registry.demo", "script-value")
+            @test kernel.get_setting(sim, "registry.demo") == "script-value"
+
+            # Registry hit with aliases but no custom resolve.priority -> delegate to default system on canonical key.
+            entry_alias = kernel.settings_registry_register!(sim, "registry.demo", Dict(
+                "alias" => ["registryDemo", "REGISTRY_DEMO"],
+            ))
+            @test entry_alias.canonical == "registry.demo"
+            @test kernel.get_setting(sim, "registryDemo") == "script-value"
+            @test kernel.get_setting(sim, "REGISTRY_DEMO") == "script-value"
+
+            listed = kernel.settings_registry_list(sim)
+            @test any(e -> e.canonical == "registry.demo", listed)
+
+            # Registry hit + custom resolve.priority miss is a final miss (no fallback to default system).
+            kernel.settings_layer_set!(sim, :script, "registry.strict", "script-only")
+            kernel.settings_registry_register!(sim, "registry.strict", Dict(
+                "alias" => ["registryStrict"],
+                "resolve.priority" => Any[:env],
+            ))
+            @test kernel.get_setting(sim, "registryStrict", :missing) == :missing
+            @test kernel.get_setting(sim, "registry.strict", :missing) == :missing
+            ex_strict = kernel.settings_explain(sim, "registryStrict")
+            @test ex_strict.found == false
+            @test ex_strict.registry_hit == true
+
+            # Custom source-priority resolution honors selector order.
+            kernel.settings_layer_set!(sim, :script, "registry.priority", "script-priority")
+            withenv("SIMULEOS_REGISTRY_PRIORITY" => "env-priority") do
+                kernel.settings_reload!(sim)
+
+                kernel.settings_registry_register!(sim, "registry.priority", Dict(
+                    "alias" => ["registryPriority"],
+                    "resolve.priority" => Any[:runtime, :env],
+                ))
+                @test kernel.get_setting(sim, "registryPriority") == "script-priority"
+
+                kernel.settings_registry_register!(sim, "registry.priority", Dict(
+                    "alias" => ["registryPriority"],
+                    "resolve.priority" => Any[:env, :runtime],
+                ); replace = true)
+                @test kernel.get_setting(sim, "registryPriority") == "env-priority"
+                ex_priority = kernel.settings_explain(sim, "registryPriority")
+                @test ex_priority.found == true
+                @test ex_priority.winner_layer == :env
+                @test ex_priority.registry_hit == true
+            end
+
+            @test kernel.settings_registry_unregister!(sim, "registry.demo") == true
+            @test kernel.settings_registry_unregister!(sim, "registryDemo") == false
+        end
+    end
 end

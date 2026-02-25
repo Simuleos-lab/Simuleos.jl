@@ -69,6 +69,14 @@ end
             SQLite.close(db)
         end
 
+        # Public SQL views are recreated on refresh (even if manually dropped).
+        db = Simuleos.sqlite_index_open(project_driver)
+        try
+            SQLite.DBInterface.execute(db, "DROP VIEW IF EXISTS v_scope_inventory")
+        finally
+            SQLite.close(db)
+        end
+
         # No-op refresh should preserve counts and switch state mode to incremental.
         Simuleos.sqlite_index_refresh!(project_driver)
         db = Simuleos.sqlite_index_open(project_driver)
@@ -88,6 +96,23 @@ end
             """, (string(session_id),))
             @test _sqlite_rowcol(st1, :last_indexed_commit_ord) == 1
             @test _sqlite_rowcol(st1, :refresh_mode) == "incremental"
+
+            vscope_count = _sqlite_one(db, """
+                SELECT COUNT(*) AS n
+                FROM v_scope_inventory
+                WHERE session_id = ?
+            """, (string(session_id),))
+            @test _sqlite_rowcol(vscope_count, :n) == 1
+
+            vtapes = _sqlite_one(db, """
+                SELECT subsystem_id, logical_owner_id, record_count, refresh_mode
+                FROM v_tapes
+                WHERE subsystem_id = 'scope' AND logical_owner_id = ?
+            """, (string(session_id),))
+            @test _sqlite_rowcol(vtapes, :subsystem_id) == "scope"
+            @test _sqlite_rowcol(vtapes, :logical_owner_id) == string(session_id)
+            @test _sqlite_rowcol(vtapes, :record_count) >= 2
+            @test _sqlite_rowcol(vtapes, :refresh_mode) == "incremental"
         finally
             SQLite.close(db)
         end
@@ -344,6 +369,125 @@ end
                 WHERE s.session_id = ? AND l.label = 'main.sample'
             """, (string(session_id),))
             @test _sqlite_rowcol(sample_scopes, :n) == 2
+
+            view_names = String[]
+            for row in SQLite.DBInterface.execute(db, """
+                SELECT name
+                FROM sqlite_master
+                WHERE type = 'view' AND name LIKE 'v_%'
+                ORDER BY name
+            """)
+                push!(view_names, String(_sqlite_rowcol(_sqlite_materialize_row(row), :name)))
+            end
+            for expected in (
+                    "v_tapes",
+                    "v_tape_records",
+                    "v_tape_index_state",
+                    "v_sessions",
+                    "v_commits",
+                    "v_scope_inventory",
+                    "v_scope_labels_flat",
+                    "v_scope_vars_inventory",
+                    "v_scope_meta_inventory",
+                )
+                @test expected in view_names
+            end
+
+            vt = _sqlite_one(db, """
+                SELECT subsystem_id, logical_owner_id, tape_role, record_count, refresh_mode
+                FROM v_tapes
+                WHERE subsystem_id = 'scope' AND logical_owner_id = ?
+            """, (string(session_id),))
+            @test _sqlite_rowcol(vt, :subsystem_id) == "scope"
+            @test _sqlite_rowcol(vt, :logical_owner_id) == string(session_id)
+            @test _sqlite_rowcol(vt, :tape_role) == "main"
+            @test _sqlite_rowcol(vt, :record_count) >= 4
+            @test _sqlite_rowcol(vt, :refresh_mode) == "rebuild"
+
+            vtrs_commit = _sqlite_one(db, """
+                SELECT COUNT(*) AS n
+                FROM v_tape_records
+                WHERE subsystem_id = 'scope'
+                  AND logical_owner_id = ?
+                  AND record_type = 'commit'
+            """, (string(session_id),))
+            @test _sqlite_rowcol(vtrs_commit, :n) == 2
+
+            vtrs_manifest = _sqlite_one(db, """
+                SELECT COUNT(*) AS n
+                FROM v_tape_records
+                WHERE subsystem_id = 'scope'
+                  AND logical_owner_id = ?
+                  AND record_type = 'tape.manifest'
+            """, (string(session_id),))
+            @test _sqlite_rowcol(vtrs_manifest, :n) == 1
+
+            vtis = _sqlite_one(db, """
+                SELECT subsystem_id, last_indexed_record_ord, refresh_mode, drift_status
+                FROM v_tape_index_state
+                WHERE subsystem_id = 'scope'
+                  AND logical_owner_id = ?
+            """, (string(session_id),))
+            @test _sqlite_rowcol(vtis, :subsystem_id) == "scope"
+            @test _sqlite_rowcol(vtis, :last_indexed_record_ord) >= 4
+            @test _sqlite_rowcol(vtis, :refresh_mode) == "rebuild"
+            @test _sqlite_rowcol(vtis, :drift_status) == "ok"
+
+            vsess = _sqlite_one(db, """
+                SELECT session_label, session_labels_csv, commit_count, scope_count, refresh_mode
+                FROM v_sessions
+                WHERE session_id = ?
+            """, (string(session_id),))
+            @test _sqlite_rowcol(vsess, :session_label) == "sqlite-index-test"
+            @test _sqlite_rowcol(vsess, :session_labels_csv) == "sqlite-index-test;smoke"
+            @test _sqlite_rowcol(vsess, :commit_count) == 2
+            @test _sqlite_rowcol(vsess, :scope_count) == 3
+            @test _sqlite_rowcol(vsess, :refresh_mode) == "rebuild"
+
+            vc2 = _sqlite_one(db, """
+                SELECT session_label, commit_label, scope_count
+                FROM v_commits
+                WHERE session_id = ? AND commit_ord = 2
+            """, (string(session_id),))
+            @test _sqlite_rowcol(vc2, :session_label) == "sqlite-index-test"
+            @test _sqlite_rowcol(vc2, :commit_label) == "uh1.fix.point.fba.v1.main"
+            @test _sqlite_rowcol(vc2, :scope_count) == 2
+
+            vscope = _sqlite_one(db, """
+                SELECT commit_label, scope_labels_csv, scope_var_count, scope_meta_count
+                FROM v_scope_inventory
+                WHERE scope_uid = ?
+            """, (string(session_id, ":c1:s1"),))
+            @test _sqlite_rowcol(vscope, :commit_label) == "uh1.fix.point.fba.v1.main"
+            @test _sqlite_rowcol(vscope, :scope_labels_csv) == "main.sample"
+            @test _sqlite_rowcol(vscope, :scope_var_count) == 4
+            @test _sqlite_rowcol(vscope, :scope_meta_count) == 5
+
+            vlabel_sample = _sqlite_one(db, """
+                SELECT COUNT(*) AS n
+                FROM v_scope_labels_flat
+                WHERE session_id = ? AND scope_label = 'main.sample'
+            """, (string(session_id),))
+            @test _sqlite_rowcol(vlabel_sample, :n) == 2
+
+            vdf = _sqlite_one(db, """
+                SELECT storage_kind, blob_ref, commit_label, scope_labels_csv
+                FROM v_scope_vars_inventory
+                WHERE scope_uid = ? AND var_name = 'df'
+            """, (string(session_id, ":c1:s1"),))
+            @test _sqlite_rowcol(vdf, :storage_kind) == "blob"
+            @test _sqlite_rowcol(vdf, :blob_ref) == blob_ref.hash
+            @test _sqlite_rowcol(vdf, :commit_label) == "uh1.fix.point.fba.v1.main"
+            @test _sqlite_rowcol(vdf, :scope_labels_csv) == "main.sample"
+
+            vmeta_workflow = _sqlite_one(db, """
+                SELECT value_kind, value_text, commit_label
+                FROM v_scope_meta_inventory
+                WHERE scope_uid = ? AND meta_key = 'workflow'
+            """, (string(session_id, ":c1:s1"),))
+            @test _sqlite_rowcol(vmeta_workflow, :value_kind) == "string"
+            @test _sqlite_rowcol(vmeta_workflow, :value_text) == "scripts/simulations.uh.1"
+            @test _sqlite_rowcol(vmeta_workflow, :commit_label) == "uh1.fix.point.fba.v1.main"
         finally
             SQLite.close(db)
         end

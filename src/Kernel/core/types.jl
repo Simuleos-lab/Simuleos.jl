@@ -240,6 +240,18 @@ mutable struct SettingsLayer
 end
 
 """
+    SettingsRegistryEntry
+
+Registry rule for a canonical settings key: alias set + optional custom
+source-priority resolution policy.
+"""
+mutable struct SettingsRegistryEntry
+    canonical::String
+    aliases::Vector{String}
+    resolve_priority::Union{Nothing, Vector{Symbol}}
+end
+
+"""
     SettingsStack
 
 Ordered layered settings plus lazy cached effective resolution state.
@@ -250,6 +262,8 @@ mutable struct SettingsStack
     effective_missing::Set{String}    # negative cache for missing keys
     effective_version::Int            # cache epoch; must match `version`
     effective_complete::Bool          # true when `effective` is a full resolved snapshot
+    registry::Dict{String, SettingsRegistryEntry}          # canonical -> registry entry
+    registry_alias_to_canonical::Dict{String, String}      # alias -> canonical
     version::Int                      # bumps on any layer/source mutation
 end
 
