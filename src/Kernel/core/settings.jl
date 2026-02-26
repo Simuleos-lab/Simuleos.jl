@@ -404,7 +404,6 @@ function settings_registry_register!(
     stack.registry[canonical_s] = entry
     _settings_registry_reindex_aliases!(stack)
     _settings_stack_rebuild!(stack)  # registry changes can alter lookup results
-    _settings_stack_sync_legacy!(simos)
     return entry
 end
 
@@ -416,7 +415,6 @@ function settings_registry_unregister!(simos::SimOs, key_or_alias::String)::Bool
     delete!(stack.registry, entry.canonical)
     _settings_registry_reindex_aliases!(stack)
     _settings_stack_rebuild!(stack)
-    _settings_stack_sync_legacy!(simos)
     return true
 end
 
@@ -513,7 +511,8 @@ end
     build_settings_stack(simos::SimOs) -> SettingsStack
 
 Build the phase-1 settings stack from the current built-in sources.
-Priority (low -> high): home, project, env, bootstrap.
+Priority (low -> high): home, project, env, bootstrap, script, session.
+Optional layers (:cli, :json_file) are inserted at runtime between existing layers.
 """
 function build_settings_stack(simos::SimOs)::SettingsStack
     stack = SettingsStack(; layers = _settings_builtin_layers(simos))
@@ -524,27 +523,12 @@ end
 """
     load_settings_stack!(simos::SimOs) -> SettingsStack
 
-Build and attach the settings stack to `simos`, and sync the legacy merged
-settings cache (`simos.settings`) for compatibility.
+Build and attach the settings stack to `simos`.
 """
 function load_settings_stack!(simos::SimOs)::SettingsStack
     stack = build_settings_stack(simos)
     simos.settings_stack = stack
-    # Keep the legacy field alive for current callers/tests while stack is the SSOT.
-    simos.settings = stack.effective
     return stack
-end
-
-"""
-    load_all_settings(simos::SimOs) -> Dict{String, Any}
-
-Compatibility wrapper: builds/attaches the settings stack and returns the
-effective merged settings Dict.
-"""
-function load_all_settings(simos::SimOs)
-    stack = load_settings_stack!(simos)
-    _settings_stack_fill_all!(stack)
-    return stack.effective
 end
 
 """
@@ -553,10 +537,19 @@ end
 Get a setting value by dotted key.
 """
 function get_setting(simos::SimOs, key::String, default=nothing)
-    if !isnothing(simos.settings_stack)
-        return _settings_stack_get_resolved(simos.settings_stack, key, default)
-    end
-    return get(simos.settings, key, default)
+    value = _settings_stack_get_resolved(_settings_stack_required(simos), key, default)
+    _settings_access_log!(simos, key, value)
+    return value
+end
+
+function _settings_access_log!(simos::SimOs, key::String, value)::Nothing
+    ws = simos.worksession
+    isnothing(ws) && return nothing
+    ws.settings_access_tracking || return nothing
+    log = ws.settings_access_log
+    isnothing(log) && return nothing
+    log[key] = value
+    return nothing
 end
 
 function _require_setting(key::String, value)
@@ -574,14 +567,11 @@ function _settings_stack_required(simos::SimOs)::SettingsStack
     return simos.settings_stack
 end
 
-function _settings_stack_sync_legacy!(simos::SimOs)::SimOs
-    stack = _settings_stack_required(simos)
-    simos.settings = stack.effective
-    return simos
-end
-
-function _settings_builtin_layer_name(name::Symbol)::Bool
-    return name in (:home, :project, :env, :bootstrap, :script, :session)
+# Protected layer names: builtins (:home, :project, :env, :bootstrap, :script, :session)
+# plus :cli which is created on demand by settings_source_add_args! but should not be
+# overwritten by JSON sources or removed once present.
+function _settings_protected_layer_name(name::Symbol)::Bool
+    return name in (:home, :project, :env, :cli, :bootstrap, :script, :session)
 end
 
 function _settings_layer_info(layer::SettingsLayer, priority::Int)
@@ -623,7 +613,6 @@ function settings_layer_set!(
     layer = _settings_mutable_layer_required(stack, layer_name)
     layer.data[_settings_validate_key(key)] = value
     _settings_stack_rebuild!(stack)
-    _settings_stack_sync_legacy!(simos)
     return nothing
 end
 
@@ -636,7 +625,6 @@ function settings_layer_unset!(
     layer = _settings_mutable_layer_required(stack, layer_name)
     removed = pop!(layer.data, _settings_validate_key(key), __MISSING__) !== __MISSING__
     removed && _settings_stack_rebuild!(stack)
-    removed && _settings_stack_sync_legacy!(simos)
     return removed
 end
 
@@ -667,7 +655,6 @@ function settings_layer_clear!(
 
     if removed > 0
         _settings_stack_rebuild!(stack)
-        _settings_stack_sync_legacy!(simos)
     end
     return removed
 end
@@ -684,7 +671,6 @@ function settings_layer_merge!(
     clear && empty!(layer.data)
     merge!(layer.data, incoming)
     _settings_stack_rebuild!(stack)
-    _settings_stack_sync_legacy!(simos)
     return layer
 end
 
@@ -741,8 +727,8 @@ function _settings_insert_or_replace_layer!(
     if !isnothing(existing_idx)
         replace || error("Settings layer `$(layer.name)` already exists. Pass `replace=true` to replace it.")
         old = stack.layers[existing_idx]
-        if _settings_builtin_layer_name(old.name)
-            error("Cannot replace builtin settings layer `$(old.name)`.")
+        if _settings_protected_layer_name(old.name)
+            error("Cannot replace protected settings layer `$(old.name)`.")
         end
         stack.layers[existing_idx] = layer
         _settings_stack_rebuild!(stack)
@@ -776,12 +762,11 @@ function settings_source_add_json!(
     else
         Symbol(string(name))
     end
-    _settings_builtin_layer_name(layer_name) &&
-        error("Cannot register JSON source using reserved builtin layer name `$(layer_name)`.")
+    _settings_protected_layer_name(layer_name) &&
+        error("Cannot register JSON source using protected layer name `$(layer_name)`.")
 
     layer = _settings_json_source_layer(path; name = layer_name, optional = optional)
     _settings_insert_or_replace_layer!(stack, layer; after = after, replace = replace)
-    _settings_stack_sync_legacy!(simos)
     return layer
 end
 
@@ -789,10 +774,9 @@ function settings_source_remove!(simos::SimOs, name::Symbol)::Nothing
     stack = _settings_stack_required(simos)
     idx = _settings_require_layer_index(stack, name)
     layer = stack.layers[idx]
-    _settings_builtin_layer_name(layer.name) && error("Cannot remove builtin settings layer `$(name)`.")
+    _settings_protected_layer_name(layer.name) && error("Cannot remove protected settings layer `$(name)`.")
     deleteat!(stack.layers, idx)
     _settings_stack_rebuild!(stack)
-    _settings_stack_sync_legacy!(simos)
     return nothing
 end
 
@@ -826,7 +810,6 @@ function settings_source_reload!(simos::SimOs, name::Symbol)::SettingsLayer
     layer = stack.layers[idx]
     layer.data = _string_keys(_settings_reload_layer_data(layer))
     _settings_stack_rebuild!(stack)
-    _settings_stack_sync_legacy!(simos)
     return layer
 end
 
@@ -838,7 +821,6 @@ function settings_reload!(simos::SimOs)::SettingsStack
         end
     end
     _settings_stack_rebuild!(stack)
-    _settings_stack_sync_legacy!(simos)
     return stack
 end
 

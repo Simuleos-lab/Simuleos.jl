@@ -61,3 +61,67 @@ function _write_json(io::IO, d::AbstractDict)
     print(io, "}")
     return nothing
 end
+
+"""
+    _write_json_sorted(io::IO, d::AbstractDict)
+
+Write a Dict as JSON with keys sorted lexicographically for deterministic output.
+Nested dicts are also sorted recursively.
+"""
+function _write_json_sorted(io::IO, d::AbstractDict)
+    print(io, "{")
+    sorted_keys = sort!(collect(keys(d)); by=string)
+    first = true
+    for k in sorted_keys
+        if first
+            first = false
+        else
+            print(io, ",")
+        end
+        JSON3.write(io, string(k))
+        print(io, ":")
+        v = d[k]
+        if v isa AbstractDict
+            _write_json_sorted(io, v)
+        elseif v isa AbstractVector
+            _write_json_sorted_vector(io, v)
+        else
+            _write_json(io, v)
+        end
+    end
+    print(io, "}")
+    return nothing
+end
+
+function _write_json_sorted_vector(io::IO, v::AbstractVector)
+    print(io, "[")
+    for (idx, item) in enumerate(v)
+        idx > 1 && print(io, ",")
+        if item isa AbstractDict
+            _write_json_sorted(io, item)
+        elseif item isa AbstractVector
+            _write_json_sorted_vector(io, item)
+        else
+            _write_json(io, item)
+        end
+    end
+    print(io, "]")
+    return nothing
+end
+
+"""
+    _to_json_string_sorted(data) -> String
+
+Serialize data to a single-line JSON string with sorted keys for deterministic hashing.
+"""
+function _to_json_string_sorted(data)::String
+    io = IOBuffer()
+    if data isa AbstractDict
+        _write_json_sorted(io, data)
+    elseif data isa AbstractVector
+        _write_json_sorted_vector(io, data)
+    else
+        _write_json(io, data)
+    end
+    return String(take!(io))
+end

@@ -26,6 +26,23 @@ struct BlobStorage
 end
 
 # --------------------------------------------------
+# RecordRef — Content-addressed record reference
+# --------------------------------------------------
+
+"""
+    RecordRef
+
+Content-addressed reference to a generic tape record.
+`hash` is the full hex SHA-1; `short` is a prefix for display/filenames.
+"""
+struct RecordRef
+    hash::String
+    short::String
+end
+
+Base.string(ref::RecordRef) = ref.short
+
+# --------------------------------------------------
 # Scope Variables
 # --------------------------------------------------
 
@@ -219,6 +236,12 @@ mutable struct WorkSession
     simignore_rules::Vector{Dict{Symbol, Any}}
     capture_filter_defs::Dict{String, Vector{Dict{Symbol, Any}}}
     capture_filter_bindings::Dict{String, Vector{String}}
+    # Settings access tracking (runtime-only, not persisted).
+    settings_access_log::Union{Nothing, Dict{String, Any}}
+    settings_access_tracking::Bool
+    # Capture subsystem: source and environment snapshots (runtime-only).
+    source_capture::Union{Nothing, SourceCapture}
+    environment_capture::Union{Nothing, EnvironmentCapture}
 end
 
 # --------------------------------------------------
@@ -284,7 +307,6 @@ mutable struct SimOs
     home::Union{Nothing, SimuleosHome}
     worksession::Union{Nothing, WorkSession}
     settings_stack::Union{Nothing, SettingsStack}  # Structured layered settings SSOT
-    settings::Dict{String, Any}  # Legacy alias to settings_stack.effective (lazy cache)
     shared_scopes::Dict{String, SimuleosScope}  # In-memory named shared scopes
     sqlite_db::Any  # Cached SQLite metadata-index connection (owned by @simos sqlite.*)
     sqlite_db_path::Union{Nothing, String}  # Canonical path for the cached SQLite DB

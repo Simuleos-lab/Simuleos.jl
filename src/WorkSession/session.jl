@@ -163,6 +163,9 @@ function session_init!(simos::_Kernel.SimOs, proj::_Kernel.SimuleosProject;
     _persist_session!(proj, ws)
 
     _reset_session_settings!(ws)
+    ws.settings_access_log = Dict{String, Any}()
+    ws.source_capture = _Kernel.capture_source(proj.git_handler)
+    ws.environment_capture = _Kernel.capture_environment()
     simos.worksession = ws
     return ws
 end

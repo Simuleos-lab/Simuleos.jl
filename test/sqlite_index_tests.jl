@@ -25,6 +25,7 @@ end
 @testset "SQLiteIndex Phase 2 refresh incremental + drift fallback" begin
     mktempdir() do root
         project_driver = Simuleos.Kernel.proj_init_at(root)
+        storage = Simuleos.Kernel.BlobStorage(project_driver)
         session_id = uuid4()
         session_dir = joinpath(project_driver.simuleos_dir, "sessions", string(session_id))
         mkpath(joinpath(session_dir, "tapes", "main"))
@@ -39,6 +40,8 @@ end
 
         tape_path = Simuleos.Kernel.tape_path(project_driver, session_id)
         tape = Simuleos.Kernel.TapeIO(tape_path)
+        blob_key = ("sqlite-refresh-blob", 1)
+        blob_ref = Simuleos.Kernel.blob_write(storage, blob_key, Dict("a" => 1))
 
         Simuleos.Kernel.append!(tape, Dict(
             "type" => "commit",
@@ -65,6 +68,15 @@ end
             """, (string(session_id),))
             @test _sqlite_rowcol(st0, :last_indexed_commit_ord) == 1
             @test _sqlite_rowcol(st0, :refresh_mode) == "rebuild"
+
+            vb0 = _sqlite_one(db, """
+                SELECT blob_hash, hash_prefix, replaced_existing
+                FROM v_blob_latest_meta
+                WHERE blob_hash = ?
+            """, (blob_ref.hash,))
+            @test _sqlite_rowcol(vb0, :blob_hash) == blob_ref.hash
+            @test _sqlite_rowcol(vb0, :hash_prefix) == blob_ref.hash[1:2]
+            @test _sqlite_rowcol(vb0, :replaced_existing) == 0
         finally
             SQLite.close(db)
         end
@@ -73,6 +85,7 @@ end
         db = Simuleos.sqlite_index_open(project_driver)
         try
             SQLite.DBInterface.execute(db, "DROP VIEW IF EXISTS v_scope_inventory")
+            SQLite.DBInterface.execute(db, "DROP VIEW IF EXISTS v_blob_events")
         finally
             SQLite.close(db)
         end
@@ -104,6 +117,13 @@ end
             """, (string(session_id),))
             @test _sqlite_rowcol(vscope_count, :n) == 1
 
+            vblob_count = _sqlite_one(db, """
+                SELECT COUNT(*) AS n
+                FROM v_blob_events
+                WHERE blob_hash = ?
+            """, (blob_ref.hash,))
+            @test _sqlite_rowcol(vblob_count, :n) == 1
+
             vtapes = _sqlite_one(db, """
                 SELECT subsystem_id, logical_owner_id, record_count, refresh_mode
                 FROM v_tapes
@@ -113,11 +133,23 @@ end
             @test _sqlite_rowcol(vtapes, :logical_owner_id) == string(session_id)
             @test _sqlite_rowcol(vtapes, :record_count) >= 2
             @test _sqlite_rowcol(vtapes, :refresh_mode) == "incremental"
+
+            vblob_tape = _sqlite_one(db, """
+                SELECT subsystem_id, logical_owner_id, tape_role, record_count, refresh_mode
+                FROM v_tapes
+                WHERE subsystem_id = 'blobstorage' AND logical_owner_id = ?
+            """, (blob_ref.hash[1:2],))
+            @test _sqlite_rowcol(vblob_tape, :subsystem_id) == "blobstorage"
+            @test _sqlite_rowcol(vblob_tape, :logical_owner_id) == blob_ref.hash[1:2]
+            @test _sqlite_rowcol(vblob_tape, :tape_role) == "metadata_shard"
+            @test _sqlite_rowcol(vblob_tape, :record_count) >= 2
+            @test _sqlite_rowcol(vblob_tape, :refresh_mode) == "incremental"
         finally
             SQLite.close(db)
         end
 
         # Append one commit and refresh incrementally.
+        Simuleos.Kernel.blob_write(storage, blob_key, Dict("a" => 2); overwrite = true)
         Simuleos.Kernel.append!(tape, Dict(
             "type" => "commit",
             "commit_label" => "c2",
@@ -149,6 +181,21 @@ end
             """, (string(session_id),))
             @test _sqlite_rowcol(st2, :last_indexed_commit_ord) == 2
             @test _sqlite_rowcol(st2, :refresh_mode) == "incremental"
+
+            vbe2 = _sqlite_one(db, """
+                SELECT COUNT(*) AS n
+                FROM v_blob_events
+                WHERE blob_hash = ?
+            """, (blob_ref.hash,))
+            @test _sqlite_rowcol(vbe2, :n) == 2
+
+            vbl2 = _sqlite_one(db, """
+                SELECT blob_hash, replaced_existing
+                FROM v_blob_latest_meta
+                WHERE blob_hash = ?
+            """, (blob_ref.hash,))
+            @test _sqlite_rowcol(vbl2, :blob_hash) == blob_ref.hash
+            @test _sqlite_rowcol(vbl2, :replaced_existing) == 1
         finally
             SQLite.close(db)
         end
@@ -312,19 +359,30 @@ end
             @test startswith(String(_sqlite_rowcol(scope_subsys, :adapter_version)), "phase4b.")
             @test _sqlite_rowcol(scope_subsys, :enabled) == 1
 
+            blob_subsys = _sqlite_one(db, """
+                SELECT subsystem_id, adapter_version, enabled
+                FROM subsystems
+                WHERE subsystem_id = 'blobstorage'
+            """)
+            @test _sqlite_rowcol(blob_subsys, :subsystem_id) == "blobstorage"
+            @test startswith(String(_sqlite_rowcol(blob_subsys, :adapter_version)), "phase4c.")
+            @test _sqlite_rowcol(blob_subsys, :enabled) == 1
+
             counts = _sqlite_one(db, """
                 SELECT
                     (SELECT COUNT(*) FROM sessions) AS n_sessions,
                     (SELECT COUNT(*) FROM session_labels) AS n_session_labels,
                     (SELECT COUNT(*) FROM commits) AS n_commits,
                     (SELECT COUNT(*) FROM scopes) AS n_scopes,
-                    (SELECT COUNT(*) FROM scope_labels) AS n_scope_labels
+                    (SELECT COUNT(*) FROM scope_labels) AS n_scope_labels,
+                    (SELECT COUNT(*) FROM blob_records) AS n_blob_records
             """)
             @test _sqlite_rowcol(counts, :n_sessions) == 1
             @test _sqlite_rowcol(counts, :n_session_labels) == 2
             @test _sqlite_rowcol(counts, :n_commits) == 2
             @test _sqlite_rowcol(counts, :n_scopes) == 3
             @test _sqlite_rowcol(counts, :n_scope_labels) == 3
+            @test _sqlite_rowcol(counts, :n_blob_records) == 1
 
             c1 = _sqlite_one(db, """
                 SELECT commit_uid, commit_ord, tape_record_ord, commit_label
@@ -388,10 +446,13 @@ end
             """)
                 push!(view_names, String(_sqlite_rowcol(_sqlite_materialize_row(row), :name)))
             end
-            for expected in (
+                for expected in (
                     "v_tapes",
                     "v_tape_records",
                     "v_tape_index_state",
+                    "v_blob_events",
+                    "v_blob_latest_meta",
+                    "v_blob_inventory",
                     "v_sessions",
                     "v_commits",
                     "v_scope_inventory",
@@ -441,6 +502,74 @@ end
             @test _sqlite_rowcol(vtis, :last_indexed_record_ord) >= 4
             @test _sqlite_rowcol(vtis, :refresh_mode) == "rebuild"
             @test _sqlite_rowcol(vtis, :drift_status) == "ok"
+
+            vtb = _sqlite_one(db, """
+                SELECT subsystem_id, logical_owner_id, tape_role, record_count, refresh_mode
+                FROM v_tapes
+                WHERE subsystem_id = 'blobstorage' AND logical_owner_id = ?
+            """, (blob_ref.hash[1:2],))
+            @test _sqlite_rowcol(vtb, :subsystem_id) == "blobstorage"
+            @test _sqlite_rowcol(vtb, :logical_owner_id) == blob_ref.hash[1:2]
+            @test _sqlite_rowcol(vtb, :tape_role) == "metadata_shard"
+            @test _sqlite_rowcol(vtb, :record_count) >= 2
+            @test _sqlite_rowcol(vtb, :refresh_mode) == "rebuild"
+
+            vtrb_blob = _sqlite_one(db, """
+                SELECT COUNT(*) AS n
+                FROM v_tape_records
+                WHERE subsystem_id = 'blobstorage'
+                  AND logical_owner_id = ?
+                  AND record_type = 'blob_record'
+            """, (blob_ref.hash[1:2],))
+            @test _sqlite_rowcol(vtrb_blob, :n) == 1
+
+            vtrb_meta = _sqlite_one(db, """
+                SELECT COUNT(*) AS n
+                FROM v_tape_records
+                WHERE subsystem_id = 'blobstorage'
+                  AND logical_owner_id = ?
+                  AND record_type = 'tape_metadata'
+            """, (blob_ref.hash[1:2],))
+            @test _sqlite_rowcol(vtrb_meta, :n) == 1
+
+            vtib = _sqlite_one(db, """
+                SELECT subsystem_id, last_indexed_record_ord, refresh_mode, drift_status
+                FROM v_tape_index_state
+                WHERE subsystem_id = 'blobstorage'
+                  AND logical_owner_id = ?
+            """, (blob_ref.hash[1:2],))
+            @test _sqlite_rowcol(vtib, :subsystem_id) == "blobstorage"
+            @test _sqlite_rowcol(vtib, :last_indexed_record_ord) >= 2
+            @test _sqlite_rowcol(vtib, :refresh_mode) == "rebuild"
+            @test _sqlite_rowcol(vtib, :drift_status) == "ok"
+
+            vbe = _sqlite_one(db, """
+                SELECT blob_hash, hash_prefix, serializer, format, payload_hash_alg, replaced_existing
+                FROM v_blob_events
+                WHERE blob_hash = ?
+            """, (blob_ref.hash,))
+            @test _sqlite_rowcol(vbe, :blob_hash) == blob_ref.hash
+            @test _sqlite_rowcol(vbe, :hash_prefix) == blob_ref.hash[1:2]
+            @test _sqlite_rowcol(vbe, :serializer) == "julia/Serialization"
+            @test _sqlite_rowcol(vbe, :format) == "jls"
+            @test _sqlite_rowcol(vbe, :payload_hash_alg) == "sha1"
+            @test _sqlite_rowcol(vbe, :replaced_existing) == 0
+
+            vbl = _sqlite_one(db, """
+                SELECT blob_hash, replaced_existing
+                FROM v_blob_latest_meta
+                WHERE blob_hash = ?
+            """, (blob_ref.hash,))
+            @test _sqlite_rowcol(vbl, :blob_hash) == blob_ref.hash
+            @test _sqlite_rowcol(vbl, :replaced_existing) == 0
+
+            vbi = _sqlite_one(db, """
+                SELECT blob_hash, event_count
+                FROM v_blob_inventory
+                WHERE blob_hash = ?
+            """, (blob_ref.hash,))
+            @test _sqlite_rowcol(vbi, :blob_hash) == blob_ref.hash
+            @test _sqlite_rowcol(vbi, :event_count) == 1
 
             vsess = _sqlite_one(db, """
                 SELECT session_label, session_labels_csv, commit_count, scope_count, refresh_mode

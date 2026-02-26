@@ -1,0 +1,22 @@
+# Simuleos Context-Tagged Report
+title = quadratic-report
+tag = baseline
+context_ref = f3227625f9cf
+
+## Summary
+count = 6
+max = 31.25
+mean = 11.4583
+sum = 68.75
+
+## Data
+x,y
+0,0.0
+1,1.25
+2,5.0
+3,11.25
+4,20.0
+5,31.25
+
+## Settings Snapshot
+Dict{String, Any}("workflow" => Dict{String, Any}("context_demo" => Dict{String, Any}("tag" => "baseline", "title" => "quadratic-report", "precision" => 4, "scale" => 1.25, "n_points" => 6)))

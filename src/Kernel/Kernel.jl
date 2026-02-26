@@ -9,7 +9,8 @@ module Kernel
 using UUIDs
 using Dates
 
-# -- Core: types first, then utilities, then subsystems --
+# -- Core: capture types (no deps), then main types, then utilities --
+include("core/capture_types.jl")
 include("core/types.jl")
 include("core/base.jl")
 include("core/utils.jl")
@@ -19,6 +20,7 @@ include("core/env.jl")
 # -- Data subsystems (depend on types + utils) --
 include("tapeio/json.jl")
 include("tapeio/tape.jl")
+include("tapeio/record.jl")
 include("blobstorage/blob.jl")
 include("cache.jl")
 
@@ -33,12 +35,17 @@ include("scopetapes/write.jl")
 # -- Git --
 include("gitmeta/git.jl")
 
+# -- Capture subsystem (collectors + serialization) --
+include("capture/collectors.jl")
+include("capture/serialization.jl")
+
 # -- Project and Home (depend on fs, json) --
 include("core/project.jl")
 include("core/home.jl")
 
 # -- Settings (depends on home, project, env) --
 include("core/settings.jl")
+include("core/cli_args.jl")
 
 # -- SimOs global state (depends on everything above) --
 include("core/simos.jl")

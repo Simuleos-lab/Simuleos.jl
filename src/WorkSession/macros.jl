@@ -208,9 +208,11 @@ function scope_capture(
     end
 
     !isempty(label) && pushfirst!(scope.labels, label)
-    scope.metadata[:src_file] = src_file
-    scope.metadata[:src_line] = src_line
-    scope.metadata[:threadid] = Threads.threadid()
+    exec = _Kernel.capture_execution(src_file, src_line)
+    scope.metadata[:src_file] = exec.src_file
+    scope.metadata[:src_line] = exec.src_line
+    scope.metadata[:threadid] = exec.threadid
+    scope.metadata[:timestamp] = exec.timestamp
 
     if !isempty(ws.stage.meta_buffer)
         merge!(scope.metadata, ws.stage.meta_buffer)

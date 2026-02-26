@@ -12,12 +12,11 @@ function SimOs(;
         home = nothing,
         worksession = nothing,
         settings_stack = nothing,
-        settings = Dict{String, Any}(),
         shared_scopes::Dict{String, SimuleosScope} = Dict{String, SimuleosScope}(),
         sqlite_db = nothing,
         sqlite_db_path::Union{Nothing, String} = nothing,
     )
-    SimOs(bootstrap, sandbox, project, home, worksession, settings_stack, settings, shared_scopes, sqlite_db, sqlite_db_path)
+    SimOs(bootstrap, sandbox, project, home, worksession, settings_stack, shared_scopes, sqlite_db, sqlite_db_path)
 end
 
 # -- SimuleosProject --
@@ -47,6 +46,10 @@ function WorkSession(;
         simignore_rules::Vector{Dict{Symbol, Any}} = Dict{Symbol, Any}[],
         capture_filter_defs::Dict{String, Vector{Dict{Symbol, Any}}} = Dict{String, Vector{Dict{Symbol, Any}}}(),
         capture_filter_bindings::Dict{String, Vector{String}} = Dict{String, Vector{String}}(),
+        settings_access_log::Union{Nothing, Dict{String, Any}} = nothing,
+        settings_access_tracking::Bool = true,
+        source_capture::Union{Nothing, SourceCapture} = nothing,
+        environment_capture::Union{Nothing, EnvironmentCapture} = nothing,
     )
     WorkSession(
         session_id,
@@ -60,10 +63,20 @@ function WorkSession(;
         simignore_rules,
         capture_filter_defs,
         capture_filter_bindings,
+        settings_access_log,
+        settings_access_tracking,
+        source_capture,
+        environment_capture,
     )
 end
 
 # -- show methods --
+
+function Base.show(io::IO, ref::RecordRef)
+    print(io, "RecordRef(", ref.short, ")")
+end
+
+Base.print(io::IO, ref::RecordRef) = print(io, ref.short)
 
 function Base.show(io::IO, ref::BlobRef)
     h = length(ref.hash) > 12 ? ref.hash[1:12] * "..." : ref.hash

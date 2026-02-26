@@ -73,7 +73,3 @@ function git_describe(gh::GitHandler)::String
     end
 end
 
-git_hash() = git_hash(sim_project().git_handler)
-git_dirty() = git_dirty(sim_project().git_handler)
-git_describe() = git_describe(sim_project().git_handler)
-git_branch() = git_branch(sim_project().git_handler)

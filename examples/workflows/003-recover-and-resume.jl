@@ -2,7 +2,7 @@
 # 003 — Recover + Resume from latest scope
 # ============================================================
 
-import Simuleos: project, latest_scope, each_scopes, @simos
+import Simuleos: project, latest_scope, @simos
 
 const SANDBOX_DIR = joinpath(@__DIR__, "_sandbox", basename(@__FILE__))
 const PROJ_DIR = joinpath(SANDBOX_DIR, "proj")
@@ -86,9 +86,50 @@ let
     println("\nattempt-2 finalize.queued_tail_commit = ", result.queued_tail_commit)
 end
 
-proj2 = @simos project.current()
-scope_count = length(collect(each_scopes(proj2; session = "recovery-demo")))
-println("scopes in newest recovery-demo session = ", scope_count)
+# 4) Verify recovery lineage via SQLite
+@simos sqlite.open(; sync = :refresh)
 
+println("\n== Recovery Lineage (sqlite) ==")
+for row in @simos sqlite.execute("""
+    SELECT vs.session_labels_csv, c.commit_label, c.commit_ord,
+           COUNT(sc.scope_uid) AS scope_count
+    FROM commits c
+    JOIN v_sessions vs ON c.session_id = vs.session_id
+    LEFT JOIN scopes sc ON c.commit_uid = sc.commit_uid
+    JOIN session_labels sl ON c.session_id = sl.session_id
+    WHERE sl.label = 'recovery-demo'
+    GROUP BY c.commit_uid
+    ORDER BY vs.session_labels_csv, c.commit_ord
+""")
+    println("  [", row[:session_labels_csv], "] #", row[:commit_ord],
+        " ", row[:commit_label], " (", row[:scope_count], " scopes)")
+end
+
+println("\n== Scope Trail (sqlite) ==")
+for row in @simos sqlite.execute("""
+    SELECT vs.session_labels_csv, si.scope_labels_csv, si.commit_label, si.src_line
+    FROM v_scope_inventory si
+    JOIN v_sessions vs ON si.session_id = vs.session_id
+    JOIN session_labels sl ON si.session_id = sl.session_id
+    WHERE sl.label = 'recovery-demo'
+    ORDER BY vs.session_labels_csv, si.commit_ord, si.scope_ord
+""")
+    println("  [", row[:session_labels_csv], "] scope=", row[:scope_labels_csv],
+        " @ ", row[:commit_label], " line=", row[:src_line])
+end
+
+println("\n== Step Metadata Across Attempts (sqlite) ==")
+for row in @simos sqlite.execute("""
+    SELECT vs.session_labels_csv, m.commit_label, m.value_text AS step
+    FROM v_scope_meta_inventory m
+    JOIN v_sessions vs ON m.session_id = vs.session_id
+    JOIN session_labels sl ON m.session_id = sl.session_id
+    WHERE sl.label = 'recovery-demo' AND m.meta_key = 'step'
+    ORDER BY vs.session_labels_csv, CAST(m.value_text AS INTEGER)
+""")
+    println("  [", row[:session_labels_csv], "] ", row[:commit_label], " step=", row[:step])
+end
+
+@simos sqlite.close()
 @simos system.reset()
 println("\nDone.")

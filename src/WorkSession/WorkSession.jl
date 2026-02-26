@@ -20,6 +20,7 @@ include("settings.jl")
 include("simignore.jl")
 include("shared.jl")
 include("macros.jl")
+include("context.jl")
 include("cache.jl")
 
 end # module WorkSession

@@ -1,4 +1,8 @@
-## 
+## DOING
+- I want to create files with a context tag
+- a hash (8 digits) with point to a context record on simuleos
+- from there, we can rebuilt the context associated/registered with this items
+- for instance, think about producing plots....
 
 
 ## DOING

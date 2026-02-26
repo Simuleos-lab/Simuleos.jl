@@ -204,6 +204,87 @@ using SQLite
         end
     end
 
+    @testset "@simos settings.has / settings.require / settings.snapshot" begin
+        with_test_context() do _
+            sim = kernel._get_sim()
+
+            kernel.settings_layer_set!(sim, :script, "macro.snap.demo", "script")
+            kernel.settings_layer_set!(sim, :session, "macro.snap.demo", "session")
+            kernel.settings_layer_set!(sim, :script, "macro.snap.nested.a", 1)
+            kernel.settings_layer_set!(sim, :script, "macro.snap.nested.b", 2)
+
+            @test (@simos settings.has("macro.snap.demo")) == true
+            @test (@simos settings.has("macro.snap.demo"; layer = :script)) == true
+            @test (@simos settings.has("macro.snap.missing")) == false
+
+            @test (@simos settings.require("macro.snap.demo")) == "session"
+            @test (@simos settings.require("macro.snap.demo"; layer = "script")) == "script"
+            @test_throws ErrorException (@simos settings.require("macro.snap.missing"))
+
+            snap_flat = @simos settings.snapshot(; layer = :script, prefix = "macro.snap", nested = false)
+            @test snap_flat["macro.snap.demo"] == "script"
+            @test snap_flat["macro.snap.nested.a"] == 1
+
+            snap_nested = @simos settings.snapshot(; layer = :script, prefix = "macro.snap", nested = true)
+            @test snap_nested["macro"]["snap"]["demo"] == "script"
+            @test snap_nested["macro"]["snap"]["nested"]["b"] == 2
+        end
+    end
+
+    @testset "@simos settings.set / unset / merge / clear" begin
+        with_test_context() do _
+            @simos settings.set("macro.ops.value", 10)
+            @test (@simos settings.get("macro.ops.value"; layer = :script)) == 10
+            @test (@simos settings.get("macro.ops.value")) == 10
+
+            @simos settings.set("macro.ops.value", 20; layer = :session)
+            @test (@simos settings.get("macro.ops.value")) == 20
+            @test (@simos settings.unset("macro.ops.value"; layer = :session)) == true
+            @test (@simos settings.get("macro.ops.value")) == 10
+            @test (@simos settings.unset("macro.ops.value"; layer = :session)) == false
+
+            @simos settings.merge(Dict("macro" => Dict("ops" => Dict("a" => 1, "b" => 2))); layer = :script)
+            @test (@simos settings.get("macro.ops.a")) == 1
+            @test (@simos settings.get("macro.ops.b")) == 2
+
+            removed = @simos settings.clear(; layer = :script, prefix = "macro.ops")
+            @test removed >= 3
+            @test (@simos settings.has("macro.ops.a"; layer = :script)) == false
+            @test (@simos settings.has("macro.ops.value"; layer = :script)) == false
+        end
+    end
+
+    @testset "@simos settings.source.* JSON wrappers" begin
+        with_test_context() do _
+            tmp = mktempdir()
+            path = joinpath(tmp, "macro-settings.json")
+            try
+                write(path, "{\"macro\":{\"source\":{\"value\":1}}}")
+
+                layer = @simos settings.source.add_json(path; name = "macro_file", after = "project")
+                @test layer.name == :macro_file
+                @test (@simos settings.get("macro.source.value")) == 1
+
+                sources = @simos settings.source.list()
+                @test any(x -> x.name == :macro_file, sources)
+
+                write(path, "{\"macro\":{\"source\":{\"value\":2}}}")
+                reloaded = @simos settings.source.reload("macro_file")
+                @test reloaded.name == :macro_file
+                @test (@simos settings.get("macro.source.value")) == 2
+
+                write(path, "{\"macro\":{\"source\":{\"value\":3}}}")
+                _ = @simos settings.source.reload()
+                @test (@simos settings.get("macro.source.value")) == 3
+
+                @simos settings.source.remove("macro_file")
+                @test (@simos settings.get("macro.source.value"; default = :missing)) == :missing
+            finally
+                isdir(tmp) && rm(tmp; recursive = true, force = true)
+            end
+        end
+    end
+
     @testset "@simos system.init + session.init round-trip" begin
         with_test_context() do _
             kernel.sim_reset!()

@@ -2,7 +2,7 @@
 # 005 — Pipeline stage lineage via commit labels + src_file
 # ============================================================
 
-import Simuleos: each_commits, latest_scope, @simos
+import Simuleos: latest_scope, @simos
 
 const SANDBOX_DIR = joinpath(@__DIR__, "_sandbox", basename(@__FILE__))
 
@@ -80,17 +80,54 @@ end
 result = @simos session.close("summary-output")
 println("finalize.queued_tail_commit = ", result.queued_tail_commit)
 
-println("\n== Pipeline Lineage ==")
-for commit in each_commits(proj; session = "pipeline-demo")
-    println("commit=", commit.commit_label)
-    for scope in commit.scopes
-        println(
-            "  labels=", join(scope.labels, "/"),
-            " stage=", get(scope.metadata, :stage, missing),
-            " src_file=", get(scope.metadata, :src_file, missing),
-        )
-    end
+# ── Pipeline lineage via SQLite ──────────────────────────────
+
+@simos sqlite.open(; sync = :refresh)
+
+println("\n== Pipeline Lineage (sqlite) ==")
+for row in @simos sqlite.execute("""
+    SELECT c.commit_label, c.commit_ord, COUNT(sc.scope_uid) AS scope_count
+    FROM commits c
+    JOIN sessions s ON c.session_id = s.session_id
+    LEFT JOIN scopes sc ON c.commit_uid = sc.commit_uid
+    WHERE s.session_label = 'pipeline-demo'
+    GROUP BY c.commit_uid
+    ORDER BY c.commit_ord
+""")
+    println("commit=", row[:commit_label], " (#", row[:commit_ord], ", ", row[:scope_count], " scopes)")
 end
 
+println("\n== Stage Metadata per Scope (sqlite) ==")
+for row in @simos sqlite.execute("""
+    SELECT si.scope_labels_csv, si.commit_label, si.src_file, si.src_line,
+           m.value_text AS stage_name
+    FROM v_scope_inventory si
+    JOIN scope_meta_kv m ON si.scope_uid = m.scope_uid AND m.meta_key = 'stage'
+    JOIN sessions s ON si.session_id = s.session_id
+    WHERE s.session_label = 'pipeline-demo'
+    ORDER BY si.commit_ord, si.scope_ord
+""")
+    println("  scope=", row[:scope_labels_csv],
+        " stage=", row[:stage_name],
+        " @ ", row[:commit_label],
+        " src=", row[:src_file], ":", row[:src_line])
+end
+
+println("\n== Variables per Stage (sqlite) ==")
+for row in @simos sqlite.execute("""
+    SELECT m.value_text AS stage_name, sv.var_name, sv.type_short, sv.storage_kind
+    FROM scope_meta_kv m
+    JOIN scope_vars sv ON m.scope_uid = sv.scope_uid
+    JOIN v_scope_inventory si ON m.scope_uid = si.scope_uid
+    JOIN sessions s ON si.session_id = s.session_id
+    WHERE m.meta_key = 'stage'
+      AND s.session_label = 'pipeline-demo'
+      AND sv.storage_kind != 'omitted'
+    ORDER BY si.commit_ord, sv.var_ord
+""")
+    println("  [", row[:stage_name], "] ", row[:var_name], " : ", row[:type_short], " (", row[:storage_kind], ")")
+end
+
+@simos sqlite.close()
 @simos system.reset()
 println("\nDone.")

@@ -8,10 +8,14 @@ using Dates
 const SQLITE_INDEX_SCHEMA_VERSION = 1
 const SQLITE_INDEX_DIRNAME = "index"
 const SQLITE_INDEX_FILENAME = "metadata-v1.sqlite"
+const SQLITE_INDEX_KIND = "simuleos_metadata"
 const _SQLITE_INDEX_SCOPE_SUBSYSTEM_ID = "scope"
 const _SQLITE_INDEX_SCOPE_ADAPTER_VERSION = "phase4b.scope_adapter.v1"
+const _SQLITE_INDEX_BLOB_SUBSYSTEM_ID = "blobstorage"
+const _SQLITE_INDEX_BLOB_ADAPTER_VERSION = "phase4c.blob_adapter.v1"
 
 include("Adapters/ScopeAdapter.jl")
+include("Adapters/BlobAdapter.jl")
 
 """
     sqlite_index_path(project_driver::Kernel.SimuleosProject) -> String
@@ -46,7 +50,7 @@ sqlite_index_open(project_root::AbstractString; create::Bool = false) =
 """
     sqlite_index_rebuild!(project_driver; path=nothing) -> String
 
-Rebuild the Phase-1 SQLite metadata index from tapes/blobs metadata only.
+    Rebuild the SQLite metadata index from tapes/blobs metadata only.
 Blob payloads are not deserialized.
 Returns the SQLite database path.
 """
@@ -162,7 +166,10 @@ end
 # Adapter registry (Phase 4B)
 # ------------------------------------------------------------
 
-_sqlite_index_adapters() = (_scope_sqlite_index_adapter_spec(),)
+_sqlite_index_adapters() = (
+    _scope_sqlite_index_adapter_spec(),
+    _blob_sqlite_index_adapter_spec(),
+)
 
 function _create_registered_subsystem_schemas!(db::SQLite.DB)
     for adapter in _sqlite_index_adapters()
@@ -215,6 +222,15 @@ function _registered_adapter_required_tables()::Vector{String}
     return out
 end
 
+function _sqlite_index_builder_version()::String
+    adapter_parts = String[]
+    for adapter in _sqlite_index_adapters()
+        push!(adapter_parts, string(adapter.subsystem_id, "=", adapter.adapter_version))
+    end
+    sort!(adapter_parts)
+    return string("schema=", SQLITE_INDEX_SCHEMA_VERSION, ";adapters=", join(adapter_parts, ","))
+end
+
 # ------------------------------------------------------------
 # Schema
 # ------------------------------------------------------------
@@ -258,6 +274,11 @@ function _create_schema!(db::SQLite.DB)
     _sqlite_exec(db, "CREATE INDEX idx_tapes_owner ON tapes(subsystem_id, logical_owner_id)")
     _sqlite_exec(db, "CREATE INDEX idx_tapes_tape_path ON tapes(tape_path)")
 
+    # `record_type` is the generic tape-envelope `type` field.
+    # `subsystem_record_kind` is a reserved normalization slot for adapter-specific
+    # classification. It currently defaults to `record_type`, but stays separate so
+    # adapters can expose a stable subsystem taxonomy without changing generic tape
+    # envelope semantics or SQL consumers.
     _sqlite_exec(db, """
         CREATE TABLE tape_records (
             tape_uid TEXT NOT NULL,
@@ -391,20 +412,20 @@ function _insert_manifest!(db::SQLite.DB, project_driver::Kernel.SimuleosProject
     """, (
         1,
         SQLITE_INDEX_SCHEMA_VERSION,
-        "simuleos_metadata",
+        SQLITE_INDEX_KIND,
         now_s,
         now_s,
         project_driver.root_path,
         project_driver.simuleos_dir,
-        string("phase2"),
+        _sqlite_index_builder_version(),
     ))
     return nothing
 end
 
 function _touch_manifest_updated_at!(db::SQLite.DB)
     _sqlite_exec(db,
-        "UPDATE index_manifest SET updated_at = ? WHERE manifest_id = 1",
-        (string(Dates.now()),),
+        "UPDATE index_manifest SET updated_at = ?, builder_version = ? WHERE manifest_id = 1",
+        (string(Dates.now()), _sqlite_index_builder_version()),
     )
     return nothing
 end
@@ -897,7 +918,7 @@ function _scope_tape_info(
     )
     rel = _path_rel_to_project(project_driver, tape.path)
     return (
-        tape_uid = _scope_tape_uid(project_driver, session_id, tape),
+        tape_uid = _scope_tape_uid(project_driver, tape),
         subsystem_id = _SQLITE_INDEX_SCOPE_SUBSYSTEM_ID,
         logical_owner_id = session_id,
         tape_role = "main",
@@ -907,8 +928,7 @@ function _scope_tape_info(
     )
 end
 
-function _scope_tape_uid(project_driver::Kernel.SimuleosProject, session_id::String, tape::Kernel.TapeIO)::String
-    _ = session_id
+function _scope_tape_uid(project_driver::Kernel.SimuleosProject, tape::Kernel.TapeIO)::String
     rel = _path_rel_to_project(project_driver, tape.path)
     return string(_SQLITE_INDEX_SCOPE_SUBSYSTEM_ID, ":", rel)
 end
@@ -963,6 +983,10 @@ function _insert_tape_record!(
         record_hash::Union{Nothing, String} = nothing,
     )
     rec_type = _record_type(raw)
+    # Default mapping: generic tape record type and subsystem-kind are the same.
+    # Keep the separate column populated anyway so adapters can diverge later
+    # without backfilling old rows or changing the public `v_tape_records` shape.
+    subsystem_kind = rec_type
     _sqlite_exec(db, """
         INSERT INTO tape_records (
             tape_uid, record_ord, record_type, writer, timetag, file_path, line_no,
@@ -977,7 +1001,7 @@ function _insert_tape_record!(
         file_path,
         line_no,
         record_hash,
-        rec_type,
+        subsystem_kind,
     ))
     return nothing
 end
@@ -1011,6 +1035,8 @@ function _verify_indexed_tape_record_prefix!(
     row_record_hash = _sqlite_nullable_text(row[:record_hash])
     row_subsystem_kind = _sqlite_nullable_text(row[:subsystem_record_kind])
 
+    expected_subsystem_kind = rec_type  # See `_insert_tape_record!` default mapping.
+
     if row_tape_uid != tape_uid ||
        row_record_ord != record_ord ||
        row_record_type != rec_type ||
@@ -1019,7 +1045,7 @@ function _verify_indexed_tape_record_prefix!(
        row_file_path != file_path ||
        row_line_no != line_no ||
        row_record_hash != record_hash ||
-       row_subsystem_kind != rec_type
+       row_subsystem_kind != expected_subsystem_kind
         throw(_SQLiteIndexDriftError(
             "SQLite metadata index drift: indexed tape-record prefix mismatch for tape `$(tape_uid)` record_ord=$(record_ord)."
         ))
@@ -1037,7 +1063,7 @@ function _update_scope_tape_index_state!(
     )
     tape_uid = hasproperty(stats, :tape_uid) ?
         String(getproperty(stats, :tape_uid)) :
-        _scope_tape_uid(project_driver, session_id, Kernel.TapeIO(Kernel.tape_path(project_driver.simuleos_dir, session_id)))
+        _scope_tape_uid(project_driver, Kernel.TapeIO(Kernel.tape_path(project_driver.simuleos_dir, session_id)))
 
     _sqlite_exec(db, """
         INSERT INTO tape_index_state (
@@ -1093,6 +1119,7 @@ function _bool_int_or_nothing(x)
 end
 
 _sqlite_nullable_text(x) = (ismissing(x) || isnothing(x)) ? nothing : String(x)
+_sqlite_nullable_int(x) = (ismissing(x) || isnothing(x)) ? nothing : Int(x)
 
 function _scope_var_parts(var::Kernel.ScopeVariable)
     if var isa Kernel.InlineScopeVariable
@@ -1204,7 +1231,7 @@ function _is_refresh_capable_index_db(db::SQLite.DB, project_driver::Kernel.Simu
     """)
     isnothing(manifest) && return false
     manifest[:schema_version] == SQLITE_INDEX_SCHEMA_VERSION || return false
-    manifest[:index_kind] == "simuleos_metadata" || return false
+    manifest[:index_kind] == SQLITE_INDEX_KIND || return false
     String(manifest[:project_root]) == project_driver.root_path || return false
     String(manifest[:simuleos_dir]) == project_driver.simuleos_dir || return false
     return true

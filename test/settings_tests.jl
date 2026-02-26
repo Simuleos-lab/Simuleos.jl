@@ -31,7 +31,6 @@ let
 
                 sim = kernel._get_sim()
                 @test !isnothing(sim.settings_stack)
-                @test sim.settings === sim.settings_stack.effective
                 @test [layer.name for layer in sim.settings_stack.layers] == [:home, :project, :env, :bootstrap, :script, :session]
 
                 @test kernel.settings(sim, "demo.key") == "bootstrap"
@@ -43,15 +42,11 @@ let
         end
     end
 
-    @testset "settings stack lookup wrapper prefers settings_stack over legacy cache" begin
-        stack = kernel.SettingsStack(;
-            effective = Dict{String, Any}("demo.key" => "stack"),
-        )
-        sim = kernel.SimOs(
-            settings = Dict{String, Any}("demo.key" => "legacy"),
-            settings_stack = stack,
-        )
-        @test kernel.get_setting(sim, "demo.key") == "stack"
+    @testset "get_setting auto-builds settings stack when missing" begin
+        sim = kernel.SimOs(; bootstrap = Dict{String, Any}("demo.key" => "boot"))
+        @test isnothing(sim.settings_stack)
+        @test kernel.get_setting(sim, "demo.key") == "boot"
+        @test !isnothing(sim.settings_stack)
     end
 
     @testset "settings normalize helpers flatten and unflatten dotted keys" begin

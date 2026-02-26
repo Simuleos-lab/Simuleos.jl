@@ -2,9 +2,8 @@
 # 001 — Record + Read round-trip (curated workflow example)
 # ============================================================
 
-import Simuleos: each_commits, each_scopes, latest_scope, value, @simos
+import Simuleos: value, @simos
 
-# HERE
 @simos system.init(; reinit = true, sandbox = (;
     root = joinpath(@__DIR__, "_sandbox", basename(@__FILE__)),
     clean_on_init = true,
@@ -38,34 +37,74 @@ let
     println("finalize.queued_tail_commit = ", result.queued_tail_commit)
 end
 
-let
-    # HERE
-    proj = @simos project.current()
+# ── Query recorded data via SQLite index ─────────────────────
 
-    println("\n== Commit List ==")
-    for commit in each_commits(proj; session = "roundtrip-demo")
-        println("commit=", commit.commit_label, " scopes=", length(commit.scopes))
+@simos sqlite.open(; sync = :refresh)
+
+println("\n== Commit List (sqlite) ==")
+for row in @simos sqlite.execute("""
+    SELECT commit_label, scope_count
+    FROM v_commits
+    WHERE session_label = 'roundtrip-demo'
+    ORDER BY commit_ord
+""")
+    println("commit=", row[:commit_label], " scopes=", row[:scope_count])
+end
+
+println("\n== Warmup Variable Storage Modes (sqlite) ==")
+for row in @simos sqlite.execute("""
+    SELECT var_name, type_short, storage_kind, blob_ref, hash_ref
+    FROM v_scope_vars_inventory
+    WHERE commit_label = 'warmup'
+      AND var_name IN ('params', 'table', 'raw_signal')
+    ORDER BY var_ord
+""")
+    mode = row[:storage_kind]
+    detail = if mode == "blob"
+        bref = string(row[:blob_ref])
+        " blob=" * (length(bref) > 12 ? bref[1:12] * "..." : bref)
+    elseif mode == "hash"
+        href = string(row[:hash_ref])
+        " hash=" * (length(href) > 12 ? href[1:12] * "..." : href)
+    else
+        ""
     end
+    println(row[:var_name], " type=", row[:type_short], " storage=", mode, detail)
+end
 
-    println("\n== Warmup Variable Storage Modes ==")
-    warmup_scope = latest_scope(proj; session = "roundtrip-demo", commit_label = "warmup")
-    for name in (:params, :table, :raw_signal)
-        var = warmup_scope.variables[name]
-        println(name, " type=", typeof(var), " resolved=", value(var, proj))
-    end
-
-    println("\n== Flat Scope Walk ==")
-    for scope in each_scopes(proj; session = "roundtrip-demo")
-        labels = join(scope.labels, "/")
-        step = get(scope.metadata, :step, missing)
-        phase = get(scope.metadata, :phase, missing)
-        println("scope=", labels, " step=", step, " phase=", phase)
-        for name in (:params, :table, :raw_signal, :squares, :total)
-            haskey(scope.variables, name) || continue
-            println("  ", name, " => ", value(scope.variables[name], proj))
+println("\n== Flat Scope Walk (sqlite) ==")
+for row in @simos sqlite.execute("""
+    SELECT scope_uid, scope_labels_csv, commit_label
+    FROM v_scope_inventory
+    WHERE session_label = 'roundtrip-demo'
+    ORDER BY commit_ord, scope_ord
+""")
+    # Scope metadata from the metadata KV table
+    phase = ""
+    step_val = ""
+    for meta_row in @simos sqlite.execute("""
+        SELECT meta_key, value_text FROM scope_meta_kv
+        WHERE scope_uid = ? AND meta_key IN ('phase', 'step')
+    """, (row[:scope_uid],))
+        if meta_row[:meta_key] == "phase"
+            phase = meta_row[:value_text]
+        elseif meta_row[:meta_key] == "step"
+            step_val = meta_row[:value_text]
         end
+    end
+    println("scope=", row[:scope_labels_csv], " step=", step_val, " phase=", phase)
+
+    # Variables in this scope
+    for var_row in @simos sqlite.execute("""
+        SELECT var_name, storage_kind, type_short
+        FROM scope_vars
+        WHERE scope_uid = ? AND storage_kind != 'omitted'
+        ORDER BY var_ord
+    """, (row[:scope_uid],))
+        println("  ", var_row[:var_name], " (", var_row[:storage_kind], ", ", var_row[:type_short], ")")
     end
 end
 
+@simos sqlite.close()
 @simos system.reset()
 println("\nDone.")
