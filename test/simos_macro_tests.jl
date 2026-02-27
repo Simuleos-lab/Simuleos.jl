@@ -541,6 +541,9 @@ using SQLite
             @test sim.sqlite_db_path == idx_path
             @test (@simos sqlite.current()) === db0
 
+            db0_reused = @simos sqlite.open(; sync = :none)
+            @test db0_reused === db0
+
             n_c1 = let vals = [SQLite.values(row) for row in @simos sqlite.execute(
                     "SELECT COUNT(*) AS n FROM commits WHERE commit_label = ?",
                     ("c1",),

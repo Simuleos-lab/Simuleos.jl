@@ -30,6 +30,47 @@ function _simos_sqlite_close_cached_if_any!(sim)::Bool
     return _SimKrn._simos_close_cached_sqlite_db!(sim)
 end
 
+function _simos_sqlite_sync_index!(sim, proj, mode::Symbol)::String
+    if mode === :refresh
+        return _SimSQLI.sqlite_index_refresh!(proj)
+    elseif mode === :rebuild
+        return _SimSQLI.sqlite_index_rebuild!(proj)
+    elseif mode === :none
+        return _simos_sqlite_expected_path(sim, proj)
+    end
+    error("Unhandled sqlite sync mode: $(mode)")
+end
+
+function _simos_sqlite_bind_open_db!(sim, proj)
+    db = _SimSQLI.sqlite_index_open(proj)
+    sim.sqlite_db = db
+    sim.sqlite_db_path = _simos_sqlite_expected_path(sim, proj)
+    return db
+end
+
+function _simos_sqlite_sync_runtime!(
+        mode::Symbol;
+        open_after_sync::Bool = false,
+        reopen_if_previously_open::Bool = false,
+    )
+    sim, proj = _simos_sqlite_require_sim_project()
+    _simos_sqlite_assert_cached_matches_project!(sim, proj)
+
+    if open_after_sync && mode === :none && !isnothing(sim.sqlite_db)
+        return sim.sqlite_db
+    end
+
+    was_open = !isnothing(sim.sqlite_db)
+    was_open && _simos_sqlite_close_cached_if_any!(sim)
+    path = _simos_sqlite_sync_index!(sim, proj, mode)
+
+    if open_after_sync || (reopen_if_previously_open && was_open)
+        db = _simos_sqlite_bind_open_db!(sim, proj)
+        return open_after_sync ? db : path
+    end
+    return path
+end
+
 function _simos_sqlite_assert_cached_matches_project!(sim, proj)
     isnothing(sim.sqlite_db) && return nothing
     expected_path = _simos_sqlite_expected_path(sim, proj)
@@ -57,59 +98,16 @@ function _simos_sqlite_path_runtime()
 end
 
 function _simos_sqlite_open_runtime!(; sync = :refresh)
-    sim, proj = _simos_sqlite_require_sim_project()
     mode = _simos_sqlite_sync_mode(sync)
-
-    _simos_sqlite_assert_cached_matches_project!(sim, proj)
-
-    if mode === :none && !isnothing(sim.sqlite_db)
-        return sim.sqlite_db
-    end
-
-    if !isnothing(sim.sqlite_db)
-        _simos_sqlite_close_cached_if_any!(sim)
-    end
-
-    if mode === :refresh
-        _SimSQLI.sqlite_index_refresh!(proj)
-    elseif mode === :rebuild
-        _SimSQLI.sqlite_index_rebuild!(proj)
-    elseif mode === :none
-        # no-op
-    else
-        error("Unhandled sqlite sync mode: $(mode)")
-    end
-
-    db = _SimSQLI.sqlite_index_open(proj)
-    sim.sqlite_db = db
-    sim.sqlite_db_path = _simos_sqlite_expected_path(sim, proj)
-    return db
+    return _simos_sqlite_sync_runtime!(mode; open_after_sync = true)
 end
 
 function _simos_sqlite_refresh_runtime!()
-    sim, proj = _simos_sqlite_require_sim_project()
-    _simos_sqlite_assert_cached_matches_project!(sim, proj)
-    reopen = !isnothing(sim.sqlite_db)
-    reopen && _simos_sqlite_close_cached_if_any!(sim)
-    path = _SimSQLI.sqlite_index_refresh!(proj)
-    if reopen
-        sim.sqlite_db = _SimSQLI.sqlite_index_open(proj)
-        sim.sqlite_db_path = _simos_sqlite_expected_path(sim, proj)
-    end
-    return path
+    return _simos_sqlite_sync_runtime!(:refresh; reopen_if_previously_open = true)
 end
 
 function _simos_sqlite_rebuild_runtime!()
-    sim, proj = _simos_sqlite_require_sim_project()
-    _simos_sqlite_assert_cached_matches_project!(sim, proj)
-    reopen = !isnothing(sim.sqlite_db)
-    reopen && _simos_sqlite_close_cached_if_any!(sim)
-    path = _SimSQLI.sqlite_index_rebuild!(proj)
-    if reopen
-        sim.sqlite_db = _SimSQLI.sqlite_index_open(proj)
-        sim.sqlite_db_path = _simos_sqlite_expected_path(sim, proj)
-    end
-    return path
+    return _simos_sqlite_sync_runtime!(:rebuild; reopen_if_previously_open = true)
 end
 
 function _simos_sqlite_close_runtime!()

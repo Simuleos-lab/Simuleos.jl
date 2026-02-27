@@ -49,6 +49,45 @@ let
         @test !isnothing(sim.settings_stack)
     end
 
+    @testset "sim_init! supports package-module bootstrap project.root" begin
+        with_test_context() do ctx
+            pkg_parent = mktempdir()
+            pkg_name = "TmpPkg" * replace(string(kernel.UUIDs.uuid4()), "-" => "")
+            pkg_root = joinpath(pkg_parent, pkg_name)
+            src_root = joinpath(pkg_root, "src")
+            mkpath(src_root)
+            write(
+                joinpath(pkg_root, "Project.toml"),
+                "name = \"$(pkg_name)\"\n" *
+                "uuid = \"$(kernel.UUIDs.uuid4())\"\n" *
+                "version = \"0.1.0\"\n",
+            )
+            write(joinpath(src_root, "$(pkg_name).jl"), "module $(pkg_name)\nend\n")
+
+            pushfirst!(LOAD_PATH, pkg_root)
+            try
+                pkg_mod = Base.require(Main, Symbol(pkg_name))
+
+                kernel.sim_reset!()
+                kernel.sim_init!(
+                    bootstrap = Dict{String, Any}(
+                        "project.root" => pkg_mod,
+                        "home.path" => ctx[:home_path],
+                    ),
+                )
+
+                sim = kernel._get_sim()
+                expected_root = abspath(pkgdir(pkg_mod))
+                @test sim.project.root_path == expected_root
+                @test sim.bootstrap["project.root"] == expected_root
+                @test kernel.get_setting(sim, "project.root") == expected_root
+            finally
+                popfirst!(LOAD_PATH)
+                rm(pkg_parent; recursive = true, force = true)
+            end
+        end
+    end
+
     @testset "settings normalize helpers flatten and unflatten dotted keys" begin
         nested = Dict{String, Any}(
             "solver" => Dict("tol" => 1e-6, "name" => "HiGHS"),

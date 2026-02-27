@@ -183,6 +183,35 @@ function _bootstrap_merge_with_sandbox(
     return merged
 end
 
+function _bootstrap_project_root_from_value(value)::String
+    if value isa AbstractString
+        root = String(value)
+        isempty(strip(root)) && error("sim_init! bootstrap `project.root` cannot be empty.")
+        return abspath(root)
+    elseif value isa Module
+        root = pkgdir(value)
+        isnothing(root) &&
+            error(
+                "sim_init! bootstrap `project.root` module `$(value)` has no package directory. " *
+                "Use a package module (for example `SomePkg`) or a string path."
+            )
+        return abspath(String(root))
+    end
+
+    error(
+        "sim_init! bootstrap `project.root` must be a String path or a Module (resolved via `pkgdir`). " *
+        "Got $(typeof(value))."
+    )
+end
+
+function _bootstrap_normalize_paths(bootstrap::Dict{String, Any})::Dict{String, Any}
+    normalized = copy(bootstrap)
+    if haskey(normalized, "project.root")
+        normalized["project.root"] = _bootstrap_project_root_from_value(normalized["project.root"])
+    end
+    return normalized
+end
+
 function _sandbox_cleanup_mode(sb::SimuleosSandbox, sandbox_cleanup::Symbol)::Bool
     sandbox_cleanup in (:auto, :keep, :delete) ||
         error("sim_reset! `sandbox_cleanup` must be one of `:auto`, `:keep`, `:delete`.")
@@ -225,6 +254,7 @@ function sim_init!(; bootstrap::Dict = Dict{String, Any}(), sandbox = nothing)
     bootstrap_norm = Dict{String, Any}(string(k) => v for (k, v) in bootstrap)
     sandbox_meta, sandbox_bootstrap = _sandbox_prepare(sandbox)
     bootstrap_final = _bootstrap_merge_with_sandbox(bootstrap_norm, sandbox_bootstrap)
+    bootstrap_final = _bootstrap_normalize_paths(bootstrap_final)
 
     simos = SimOs(; bootstrap = bootstrap_final, sandbox = sandbox_meta)
 
