@@ -150,3 +150,133 @@ end
 function Base.show(io::IO, ws::WorkSession)
     print(io, "WorkSession(", ws.session_id, ", labels=", ws.labels, ")")
 end
+
+function _capture_tree_stats(tree::CaptureTree)
+    snapshot_count = length(tree.snapshots)
+    scope_count = count(s -> s isa ScopeSnapshot, tree.snapshots)
+
+    for child in tree.children
+        child_stats = _capture_tree_stats(child)
+        snapshot_count += child_stats.snapshot_count
+        scope_count += child_stats.scope_count
+    end
+
+    return (snapshot_count = snapshot_count, scope_count = scope_count)
+end
+
+function _pending_commit_stats(ws::WorkSession)
+    snapshot_count = 0
+    scope_count = 0
+    for commit in ws.pending_commits
+        stats = _capture_tree_stats(commit)
+        snapshot_count += stats.snapshot_count
+        scope_count += stats.scope_count
+    end
+    return (snapshot_count = snapshot_count, scope_count = scope_count)
+end
+
+function _shared_scope_var_count(shared_scopes::Dict{String, ScopeSnapshot})::Int
+    total = 0
+    for scope in values(shared_scopes)
+        total += length(scope.variables)
+    end
+    return total
+end
+
+function Base.show(io::IO, sim::SimOs)
+    project_state = isnothing(sim.project) ? "none" : "ready"
+    session_state = isnothing(sim.worksession) ? "none" : "active"
+    settings_layers = isnothing(sim.settings_stack) ? 0 : length(sim.settings_stack.layers)
+    sqlite_state = isnothing(sim.sqlite_db) ? "closed" : "open"
+
+    print(
+        io,
+        "SimOs(project=", project_state,
+        ", session=", session_state,
+        ", settings_layers=", settings_layers,
+        ", shared_scopes=", length(sim.shared_scopes),
+        ", sqlite=", sqlite_state,
+        ")",
+    )
+end
+
+function Base.show(io::IO, ::MIME"text/plain", sim::SimOs)
+    println(io, "SimOs")
+    println(io, "  bootstrap_keys: ", length(sim.bootstrap))
+
+    if isnothing(sim.sandbox)
+        println(io, "  sandbox: none")
+    else
+        sb = sim.sandbox
+        println(io, "  sandbox: ", sb.origin, " (cleanup_on_reset=", sb.cleanup_on_reset, ")")
+        println(io, "    root: ", sb.root_path)
+    end
+
+    if isnothing(sim.home)
+        println(io, "  home: none")
+    else
+        println(io, "  home: ", sim.home.path)
+    end
+
+    if isnothing(sim.project)
+        println(io, "  project: none")
+    else
+        proj = sim.project
+        id = isnothing(proj.id) ? "?" : proj.id
+        git_state = isnothing(proj.git_handler) ? "none" : "attached"
+        println(io, "  project: ", id, " (git=", git_state, ")")
+        println(io, "    root: ", proj.root_path)
+    end
+
+    if isnothing(sim.settings_stack)
+        println(io, "  settings: none")
+    else
+        stack = sim.settings_stack
+        println(
+            io,
+            "  settings: layers=", length(stack.layers),
+            ", version=", stack.version,
+            ", registry=", length(stack.registry),
+            ", cached=", length(stack.effective),
+            ", missing_cached=", length(stack.effective_missing),
+            ", complete=", stack.effective_complete,
+        )
+    end
+
+    if isnothing(sim.worksession)
+        println(io, "  session: none")
+    else
+        ws = sim.worksession
+        stage_stats = _capture_tree_stats(ws.stage)
+        pending_stats = _pending_commit_stats(ws)
+        println(io, "  session: ", ws.session_id)
+        println(
+            io,
+            "    labels=", length(ws.labels),
+            ", finalized=", ws.is_finalized,
+            ", staged_scopes=", stage_stats.scope_count,
+            ", staged_snapshots=", stage_stats.snapshot_count,
+            ", pending_commits=", length(ws.pending_commits),
+            ", pending_scopes=", pending_stats.scope_count,
+            ", pending_snapshots=", pending_stats.snapshot_count,
+        )
+        println(
+            io,
+            "    context_hashes=", length(ws.context_hash_reg),
+            ", capture_filters=", length(ws.capture_filter_defs),
+            ", queue_counters=", length(ws.queue_counters),
+        )
+    end
+
+    shared_count = length(sim.shared_scopes)
+    shared_vars = _shared_scope_var_count(sim.shared_scopes)
+    println(io, "  shared_scopes: ", shared_count, " (vars=", shared_vars, ")")
+
+    if isnothing(sim.sqlite_db)
+        println(io, "  sqlite: closed")
+    else
+        path = isnothing(sim.sqlite_db_path) ? "(path unknown)" : sim.sqlite_db_path
+        println(io, "  sqlite: open")
+        println(io, "    path: ", path)
+    end
+end

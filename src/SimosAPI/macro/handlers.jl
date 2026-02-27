@@ -11,8 +11,8 @@ function _simos_init(mod, src, args)
         if arg isa Expr && arg.head == :(=) && length(arg.args) == 2 && arg.args[1] isa Symbol
             key = arg.args[1]
             val = arg.args[2]
-            key in (:bootstrap, :sandbox, :reinit, :sandbox_cleanup) ||
-                error("@simos system.init unknown option `$(key)`. Valid options: bootstrap, sandbox, reinit, sandbox_cleanup.")
+            key in (:bootstrap, :sandbox, :reinit, :sandbox_cleanup, :project_basename_hint) ||
+                error("@simos system.init unknown option `$(key)`. Valid options: bootstrap, sandbox, reinit, sandbox_cleanup, project_basename_hint.")
             haskey(opts, key) && error("@simos system.init duplicate option `$(key)`.")
             opts[key] = val
         else
@@ -24,6 +24,7 @@ function _simos_init(mod, src, args)
     sandbox_expr = get(opts, :sandbox, :(nothing))
     reinit_expr = get(opts, :reinit, false)
     sandbox_cleanup_expr = get(opts, :sandbox_cleanup, QuoteNode(:auto))
+    project_basename_hint_expr = get(opts, :project_basename_hint, :(nothing))
 
     return quote
         $(_SimWS).engine_init_from_macro!($src_file, $src_line;
@@ -31,6 +32,7 @@ function _simos_init(mod, src, args)
             sandbox = $(sandbox_expr),
             reinit = $(reinit_expr),
             sandbox_cleanup = $(sandbox_cleanup_expr),
+            project_basename_hint = $(project_basename_hint_expr),
         )
     end
 end

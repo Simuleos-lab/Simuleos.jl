@@ -92,6 +92,8 @@ end
 Notes:
 
 - Use `@simos system.init(...)` before any session work.
+  For editor workflows that may run from the wrong working directory, pass
+  `project_basename_hint = "your_project_folder"` to fail fast on project mismatches.
 - Use `@simos session.init(...)` to begin a session timeline.
 - `stage.*` collects variables/metadata to be captured.
 - `scope.capture(...)` turns staged content into a recorded scope.

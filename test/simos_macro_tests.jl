@@ -32,6 +32,17 @@ using SQLite
         )
     end
 
+    @testset "no-argument form returns global SIMOS[]" begin
+        kernel.sim_reset!()
+        @test (@simos) === kernel.SIMOS[]
+        @test (@simos) === nothing
+
+        with_test_context() do _
+            @test (@simos) === kernel.SIMOS[]
+            @test (@simos) === kernel._get_sim()
+        end
+    end
+
     @testset "call-style dotted commands" begin
         err = try
             Base.macroexpand(@__MODULE__, :(Simuleos.@simos foo.bar()))
@@ -141,6 +152,30 @@ using SQLite
         finally
             kernel.sim_reset!()
             isdir(root) && rm(root; recursive = true, force = true)
+        end
+    end
+
+    @testset "system.init project_basename_hint safeguard" begin
+        with_test_context() do ctx
+            expected = basename(ctx[:project_path])
+
+            sim = @simos system.init(project_basename_hint = expected)
+            @test sim === kernel._get_sim()
+
+            mismatch_err = try
+                @simos system.init(project_basename_hint = "wrong-" * expected)
+                nothing
+            catch err
+                err
+            end
+            @test mismatch_err !== nothing
+            mismatch_msg = string(mismatch_err)
+            @test occursin("project basename safeguard failed", mismatch_msg)
+            @test occursin("expected `wrong-" * expected * "`", mismatch_msg)
+            @test occursin("resolved `$(expected)`", mismatch_msg)
+
+            @test_throws ErrorException @simos system.init(project_basename_hint = "")
+            @test_throws ErrorException @simos system.init(project_basename_hint = 123)
         end
     end
 

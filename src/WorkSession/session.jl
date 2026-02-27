@@ -239,6 +239,32 @@ function _macro_ensure_engine_initialized!(;
     return nothing
 end
 
+function _macro_validate_project_basename_hint!(sim::_Kernel.SimOs;
+        project_basename_hint = nothing,
+    )
+    isnothing(project_basename_hint) && return nothing
+
+    project_basename_hint isa AbstractString ||
+        error("@simos system.init `project_basename_hint` option must be a String.")
+    hint = strip(String(project_basename_hint))
+    isempty(hint) &&
+        error("@simos system.init `project_basename_hint` option cannot be empty.")
+
+    proj = sim.project
+    isnothing(proj) && error(
+        "Simuleos project basename safeguard failed: expected `$(hint)`, " *
+        "but no project was resolved."
+    )
+
+    resolved_basename = basename(proj.root_path)
+    resolved_basename == hint && return nothing
+
+    error(
+        "Simuleos project basename safeguard failed: expected `$(hint)`, " *
+        "resolved `$(resolved_basename)` at `$(proj.root_path)`."
+    )
+end
+
 """
     engine_init_from_macro!(script_path::String, src_line::Int; ...) -> SimOs
 
@@ -250,6 +276,7 @@ function engine_init_from_macro!(script_path::String, src_line::Int;
         sandbox = nothing,
         reinit::Bool = false,
         sandbox_cleanup::Symbol = :auto,
+        project_basename_hint = nothing,
     )
     _ = script_path
     _ = src_line
@@ -259,7 +286,9 @@ function engine_init_from_macro!(script_path::String, src_line::Int;
         reinit,
         sandbox_cleanup,
     )
-    return _Kernel._get_sim()
+    sim = _Kernel._get_sim()
+    _macro_validate_project_basename_hint!(sim; project_basename_hint)
+    return sim
 end
 
 """

@@ -67,7 +67,7 @@ function _simos_dispatch_cache_remember(mod, src, posargs::Vector{Any}, kwargs::
 end
 
 const _SIMOS_COMMAND_SPECS = (
-    _simos_command_spec((:system, :init), "Engine init/reinit", _simos_init;
+    _simos_command_spec((:system, :init), "Engine init/reinit (`bootstrap`, `sandbox`, `reinit`, `sandbox_cleanup`, `project_basename_hint`)", _simos_init;
         invoke_mode = :kw_assigns,
         require_no_do = true,
         posargs_rule = :none,
@@ -363,6 +363,82 @@ function _simos_command_help_rows_md()
         ("| `$(_simos_path_str(spec.path))` | $(spec.description) |" for spec in _SIMOS_COMMAND_SPECS),
         "\n",
     )
+end
+
+# ------------------------------------------------------------------
+# Help text generation (compile-time, embedded as string literals)
+# ------------------------------------------------------------------
+
+function _simos_group_specs()
+    groups = Dict{String, Vector{@NamedTuple{path::String, description::String}}}()
+    for spec in _SIMOS_COMMAND_SPECS
+        group = string(spec.path[1])
+        entry = (path = _simos_path_str(spec.path), description = spec.description)
+        push!(get!(Vector{@NamedTuple{path::String, description::String}}, groups, group), entry)
+    end
+    return groups
+end
+
+function _simos_help_text()::String
+    groups = _simos_group_specs()
+    group_order = unique(string(spec.path[1]) for spec in _SIMOS_COMMAND_SPECS)
+
+    io = IOBuffer()
+    println(io, "@simos — Unified dispatch macro for Simuleos")
+    println(io, "")
+    println(io, "Usage:  @simos <group>.<command>(<args>...)")
+    println(io, "        @simos help              — this overview")
+    println(io, "        @simos <command>.help()   — help for a specific command")
+    println(io, "")
+    for group in group_order
+        entries = groups[group]
+        println(io, "  ", group)
+        maxpath = maximum(length(e.path) for e in entries)
+        for e in entries
+            println(io, "    ", rpad(e.path, maxpath), "  ", e.description)
+        end
+        println(io)
+    end
+    return String(take!(io))
+end
+
+function _simos_command_help_text(cmd_path::Tuple)::String
+    spec = get(_SIMOS_COMMAND_SPECS_BY_PATH, cmd_path, nothing)
+    isnothing(spec) &&
+        return "Unknown command `$(_simos_path_str(cmd_path))`. Run `@simos help` for a list of commands."
+
+    io = IOBuffer()
+    path_str = _simos_path_str(spec.path)
+    println(io, "@simos ", path_str)
+    println(io, "")
+    println(io, "  ", spec.description)
+    println(io, "")
+
+    # Positional arguments hint
+    if spec.posargs_rule === :none
+        println(io, "  Positional args : none")
+    elseif spec.posargs_rule === :exactly
+        println(io, "  Positional args : exactly ", spec.posargs_count)
+    else
+        println(io, "  Positional args : any")
+    end
+
+    # Keyword arguments hint
+    if spec.require_no_kwargs
+        println(io, "  Keyword args    : none")
+    else
+        println(io, "  Keyword args    : yes")
+    end
+
+    # Do block hint
+    if spec.require_no_do
+        println(io, "  Do block        : no")
+    else
+        println(io, "  Do block        : yes")
+    end
+
+    println(io)
+    return String(take!(io))
 end
 
 function _simos_apply_command_guards!(spec, path::Tuple, posargs::Vector{Any}, kwargs::Vector{Expr}, payload_expr)
