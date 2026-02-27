@@ -168,6 +168,15 @@ end
 # --------------------------------------------------
 
 """
+    GitHandler
+
+Repository driver used by Kernel git metadata functions.
+"""
+struct GitHandler
+    root_path::String
+end
+
+"""
     SimuleosProject
 
 Represents a project with a `.simuleos/` directory.
@@ -177,16 +186,7 @@ mutable struct SimuleosProject
     root_path::String
     simuleos_dir::String
     blobstorage::BlobStorage
-    git_handler::Any        # GitHandler or nothing
-end
-
-"""
-    GitHandler
-
-Repository driver used by Kernel git metadata functions.
-"""
-struct GitHandler
-    root_path::String
+    git_handler::Union{Nothing, GitHandler}
 end
 
 # --------------------------------------------------

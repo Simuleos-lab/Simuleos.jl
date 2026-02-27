@@ -45,9 +45,7 @@ _sqlite_nullable_int(x) = (ismissing(x) || isnothing(x)) ? nothing : Int(x)
 # ------------------------------------------------------------
 
 function _sqlite_materialize_row(row)::Dict{Symbol, Any}
-    names = getfield(getfield(row, :q), :names)
-    vals = SQLite.values(row)
-    return Dict{Symbol, Any}(Symbol(n) => v for (n, v) in zip(names, vals))
+    return Dict{Symbol, Any}(Symbol(name) => value for (name, value) in pairs(row))
 end
 
 function _sqlite_all_dicts(db::SQLite.DB, sql::AbstractString, params = ())

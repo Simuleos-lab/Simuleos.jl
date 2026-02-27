@@ -107,4 +107,25 @@ import LibGit2
             end
         end
     end
+
+    @testset "SimuleosProject git_handler type contract" begin
+        mktempdir() do dir
+            sim_dir = joinpath(dir, ".simuleos")
+            mkpath(sim_dir)
+
+            proj = Simuleos.Kernel.SimuleosProject(
+                id = "proj-type-test",
+                root_path = dir,
+                simuleos_dir = sim_dir,
+            )
+
+            @test fieldtype(Simuleos.Kernel.SimuleosProject, :git_handler) ==
+                Union{Nothing, Simuleos.Kernel.GitHandler}
+            @test proj.git_handler === nothing
+
+            gh = Simuleos.Kernel.GitHandler(dir)
+            proj.git_handler = gh
+            @test proj.git_handler === gh
+        end
+    end
 end

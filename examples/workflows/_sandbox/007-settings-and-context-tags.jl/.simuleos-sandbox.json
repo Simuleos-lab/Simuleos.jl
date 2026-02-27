@@ -1,9 +1,0 @@
-{
-    "origin": "explicit",
-    "kind": "simuleos-sandbox-v1",
-    "root_path": "/Users/pereiro/.julia/dev/Simuleos/examples/workflows/_sandbox/007-settings-and-context-tags.jl",
-    "home_path": "/Users/pereiro/.julia/dev/Simuleos/examples/workflows/_sandbox/007-settings-and-context-tags.jl/home",
-    "created_at": "2026-02-27T00:33:17.453",
-    "cleanup_on_reset": false,
-    "project_root": "/Users/pereiro/.julia/dev/Simuleos/examples/workflows/_sandbox/007-settings-and-context-tags.jl/proj"
-}

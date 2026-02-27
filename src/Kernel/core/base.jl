@@ -25,7 +25,7 @@ function SimuleosProject(;
         root_path::String,
         simuleos_dir::String = _simuleos_dir(root_path),
         blobstorage::BlobStorage = BlobStorage(blobs_dir(simuleos_dir)),
-        git_handler = nothing,
+        git_handler::Union{Nothing, GitHandler} = nothing,
     )
     SimuleosProject(id, root_path, simuleos_dir, blobstorage, git_handler)
 end

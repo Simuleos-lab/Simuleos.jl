@@ -10,6 +10,7 @@ log.txt
 _DEPRECATED
 ContextBundler.jsonc
 .simuleos/
+/examples/workflows/_sandbox/
 *.png
 
 # Created by https://www.toptal.com/developers/gitignore/api/linux,windows,macos,visualstudiocode,julia,python,git

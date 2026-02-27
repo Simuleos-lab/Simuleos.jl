@@ -8,16 +8,10 @@ _sqlite_rowcol(row, name::AbstractString) = getproperty(row, Symbol(name))
 _sqlite_rowcol(row::Dict{Symbol, Any}, name::Symbol) = row[name]
 _sqlite_rowcol(row::Dict{Symbol, Any}, name::AbstractString) = row[Symbol(name)]
 
-function _sqlite_materialize_row(row)::Dict{Symbol, Any}
-    names = getfield(getfield(row, :q), :names)
-    vals = SQLite.values(row)
-    return Dict{Symbol, Any}(Symbol(n) => v for (n, v) in zip(names, vals))
-end
-
 function _sqlite_one(db, sql::AbstractString, params = ())
     rows = Dict{Symbol, Any}[]
     for row in SQLite.DBInterface.execute(db, sql, params)
-        push!(rows, _sqlite_materialize_row(row))
+        push!(rows, Simuleos.SQLiteIndex._sqlite_materialize_row(row))
     end
     return only(rows)
 end
@@ -444,7 +438,7 @@ end
                 WHERE type = 'view' AND name LIKE 'v_%'
                 ORDER BY name
             """)
-                push!(view_names, String(_sqlite_rowcol(_sqlite_materialize_row(row), :name)))
+                push!(view_names, String(_sqlite_rowcol(Simuleos.SQLiteIndex._sqlite_materialize_row(row), :name)))
             end
                 for expected in (
                     "v_tapes",
