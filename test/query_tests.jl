@@ -13,6 +13,7 @@ const HashedScopeVariable = Simuleos.Kernel.HashedScopeVariable
 const iterate_tape = Simuleos.Kernel.iterate_tape
 const iterate_commits = Simuleos.Kernel.iterate_commits
 const each_tape_records_filtered = Simuleos.Kernel.each_tape_records_filtered
+const scan_tape_records_filtered_reverse = Simuleos.Kernel.scan_tape_records_filtered_reverse
 const findfirst_tape_record = Simuleos.Kernel.findfirst_tape_record
 const any_tape_record = Simuleos.Kernel.any_tape_record
 const findlast_tape_record = Simuleos.Kernel.findlast_tape_record
@@ -244,6 +245,36 @@ const exists = Simuleos.Kernel.exists
             )
             @test !isnothing(last_commit)
             @test get(last_commit, "commit_label", "") == ""
+
+            reverse_rows = Dict{String, Any}[]
+            reverse_seen_ctx = Tuple{String, Int}[]
+            accepted_reverse = scan_tape_records_filtered_reverse(
+                tape;
+                line_filter = (line, ctx) -> occursin("\"type\":\"commit\"", line),
+                json_filter = (row, ctx) -> begin
+                    push!(reverse_seen_ctx, (ctx.file, ctx.line_no))
+                    return get(row, "type", "") == "commit"
+                end,
+                on_record = (row, ctx) -> push!(reverse_rows, row),
+            )
+            @test accepted_reverse == 2
+            @test [get(row, "commit_label", "") for row in reverse_rows] == ["", "first_commit"]
+            @test reverse_seen_ctx[1][2] == 3
+            @test reverse_seen_ctx[2][2] == 2
+
+            reverse_stop_rows = Dict{String, Any}[]
+            accepted_reverse_stop = scan_tape_records_filtered_reverse(
+                tape;
+                line_filter = (line, ctx) -> occursin("\"type\":\"commit\"", line),
+                json_filter = (row, ctx) -> begin
+                    tape_stop!(ctx)
+                    return get(row, "type", "") == "commit"
+                end,
+                on_record = (row, ctx) -> push!(reverse_stop_rows, row),
+            )
+            @test accepted_reverse_stop == 1
+            @test length(reverse_stop_rows) == 1
+            @test get(reverse_stop_rows[1], "commit_label", "") == ""
         end
 
         @testset "HashedScopeVariable tape round-trip" begin

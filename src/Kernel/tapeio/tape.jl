@@ -275,6 +275,133 @@ function _filtered_tape_files(tape::TapeIO)::Vector{String}
     return isfile(tape.path) ? String[tape.path] : String[]
 end
 
+_filtered_tape_files_reverse(tape::TapeIO)::Vector{String} = reverse(_filtered_tape_files(tape))
+
+function _count_file_lines(path::String)::Int
+    count = 0
+    open(path, "r") do io
+        while !eof(io)
+            readline(io)
+            count += 1
+        end
+    end
+    return count
+end
+
+function _file_ends_with_newline(path::String)::Bool
+    size = filesize(path)
+    size == 0 && return false
+    open(path, "r") do io
+        seek(io, size - 1)
+        return read(io, UInt8) == UInt8('\n')
+    end
+end
+
+function _scan_reverse_line!(
+        stripped::AbstractString,
+        file_path::String,
+        line_no::Int,
+        line_filter::Function,
+        json_filter::Function,
+        on_record::Function,
+        accepted::Int,
+    )::Tuple{Int, Bool}
+    isempty(stripped) && return accepted, false
+
+    ctx = TapeRecordFilterCtx(file_path, line_no)
+    line_ok = line_filter(stripped, ctx)
+    if !line_ok
+        return accepted, ctx.stop
+    end
+
+    local record::Dict{String, Any}
+    try
+        record = _from_json_string(stripped)
+    catch e
+        error("Malformed JSON in tape `$(ctx.file)` at line $(ctx.line_no): $(e)")
+    end
+
+    if json_filter(record, ctx)
+        on_record(record, ctx)
+        accepted += 1
+    end
+    return accepted, ctx.stop
+end
+
+function _scan_jsonl_file_reverse!(
+        file_path::String;
+        line_filter::Function,
+        json_filter::Function,
+        on_record::Function,
+    )::Tuple{Int, Bool}
+    isfile(file_path) || return 0, false
+    file_size = filesize(file_path)
+    file_size == 0 && return 0, false
+
+    total_lines = _count_file_lines(file_path)
+    line_no = total_lines
+    accepted = 0
+    trailing_newline = _file_ends_with_newline(file_path)
+    first_segment = true
+    carry = UInt8[]
+
+    open(file_path, "r") do io
+        pos = file_size
+        while pos > 0
+            read_size = min(64 * 1024, pos)
+            pos -= read_size
+            seek(io, pos)
+            chunk = read(io, read_size)
+            data = isempty(carry) ? chunk : vcat(chunk, carry)
+
+            seg_end = length(data)
+            i = seg_end
+            while i >= 1
+                if data[i] == UInt8('\n')
+                    line_bytes = data[(i + 1):seg_end]
+                    skip_segment = first_segment && trailing_newline && isempty(line_bytes)
+                    first_segment = false
+                    if !skip_segment
+                        stripped = strip(String(line_bytes))
+                        accepted, stop = _scan_reverse_line!(
+                            stripped,
+                            file_path,
+                            line_no,
+                            line_filter,
+                            json_filter,
+                            on_record,
+                            accepted,
+                        )
+                        line_no -= 1
+                        stop && return accepted, true
+                    end
+                    seg_end = i - 1
+                end
+                i -= 1
+            end
+
+            carry = seg_end > 0 ? data[1:seg_end] : UInt8[]
+        end
+    end
+
+    if !isempty(carry)
+        stripped = strip(String(carry))
+        accepted, stop = _scan_reverse_line!(
+            stripped,
+            file_path,
+            line_no,
+            line_filter,
+            json_filter,
+            on_record,
+            accepted,
+        )
+        line_no -= 1
+        stop && return accepted, true
+    end
+
+    return accepted, false
+end
+
 """
     scan_tape_records_filtered(tape::TapeIO; line_filter, json_filter, on_record) -> Int
 
@@ -317,6 +444,35 @@ function scan_tape_records_filtered(
                 ctx.stop && return accepted
             end
         end
+    end
+    return accepted
+end
+
+"""
+    scan_tape_records_filtered_reverse(tape::TapeIO; line_filter, json_filter, on_record) -> Int
+
+Same as `scan_tape_records_filtered`, but scans tape records in reverse tape order:
+- fragmented tape: `fragN ... frag1`
+- each file: last line to first line
+"""
+function scan_tape_records_filtered_reverse(
+        tape::TapeIO;
+        line_filter::Function = (line, ctx) -> true,
+        json_filter::Function = (obj, ctx) -> true,
+        on_record::Function = (record, ctx) -> nothing,
+    )::Int
+    accepted = 0
+    for file_path in _filtered_tape_files_reverse(tape)
+        local file_accepted::Int
+        local stop::Bool
+        file_accepted, stop = _scan_jsonl_file_reverse!(
+            file_path;
+            line_filter = line_filter,
+            json_filter = json_filter,
+            on_record = on_record,
+        )
+        accepted += file_accepted
+        stop && return accepted
     end
     return accepted
 end
@@ -381,14 +537,25 @@ end
     findlast_tape_record(tape::TapeIO; line_filter, json_filter) -> Union{Dict{String, Any}, Nothing}
 
 Return the last record accepted by the two-stage filters, or `nothing` if no
-match is found. This performs a full scan in tape order.
+match is found. Scans in reverse tape order and stops at the first accepted
+record.
 """
 function findlast_tape_record(
         tape::TapeIO;
         line_filter::Function = (line, ctx) -> true,
         json_filter::Function = (obj, ctx) -> true,
     )
-    rows = each_tape_records_filtered(tape; line_filter=line_filter, json_filter=json_filter)
-    isempty(rows) && return nothing
-    return rows[end]
+    found = nothing
+    wrapped_json_filter = function (obj, ctx)
+        ok = json_filter(obj, ctx)
+        ok && stop!(ctx)
+        return ok
+    end
+    scan_tape_records_filtered_reverse(
+        tape;
+        line_filter = line_filter,
+        json_filter = wrapped_json_filter,
+        on_record = (record, ctx) -> (found = record),
+    )
+    return found
 end
