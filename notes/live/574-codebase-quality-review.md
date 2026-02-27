@@ -19,7 +19,7 @@ Stronger invariants, clearer extension boundaries, and better maintainability in
 
 ---
 
-## ~~### Issue: SQLite row materialization depends on internal SQLite.jl fields and is duplicated in tests~~
+~~### Issue: SQLite row materialization depends on internal SQLite.jl fields and is duplicated in tests~~
 
 **Location:** `src/SQLiteIndex/sql_helpers.jl`, `test/sqlite_index_tests.jl`
 
