@@ -90,68 +90,127 @@ function _simos_validate_kwargs(cmd::String, kwargs::Vector{Expr}, allowed::Tupl
     return nothing
 end
 
-function _simos_settings_get(mod, src, args, kwargs::Vector{Expr}=Expr[])
-    _ = mod
-    _ = src
-    length(args) == 1 || error("@simos settings.get expects exactly one key.")
-    _simos_validate_kwargs("settings.get", kwargs, (:default, :layer))
-    key_expr = args[1]
+function _simos_require_arg_count(args::Vector{Any}, expected::Int, error_msg::AbstractString)
+    length(args) == expected || error(error_msg)
+    return nothing
+end
+
+function _simos_prepare_call_args(args::Vector{Any}; stringify_idxs::Tuple = ())
+    call_args = Any[]
+    for (idx, arg) in pairs(args)
+        if idx in stringify_idxs
+            push!(call_args, :(string($(arg))))
+        else
+            push!(call_args, arg)
+        end
+    end
+    return call_args
+end
+
+function _simos_emit_runtime_call(runtime_expr, call_args::Vector{Any}, kwargs::Vector{Expr}; keyword_only::Bool = false)
+    if keyword_only
+        isempty(call_args) || error("@simos internal error: keyword-only runtime call received positional args.")
+        if isempty(kwargs)
+            return quote
+                $(runtime_expr)()
+            end
+        end
+        return quote
+            $(runtime_expr)(; $(kwargs...))
+        end
+    end
+
     if isempty(kwargs)
         return quote
-            $(_SimosAPI)._simos_settings_get_runtime(string($(key_expr)))
+            $(runtime_expr)($(call_args...))
         end
     end
     return quote
-        $(_SimosAPI)._simos_settings_get_runtime(string($(key_expr)); $(kwargs...))
+        $(runtime_expr)($(call_args...); $(kwargs...))
     end
+end
+
+function _simos_settings_runtime_handler(
+        cmd::String,
+        runtime_expr,
+        args::Vector{Any},
+        kwargs::Vector{Expr};
+        expected_arity::Union{Int, Nothing} = nothing,
+        arity_error::Union{String, Nothing} = nothing,
+        allowed_kwargs::Tuple = (),
+        stringify_arg_idxs::Tuple = (),
+        keyword_only::Bool = false,
+    )
+    if !isnothing(expected_arity)
+        err = isnothing(arity_error) ?
+            "@simos $(cmd) expects exactly $(expected_arity) positional arguments." :
+            arity_error
+        _simos_require_arg_count(args, expected_arity, err)
+    end
+    _simos_validate_kwargs(cmd, kwargs, allowed_kwargs)
+
+    call_args = _simos_prepare_call_args(args; stringify_idxs = stringify_arg_idxs)
+    return _simos_emit_runtime_call(runtime_expr, call_args, kwargs; keyword_only = keyword_only)
+end
+
+function _simos_settings_get(mod, src, args, kwargs::Vector{Expr}=Expr[])
+    _ = mod
+    _ = src
+    return _simos_settings_runtime_handler(
+        "settings.get",
+        :($(_SimosAPI)._simos_settings_get_runtime),
+        args,
+        kwargs;
+        expected_arity = 1,
+        arity_error = "@simos settings.get expects exactly one key.",
+        allowed_kwargs = (:default, :layer),
+        stringify_arg_idxs = (1,),
+    )
 end
 
 function _simos_settings_has(mod, src, args, kwargs::Vector{Expr}=Expr[])
     _ = mod
     _ = src
-    length(args) == 1 || error("@simos settings.has expects exactly one key.")
-    _simos_validate_kwargs("settings.has", kwargs, (:layer,))
-    key_expr = args[1]
-    if isempty(kwargs)
-        return quote
-            $(_SimosAPI)._simos_settings_has_runtime(string($(key_expr)))
-        end
-    end
-    return quote
-        $(_SimosAPI)._simos_settings_has_runtime(string($(key_expr)); $(kwargs...))
-    end
+    return _simos_settings_runtime_handler(
+        "settings.has",
+        :($(_SimosAPI)._simos_settings_has_runtime),
+        args,
+        kwargs;
+        expected_arity = 1,
+        arity_error = "@simos settings.has expects exactly one key.",
+        allowed_kwargs = (:layer,),
+        stringify_arg_idxs = (1,),
+    )
 end
 
 function _simos_settings_require(mod, src, args, kwargs::Vector{Expr}=Expr[])
     _ = mod
     _ = src
-    length(args) == 1 || error("@simos settings.require expects exactly one key.")
-    _simos_validate_kwargs("settings.require", kwargs, (:layer,))
-    key_expr = args[1]
-    if isempty(kwargs)
-        return quote
-            $(_SimosAPI)._simos_settings_require_runtime(string($(key_expr)))
-        end
-    end
-    return quote
-        $(_SimosAPI)._simos_settings_require_runtime(string($(key_expr)); $(kwargs...))
-    end
+    return _simos_settings_runtime_handler(
+        "settings.require",
+        :($(_SimosAPI)._simos_settings_require_runtime),
+        args,
+        kwargs;
+        expected_arity = 1,
+        arity_error = "@simos settings.require expects exactly one key.",
+        allowed_kwargs = (:layer,),
+        stringify_arg_idxs = (1,),
+    )
 end
 
 function _simos_settings_explain(mod, src, args, kwargs::Vector{Expr}=Expr[])
     _ = mod
     _ = src
-    length(args) == 1 || error("@simos settings.explain expects exactly one key.")
-    _simos_validate_kwargs("settings.explain", kwargs, (:layer,))
-    key_expr = args[1]
-    if isempty(kwargs)
-        return quote
-            $(_SimosAPI)._simos_settings_explain_runtime(string($(key_expr)))
-        end
-    end
-    return quote
-        $(_SimosAPI)._simos_settings_explain_runtime(string($(key_expr)); $(kwargs...))
-    end
+    return _simos_settings_runtime_handler(
+        "settings.explain",
+        :($(_SimosAPI)._simos_settings_explain_runtime),
+        args,
+        kwargs;
+        expected_arity = 1,
+        arity_error = "@simos settings.explain expects exactly one key.",
+        allowed_kwargs = (:layer,),
+        stringify_arg_idxs = (1,),
+    )
 end
 
 function _simos_settings_layers(mod, src)
@@ -165,109 +224,100 @@ end
 function _simos_settings_snapshot(mod, src, kwargs::Vector{Expr}=Expr[])
     _ = mod
     _ = src
-    _simos_validate_kwargs("settings.snapshot", kwargs, (:layer, :prefix, :nested))
-    if isempty(kwargs)
-        return quote
-            $(_SimosAPI)._simos_settings_snapshot_runtime()
-        end
-    end
-    return quote
-        $(_SimosAPI)._simos_settings_snapshot_runtime(; $(kwargs...))
-    end
+    return _simos_settings_runtime_handler(
+        "settings.snapshot",
+        :($(_SimosAPI)._simos_settings_snapshot_runtime),
+        Any[],
+        kwargs;
+        allowed_kwargs = (:layer, :prefix, :nested),
+        keyword_only = true,
+    )
 end
 
 function _simos_settings_set(mod, src, args, kwargs::Vector{Expr}=Expr[])
     _ = mod
     _ = src
-    length(args) == 2 || error("@simos settings.set expects exactly `(key, value)`.")
-    _simos_validate_kwargs("settings.set", kwargs, (:layer,))
-    key_expr = args[1]
-    value_expr = args[2]
-    if isempty(kwargs)
-        return quote
-            $(_SimosAPI)._simos_settings_set_runtime(string($(key_expr)), $(value_expr))
-        end
-    end
-    return quote
-        $(_SimosAPI)._simos_settings_set_runtime(string($(key_expr)), $(value_expr); $(kwargs...))
-    end
+    return _simos_settings_runtime_handler(
+        "settings.set",
+        :($(_SimosAPI)._simos_settings_set_runtime),
+        args,
+        kwargs;
+        expected_arity = 2,
+        arity_error = "@simos settings.set expects exactly `(key, value)`.",
+        allowed_kwargs = (:layer,),
+        stringify_arg_idxs = (1,),
+    )
 end
 
 function _simos_settings_unset(mod, src, args, kwargs::Vector{Expr}=Expr[])
     _ = mod
     _ = src
-    length(args) == 1 || error("@simos settings.unset expects exactly one key.")
-    _simos_validate_kwargs("settings.unset", kwargs, (:layer,))
-    key_expr = args[1]
-    if isempty(kwargs)
-        return quote
-            $(_SimosAPI)._simos_settings_unset_runtime(string($(key_expr)))
-        end
-    end
-    return quote
-        $(_SimosAPI)._simos_settings_unset_runtime(string($(key_expr)); $(kwargs...))
-    end
+    return _simos_settings_runtime_handler(
+        "settings.unset",
+        :($(_SimosAPI)._simos_settings_unset_runtime),
+        args,
+        kwargs;
+        expected_arity = 1,
+        arity_error = "@simos settings.unset expects exactly one key.",
+        allowed_kwargs = (:layer,),
+        stringify_arg_idxs = (1,),
+    )
 end
 
 function _simos_settings_merge(mod, src, args, kwargs::Vector{Expr}=Expr[])
     _ = mod
     _ = src
-    length(args) == 1 || error("@simos settings.merge expects exactly one dict payload.")
-    _simos_validate_kwargs("settings.merge", kwargs, (:layer, :clear))
-    data_expr = args[1]
-    if isempty(kwargs)
-        return quote
-            $(_SimosAPI)._simos_settings_merge_runtime($(data_expr))
-        end
-    end
-    return quote
-        $(_SimosAPI)._simos_settings_merge_runtime($(data_expr); $(kwargs...))
-    end
+    return _simos_settings_runtime_handler(
+        "settings.merge",
+        :($(_SimosAPI)._simos_settings_merge_runtime),
+        args,
+        kwargs;
+        expected_arity = 1,
+        arity_error = "@simos settings.merge expects exactly one dict payload.",
+        allowed_kwargs = (:layer, :clear),
+    )
 end
 
 function _simos_settings_clear(mod, src, kwargs::Vector{Expr}=Expr[])
     _ = mod
     _ = src
-    _simos_validate_kwargs("settings.clear", kwargs, (:layer, :prefix))
-    if isempty(kwargs)
-        return quote
-            $(_SimosAPI)._simos_settings_clear_runtime()
-        end
-    end
-    return quote
-        $(_SimosAPI)._simos_settings_clear_runtime(; $(kwargs...))
-    end
+    return _simos_settings_runtime_handler(
+        "settings.clear",
+        :($(_SimosAPI)._simos_settings_clear_runtime),
+        Any[],
+        kwargs;
+        allowed_kwargs = (:layer, :prefix),
+        keyword_only = true,
+    )
 end
 
 function _simos_settings_source_add_json(mod, src, args, kwargs::Vector{Expr}=Expr[])
     _ = mod
     _ = src
-    length(args) == 1 || error("@simos settings.source.add_json expects exactly one path.")
-    _simos_validate_kwargs("settings.source.add_json", kwargs, (:name, :after, :optional, :replace))
-    path_expr = args[1]
-    if isempty(kwargs)
-        return quote
-            $(_SimosAPI)._simos_settings_source_add_json_runtime(string($(path_expr)))
-        end
-    end
-    return quote
-        $(_SimosAPI)._simos_settings_source_add_json_runtime(string($(path_expr)); $(kwargs...))
-    end
+    return _simos_settings_runtime_handler(
+        "settings.source.add_json",
+        :($(_SimosAPI)._simos_settings_source_add_json_runtime),
+        args,
+        kwargs;
+        expected_arity = 1,
+        arity_error = "@simos settings.source.add_json expects exactly one path.",
+        allowed_kwargs = (:name, :after, :optional, :replace),
+        stringify_arg_idxs = (1,),
+    )
 end
 
 function _simos_settings_source_add_args(mod, src, args, kwargs::Vector{Expr}=Expr[])
-    _ = mod; _ = src
-    length(args) == 1 || error("@simos settings.source.add_args expects exactly one argument (Vector{String}).")
-    _simos_validate_kwargs("settings.source.add_args", kwargs, (:after,))
-    args_expr = args[1]
-    if isempty(kwargs)
-        return quote
-            $(_SimosAPI)._simos_settings_source_add_args_runtime($(args_expr))
-        end
-    end
-    return quote
-        $(_SimosAPI)._simos_settings_source_add_args_runtime($(args_expr); $(kwargs...))
-    end
+    _ = mod
+    _ = src
+    return _simos_settings_runtime_handler(
+        "settings.source.add_args",
+        :($(_SimosAPI)._simos_settings_source_add_args_runtime),
+        args,
+        kwargs;
+        expected_arity = 1,
+        arity_error = "@simos settings.source.add_args expects exactly one argument (Vector{String}).",
+        allowed_kwargs = (:after,),
+    )
 end
 
 function _simos_settings_source_reload(mod, src, args, kwargs::Vector{Expr}=Expr[])
@@ -307,38 +357,15 @@ end
 function _simos_settings_registry_register(mod, src, args, kwargs::Vector{Expr}=Expr[])
     _ = mod
     _ = src
-    length(args) == 2 || error("@simos settings.registry.register expects exactly `(canonical_key, spec)`.")
+    _simos_require_arg_count(args, 2, "@simos settings.registry.register expects exactly `(canonical_key, spec)`.")
+    _simos_validate_kwargs("settings.registry.register", kwargs, (:replace,))
 
-    seen = Set{Symbol}()
-    for kw in kwargs
-        kw isa Expr && kw.head === :kw && length(kw.args) == 2 && kw.args[1] isa Symbol ||
-            error("@simos settings.registry.register internal parse error: expected keyword expr, got: $kw")
-        key = kw.args[1]
-        key in (:replace,) ||
-            error("@simos settings.registry.register unknown option `$(key)`. Valid options: replace.")
-        key in seen && error("@simos settings.registry.register duplicate option `$(key)`.")
-        push!(seen, key)
-    end
-
-    canonical_expr = args[1]
-    spec_expr = args[2]
-    if isempty(kwargs)
-        return quote
-            $(_SimKrn).settings_registry_register!(
-                $(_SimKrn)._get_sim(),
-                string($(canonical_expr)),
-                $(spec_expr),
-            )
-        end
-    end
-    return quote
-        $(_SimKrn).settings_registry_register!(
-            $(_SimKrn)._get_sim(),
-            string($(canonical_expr)),
-            $(spec_expr);
-            $(kwargs...),
-        )
-    end
+    call_args = Any[
+        :($(_SimKrn)._get_sim()),
+        :(string($(args[1]))),
+        args[2],
+    ]
+    return _simos_emit_runtime_call(:($(_SimKrn).settings_registry_register!), call_args, kwargs)
 end
 
 function _simos_settings_registry_unregister(mod, src, args)

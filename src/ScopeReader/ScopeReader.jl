@@ -36,10 +36,14 @@ end
 function each_commits(
         project_driver::Kernel.SimuleosProject;
         session::Union{Symbol, Base.UUID, String} = :active
-    )::Vector{Kernel.CaptureTree}
+    )
     session_id = _resolve_session_id(project_driver, session)
     tape = Kernel.TapeIO(Kernel.tape_path(project_driver, session_id))
-    return Kernel.iterate_commits(tape)
+    return (
+        Kernel._parse_commit(raw)
+        for raw in tape
+        if get(raw, "type", get(raw, :type, "")) == "commit"
+    )
 end
 
 function _tree_scopes(tree::Kernel.CaptureTree)::Vector{Kernel.ScopeSnapshot}
@@ -52,28 +56,20 @@ function each_scopes(
         commit_label::Union{String, Nothing} = nothing,
         src_file::Union{String, Nothing} = nothing,
         scope_label::Union{String, Nothing} = nothing,
-    )::Vector{Kernel.ScopeSnapshot}
+    )
     commits = if isnothing(commit_label) && isnothing(src_file)
         each_commits(project_driver; session=session)
     else
         _each_commits_filtered(project_driver, session, commit_label, src_file)
     end
-    scopes = Kernel.ScopeSnapshot[]
-    for commit in commits
-        if !isnothing(commit_label) && commit.label != commit_label
-            continue
-        end
+    return (
+        scope
+        for commit in commits
+        if isnothing(commit_label) || commit.label == commit_label
         for scope in _tree_scopes(commit)
-            if !isnothing(src_file) && !_src_file_match(scope, src_file)
-                continue
-            end
-            if !isnothing(scope_label) && !_scope_label_match(scope, scope_label)
-                continue
-            end
-            push!(scopes, scope)
-        end
-    end
-    return scopes
+        if (isnothing(src_file) || _src_file_match(scope, src_file)) &&
+            (isnothing(scope_label) || _scope_label_match(scope, scope_label))
+    )
 end
 
 function _src_file_match(scope::Kernel.ScopeSnapshot, pattern::String)::Bool
@@ -91,30 +87,14 @@ function _each_commits_filtered(
         session::Union{Symbol, Base.UUID, String},
         commit_label::Union{String, Nothing},
         src_file::Union{String, Nothing},
-    )::Vector{Kernel.CaptureTree}
-    session_id = _resolve_session_id(project_driver, session)
-    tape = Kernel.TapeIO(Kernel.tape_path(project_driver, session_id))
-
-    function line_filter(line::AbstractString, ctx)
-        !isnothing(commit_label) && !isempty(commit_label) && !occursin(commit_label, line) && return false
-        !isnothing(src_file) && !isempty(src_file) && !occursin(src_file, line) && return false
-        return true
-    end
-
-    function json_filter(raw::AbstractDict, ctx)
-        get(raw, "type", "") == "commit" || return false
-        if !isnothing(commit_label)
-            string(get(raw, "commit_label", "")) == commit_label || return false
-        end
-        return true
-    end
-
-    raws = Kernel.each_tape_records_filtered(tape; line_filter=line_filter, json_filter=json_filter)
-    commits = Kernel.CaptureTree[]
-    for raw in raws
-        push!(commits, Kernel._parse_commit(raw))
-    end
-    return commits
+    )
+    commits = each_commits(project_driver; session=session)
+    return (
+        commit
+        for commit in commits
+        if (isnothing(commit_label) || commit.label == commit_label) &&
+            (isnothing(src_file) || any(scope -> _src_file_match(scope, src_file), _tree_scopes(commit)))
+    )
 end
 
 """

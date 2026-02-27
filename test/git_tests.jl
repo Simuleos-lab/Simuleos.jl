@@ -54,6 +54,32 @@ import LibGit2
         end
     end
 
+    @testset "non-git repositories return defaults quietly" begin
+        mktempdir() do dir
+            gh = Simuleos.Kernel.GitHandler(dir)
+            err_path = tempname()
+            result = nothing
+
+            open(err_path, "w") do err_io
+                result = redirect_stderr(err_io) do
+                    return (
+                        hash = Simuleos.Kernel.git_hash(gh),
+                        dirty = Simuleos.Kernel.git_dirty(gh),
+                        branch = Simuleos.Kernel.git_branch(gh),
+                        describe = Simuleos.Kernel.git_describe(gh),
+                    )
+                end
+            end
+
+            @test result.hash == ""
+            @test result.dirty == false
+            @test result.branch == "unknown"
+            @test result.describe == ""
+            @test isempty(read(err_path, String))
+            rm(err_path; force=true)
+        end
+    end
+
     @testset "Repository identity verification" begin
         mktempdir() do dir1
             mktempdir() do dir2

@@ -1,7 +1,7 @@
 # Simuleos Context-Tagged Report
 title = quadratic-report
 tag = baseline
-context_ref = e38f428edb90
+context_ref = 1eeabf2959d1
 
 ## Summary
 count = 6
