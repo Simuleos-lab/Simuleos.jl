@@ -23,9 +23,9 @@ function _parse_scope_variable(name::String, data::AbstractDict)
 end
 
 """
-    _parse_scope(data::AbstractDict) -> SimuleosScope
+    _parse_scope(data::AbstractDict) -> ScopeSnapshot
 
-Parse a raw scope dict into a SimuleosScope.
+Parse a raw scope dict into a ScopeSnapshot.
 """
 function _parse_scope(data::AbstractDict)
     labels = String[]
@@ -53,27 +53,46 @@ function _parse_scope(data::AbstractDict)
         end
     end
 
-    return SimuleosScope(labels, variables, metadata)
+    return ScopeSnapshot(labels, variables, metadata)
 end
 
 """
-    _parse_commit(data::AbstractDict) -> ScopeCommit
+    _parse_commit(data::AbstractDict) -> CaptureTree
 
-Parse a raw commit dict into a ScopeCommit.
+Parse a raw commit dict into a CaptureTree.
 """
 function _parse_commit(data::AbstractDict)
-    commit_label = string(get(data, "commit_label", ""))
+    label = string(get(data, "commit_label", ""))
     metadata = Dict{String, Any}()
     if haskey(data, "metadata") && data["metadata"] isa AbstractDict
         metadata = _string_keys(data["metadata"])
     end
 
-    scopes = SimuleosScope[]
+    snapshots = PartialSnapshot[]
     if haskey(data, "scopes")
         for scope_data in data["scopes"]
-            push!(scopes, _parse_scope(scope_data))
+            push!(snapshots, _parse_scope(scope_data))
         end
     end
 
-    return ScopeCommit(commit_label, metadata, scopes)
+    return CaptureTree(label, snapshots, CaptureTree[], metadata)
+end
+
+"""
+    iterate_commits(tape::TapeIO) -> Vector{CaptureTree}
+
+Read commit records from a tape as fully materialized `CaptureTree` values.
+This keeps the read surface simple (no custom iterator wrappers).
+"""
+function iterate_commits(tape::TapeIO)::Vector{CaptureTree}
+    raw_commits = each_tape_records_filtered(
+        tape;
+        line_filter = (line, ctx) -> occursin("\"type\":\"commit\"", line),
+        json_filter = (raw, ctx) -> get(raw, "type", "") == "commit",
+    )
+    commits = CaptureTree[]
+    for raw in raw_commits
+        push!(commits, _parse_commit(raw))
+    end
+    return commits
 end

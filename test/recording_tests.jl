@@ -98,8 +98,8 @@
             Kernel.record_write(tape, Dict{String, Any}("note" => "context snapshot"))
 
             # Write a commit
-            scope = Kernel.SimuleosScope(["test"])
-            commit = Kernel.ScopeCommit("label", Dict{String, Any}(), [scope])
+            scope = Kernel.ScopeSnapshot(["test"])
+            commit = Kernel.CaptureTree("label", Kernel.PartialSnapshot[scope], Kernel.CaptureTree[], Dict{String, Any}())
             Kernel.commit_to_tape!(tape, commit)
 
             # Filter for commits only — generic_record should not appear

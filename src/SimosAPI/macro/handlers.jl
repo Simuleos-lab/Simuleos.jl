@@ -454,7 +454,7 @@ function _simos_store(mod, src, args)
         push!(stmts, quote
             let sim = $(_SimKrn)._get_sim()
                 isnothing(sim.worksession) && error("No active session. Call `@simos session.init(...)` first.")
-                push!(sim.worksession.stage.blob_vars, $(QuoteNode(v)))
+                push!(sim.worksession.capture_policy.blob_vars, $(QuoteNode(v)))
             end
         end)
     end
@@ -468,7 +468,7 @@ function _simos_hash(mod, src, args)
         push!(stmts, quote
             let sim = $(_SimKrn)._get_sim()
                 isnothing(sim.worksession) && error("No active session. Call `@simos session.init(...)` first.")
-                push!(sim.worksession.stage.hash_vars, $(QuoteNode(v)))
+                push!(sim.worksession.capture_policy.hash_vars, $(QuoteNode(v)))
             end
         end)
     end
@@ -482,7 +482,7 @@ function _simos_inline(mod, src, args)
         push!(stmts, quote
             let sim = $(_SimKrn)._get_sim()
                 isnothing(sim.worksession) && error("No active session. Call `@simos session.init(...)` first.")
-                push!(sim.worksession.stage.inline_vars, $(QuoteNode(v)))
+                push!(sim.worksession.capture_policy.inline_vars, $(QuoteNode(v)))
             end
         end)
     end
@@ -498,7 +498,7 @@ function _simos_meta(mod, src, args)
             push!(stmts, quote
                 let sim = $(_SimKrn)._get_sim()
                     isnothing(sim.worksession) && error("No active session. Call `@simos session.init(...)` first.")
-                    sim.worksession.stage.meta_buffer[$k] = $v
+                    sim.worksession.capture_policy.meta_buffer[$k] = $v
                 end
             end)
         else

@@ -73,15 +73,15 @@ using SQLite
             @simos stage.hash(c, d)
             @simos stage.inline(e, f)
             @simos stage.meta(step = 1, phase = "call-style")
-            @test :a in ws.stage.blob_vars
-            @test :d in ws.stage.hash_vars
-            @test :f in ws.stage.inline_vars
-            @test ws.stage.meta_buffer[:phase] == "call-style"
+            @test :a in ws.capture_policy.blob_vars
+            @test :d in ws.capture_policy.hash_vars
+            @test :f in ws.capture_policy.inline_vars
+            @test ws.capture_policy.meta_buffer[:phase] == "call-style"
 
             let local_x = 7
                 @simos scope.capture("call-style-scope")
             end
-            @test length(ws.stage.captures) == 1
+            @test length(ws.stage.snapshots) == 1
 
             x = 10
             y = "test"
@@ -305,16 +305,16 @@ using SQLite
             ws = kernel._get_sim().worksession
 
             @simos stage.blob(a, b)
-            @test :a in ws.stage.blob_vars
-            @test :b in ws.stage.blob_vars
+            @test :a in ws.capture_policy.blob_vars
+            @test :b in ws.capture_policy.blob_vars
 
             @simos stage.hash(c, d)
-            @test :c in ws.stage.hash_vars
-            @test :d in ws.stage.hash_vars
+            @test :c in ws.capture_policy.hash_vars
+            @test :d in ws.capture_policy.hash_vars
 
             @simos stage.inline(e, f)
-            @test :e in ws.stage.inline_vars
-            @test :f in ws.stage.inline_vars
+            @test :e in ws.capture_policy.inline_vars
+            @test :f in ws.capture_policy.inline_vars
         end
     end
 
@@ -324,8 +324,8 @@ using SQLite
             ws = kernel._get_sim().worksession
 
             @simos stage.meta(step=1, phase="training")
-            @test ws.stage.meta_buffer[:step] == 1
-            @test ws.stage.meta_buffer[:phase] == "training"
+            @test ws.capture_policy.meta_buffer[:step] == 1
+            @test ws.capture_policy.meta_buffer[:phase] == "training"
         end
     end
 
@@ -338,8 +338,8 @@ using SQLite
                 @simos scope.capture("test-scope")
             end
 
-            @test length(ws.stage.captures) == 1
-            scope = ws.stage.captures[1]
+            @test length(ws.stage.snapshots) == 1
+            scope = ws.stage.snapshots[1]
             @test "test-scope" in scope.labels
             @test haskey(scope.metadata, :src_file)
             @test haskey(scope.metadata, :src_line)
@@ -383,7 +383,7 @@ using SQLite
             z = "ok"
             @simos shared.capture("extra", z)
             merged = @simos shared.merge("typed", "extra")
-            @test merged isa kernel.SimuleosScope
+            @test merged isa kernel.ScopeSnapshot
 
             z = ""
             @simos shared.bind("typed", z::String)
@@ -416,7 +416,7 @@ using SQLite
             tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
             commits = collect(kernel.iterate_commits(tape))
             @test length(commits) == 1
-            @test commits[1].commit_label == "c1"
+            @test commits[1].label == "c1"
         end
     end
 
@@ -443,7 +443,7 @@ using SQLite
 
             tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
             commits = collect(kernel.iterate_commits(tape))
-            @test [c.commit_label for c in commits] == ["bc1", "tail"]
+            @test [c.label for c in commits] == ["bc1", "tail"]
         end
     end
 
@@ -461,7 +461,7 @@ using SQLite
             r1 = @simos session.queue("bcg"; cmt_every = 2)
             @test isnothing(r1)
             @test isempty(ws.pending_commits)
-            @test length(ws.stage.captures) == 1
+            @test length(ws.stage.snapshots) == 1
 
             let x = 2
                 @simos scope.capture("g2")
@@ -469,8 +469,8 @@ using SQLite
             r2 = @simos session.queue("bcg"; cmt_every = 2)
             @test !isnothing(r2)
             @test length(ws.pending_commits) == 1
-            @test isempty(ws.stage.captures)
-            @test length(ws.pending_commits[1].scopes) == 2
+            @test isempty(ws.stage.snapshots)
+            @test length(ws.pending_commits[1].snapshots) == 2
 
             let x = 3
                 @simos scope.capture("g3")
@@ -481,9 +481,9 @@ using SQLite
 
             tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
             commits = collect(kernel.iterate_commits(tape))
-            @test [c.commit_label for c in commits] == ["bcg", "tail"]
-            @test length(commits[1].scopes) == 2
-            @test length(commits[2].scopes) == 1
+            @test [c.label for c in commits] == ["bcg", "tail"]
+            @test length(commits[1].snapshots) == 2
+            @test length(commits[2].snapshots) == 1
         end
     end
 

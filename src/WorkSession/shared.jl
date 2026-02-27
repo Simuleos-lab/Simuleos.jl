@@ -8,7 +8,7 @@ function _shared_key(key)::String
     return k
 end
 
-function _shared_registry()::Dict{String, _Kernel.SimuleosScope}
+function _shared_registry()::Dict{String, _Kernel.ScopeSnapshot}
     sim = _Kernel._get_sim()
     return sim.shared_scopes
 end
@@ -43,8 +43,8 @@ function _shared_capture_build_scope(
         src_file::String,
         src_line::Int;
         names::Union{Nothing, Vector{Symbol}} = nothing,
-    )::_Kernel.SimuleosScope
-    scope = _Kernel.SimuleosScope()
+    )::_Kernel.ScopeSnapshot
+    scope = _Kernel.ScopeSnapshot()
 
     if isnothing(names)
         for (name, val) in locals
@@ -79,7 +79,7 @@ function shared_capture(
         src_file::String,
         src_line::Int;
         names::Union{Nothing, Vector{Symbol}} = nothing,
-    )::_Kernel.SimuleosScope
+    )::_Kernel.ScopeSnapshot
     sim = _Kernel._get_sim()
     ws = sim.worksession
     isnothing(ws) && error("No active session. Call `@simos session.init(...)` first.")
@@ -91,7 +91,7 @@ function shared_capture(
     return scope
 end
 
-function shared_get(key::AbstractString)::_Kernel.SimuleosScope
+function shared_get(key::AbstractString)::_Kernel.ScopeSnapshot
     reg = _shared_registry()
     key_s = _shared_key(key)
     haskey(reg, key_s) || error("Shared scope `$(key_s)` not found.")
@@ -125,13 +125,13 @@ function shared_clear!()::Int
     return n
 end
 
-function shared_merge!(dest_key::AbstractString, src_key::AbstractString)::_Kernel.SimuleosScope
+function shared_merge!(dest_key::AbstractString, src_key::AbstractString)::_Kernel.ScopeSnapshot
     reg = _shared_registry()
     dest_s = _shared_key(dest_key)
     src_scope = shared_get(src_key)
 
     dest_scope = get!(reg, dest_s) do
-        scope = _Kernel.SimuleosScope(dest_s)
+        scope = _Kernel.ScopeSnapshot(dest_s)
         scope.metadata[:shared_key] = dest_s
         scope
     end

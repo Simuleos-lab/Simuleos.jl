@@ -9,8 +9,8 @@ module Kernel
 using UUIDs
 using Dates
 
-# -- Core: capture types (no deps), then main types, then utilities --
-include("core/capture_types.jl")
+# -- Core: snapshot types (no deps), then main types, then utilities --
+include("core/snapshot_types.jl")
 include("core/types.jl")
 include("core/base.jl")
 include("core/utils.jl")
@@ -29,7 +29,6 @@ include("scoperias/base.jl")
 include("scoperias/ops.jl")
 include("scoperias/macros.jl")
 include("scopetapes/base.jl")
-include("scopetapes/read.jl")
 include("scopetapes/write.jl")
 
 # -- Git --

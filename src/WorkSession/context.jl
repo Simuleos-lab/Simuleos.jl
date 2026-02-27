@@ -42,7 +42,7 @@ function context_capture!(
 
     # Settings
     if !isempty(settings_accessed)
-        sc = _Kernel.SettingsCapture(settings_accessed, string(Dates.now()))
+        sc = _Kernel.SettingsSnapshot(settings_accessed, string(Dates.now()))
         tree["settings"] = _Kernel.serialize_capture(sc)
     end
 

@@ -114,15 +114,16 @@ end
         vars[:dataset] = Simuleos.Kernel.BlobScopeVariable(:global, "Matrix{Float64}", Simuleos.Kernel.BlobRef("abc123"))
         vars[:builder] = Simuleos.Kernel.VoidScopeVariable(:global, "Function")
 
-        scope = Simuleos.Kernel.SimuleosScope(
+        scope = Simuleos.Kernel.ScopeSnapshot(
             ["scope-a"],
             vars,
             Dict{Symbol, Any}(),
         )
-        commit = Simuleos.Kernel.ScopeCommit(
+        commit = Simuleos.Kernel.CaptureTree(
             "first-commit",
+            Simuleos.Kernel.PartialSnapshot[scope],
+            Simuleos.Kernel.CaptureTree[],
             Dict{String, Any}("step" => 1),
-            [scope],
         )
         tape = Simuleos.Kernel.TapeIO(Simuleos.Kernel.tape_path(project_driver, sid_1))
         Simuleos.Kernel.commit_to_tape!(tape, commit)

@@ -1,30 +1,30 @@
 # ============================================================
-# capture_types.jl — Partial capture subtypes
+# snapshot_types.jl — Partial snapshot subtypes
 #
-# Each PartialCapture subtype represents one independent
+# Each PartialSnapshot subtype represents one independent
 # slice of context that can be collected, serialized, and
 # composed into a full provenance snapshot.
 # ============================================================
 
 """Abstract base for all partial capture types."""
-abstract type PartialCapture end
+abstract type PartialSnapshot end
 
 """
-    SettingsCapture <: PartialCapture
+    SettingsSnapshot <: PartialSnapshot
 
 Snapshot of settings accessed during a capture window.
 """
-struct SettingsCapture <: PartialCapture
+struct SettingsSnapshot <: PartialSnapshot
     accessed::Dict{String, Any}   # key → resolved value at access time
     timestamp::String
 end
 
 """
-    SourceCapture <: PartialCapture
+    SourceSnapshot <: PartialSnapshot
 
 Git / source-control metadata captured once per session.
 """
-struct SourceCapture <: PartialCapture
+struct SourceSnapshot <: PartialSnapshot
     git_commit::String
     git_branch::String
     git_dirty::Bool
@@ -32,11 +32,11 @@ struct SourceCapture <: PartialCapture
 end
 
 """
-    EnvironmentCapture <: PartialCapture
+    EnvironmentSnapshot <: PartialSnapshot
 
 Runtime environment snapshot (Julia version, hostname, etc.).
 """
-struct EnvironmentCapture <: PartialCapture
+struct EnvironmentSnapshot <: PartialSnapshot
     julia_version::String
     hostname::String
     os::String
@@ -46,14 +46,15 @@ struct EnvironmentCapture <: PartialCapture
 end
 
 """
-    ExecutionCapture <: PartialCapture
+    ExecutionSnapshot <: PartialSnapshot
 
 Per-scope execution context (thread, file, line).
 """
-struct ExecutionCapture <: PartialCapture
+struct ExecutionSnapshot <: PartialSnapshot
     src_file::String
     src_line::Int
     threadid::Int
     timestamp::String
 end
+
 

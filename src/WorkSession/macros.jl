@@ -137,20 +137,23 @@ function _batch_commit_gate_allows_queue!(ws::_Kernel.WorkSession, label::String
     return false
 end
 
-function _apply_commit_capture_filters!(ws::_Kernel.WorkSession, commit::_Kernel.ScopeCommit)::_Kernel.ScopeCommit
-    for i in eachindex(commit.scopes)
-        commit.scopes[i] = _WS.apply_capture_filters(commit.scopes[i], ws)
+function _apply_commit_capture_filters!(ws::_Kernel.WorkSession, tree::_Kernel.CaptureTree)::_Kernel.CaptureTree
+    for i in eachindex(tree.snapshots)
+        s = tree.snapshots[i]
+        if s isa _Kernel.ScopeSnapshot
+            tree.snapshots[i] = _WS.apply_capture_filters(s, ws)
+        end
     end
-    return commit
+    return tree
 end
 
-function _take_stage_commit_filtered!(ws::_Kernel.WorkSession, gh; label::String = "")::_Kernel.ScopeCommit
+function _take_stage_commit_filtered!(ws::_Kernel.WorkSession, gh; label::String = "")::_Kernel.CaptureTree
     meta = _session_commit_metadata(gh)
-    commit = _Kernel.take_stage_commit!(ws.stage; label=label, metadata=meta)
+    commit = _Kernel.take_stage_commit!(ws.stage, ws.capture_policy; label=label, metadata=meta)
     return _apply_commit_capture_filters!(ws, commit)
 end
 
-function _queue_stage_commit!(ws::_Kernel.WorkSession, gh; label::String = "")::_Kernel.ScopeCommit
+function _queue_stage_commit!(ws::_Kernel.WorkSession, gh; label::String = "")::_Kernel.CaptureTree
     commit = _take_stage_commit_filtered!(ws, gh; label=label)
     push!(ws.pending_commits, commit)
     ws.is_finalized = false
@@ -192,18 +195,19 @@ function scope_capture(
     isnothing(ws) && error("No active session. Call `@simos session.init(...)` first.")
     proj = _Kernel.sim_project(sim)
 
-    scope = _Kernel.SimuleosScope()
+    scope = _Kernel.ScopeSnapshot()
+    policy = ws.capture_policy
     for (name, val) in locals
         _Kernel.is_capture_excluded(val) && continue
         scope.variables[name] = _Kernel._make_scope_variable(
-            :local, val, ws.stage.inline_vars, ws.stage.blob_vars, ws.stage.hash_vars, name, proj.blobstorage
+            :local, val, policy.inline_vars, policy.blob_vars, policy.hash_vars, name, proj.blobstorage
         )
     end
     for (name, val) in globals
         _Kernel.is_capture_excluded(val) && continue
         haskey(scope.variables, name) && continue
         scope.variables[name] = _Kernel._make_scope_variable(
-            :global, val, ws.stage.inline_vars, ws.stage.blob_vars, ws.stage.hash_vars, name, proj.blobstorage
+            :global, val, policy.inline_vars, policy.blob_vars, policy.hash_vars, name, proj.blobstorage
         )
     end
 
@@ -214,12 +218,12 @@ function scope_capture(
     scope.metadata[:threadid] = exec.threadid
     scope.metadata[:timestamp] = exec.timestamp
 
-    if !isempty(ws.stage.meta_buffer)
-        merge!(scope.metadata, ws.stage.meta_buffer)
-        empty!(ws.stage.meta_buffer)
+    if !isempty(policy.meta_buffer)
+        merge!(scope.metadata, policy.meta_buffer)
+        empty!(policy.meta_buffer)
     end
 
-    push!(ws.stage.captures, scope)
+    push!(ws.stage.snapshots, scope)
     ws.is_finalized = false
     return scope
 end
@@ -252,7 +256,7 @@ function session_finalize(label::String="")
     ws, proj = _require_active_worksession_and_project()
 
     queued_tail_commit = false
-    if !isempty(ws.stage.captures)
+    if !isempty(ws.stage.snapshots)
         _queue_stage_commit!(ws, proj.git_handler; label=label)
         queued_tail_commit = true
     end

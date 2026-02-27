@@ -36,10 +36,14 @@ end
 function each_commits(
         project_driver::Kernel.SimuleosProject;
         session::Union{Symbol, Base.UUID, String} = :active
-    )
+    )::Vector{Kernel.CaptureTree}
     session_id = _resolve_session_id(project_driver, session)
     tape = Kernel.TapeIO(Kernel.tape_path(project_driver, session_id))
     return Kernel.iterate_commits(tape)
+end
+
+function _tree_scopes(tree::Kernel.CaptureTree)::Vector{Kernel.ScopeSnapshot}
+    return Kernel.ScopeSnapshot[s for s in tree.snapshots if s isa Kernel.ScopeSnapshot]
 end
 
 function each_scopes(
@@ -48,29 +52,37 @@ function each_scopes(
         commit_label::Union{String, Nothing} = nothing,
         src_file::Union{String, Nothing} = nothing,
         scope_label::Union{String, Nothing} = nothing,
-    )
+    )::Vector{Kernel.ScopeSnapshot}
     commits = if isnothing(commit_label) && isnothing(src_file)
         each_commits(project_driver; session=session)
     else
         _each_commits_filtered(project_driver, session, commit_label, src_file)
     end
-    return (
-        scope
-        for commit in commits
-        if isnothing(commit_label) || commit.commit_label == commit_label
-        for scope in commit.scopes
-        if (isnothing(src_file) || _src_file_match(scope, src_file)) &&
-            (isnothing(scope_label) || _scope_label_match(scope, scope_label))
-    )
+    scopes = Kernel.ScopeSnapshot[]
+    for commit in commits
+        if !isnothing(commit_label) && commit.label != commit_label
+            continue
+        end
+        for scope in _tree_scopes(commit)
+            if !isnothing(src_file) && !_src_file_match(scope, src_file)
+                continue
+            end
+            if !isnothing(scope_label) && !_scope_label_match(scope, scope_label)
+                continue
+            end
+            push!(scopes, scope)
+        end
+    end
+    return scopes
 end
 
-function _src_file_match(scope::Kernel.SimuleosScope, pattern::String)::Bool
+function _src_file_match(scope::Kernel.ScopeSnapshot, pattern::String)::Bool
     sf = get(scope.metadata, :src_file, nothing)
     isnothing(sf) && return false
     return endswith(string(sf), pattern)
 end
 
-function _scope_label_match(scope::Kernel.SimuleosScope, label::String)::Bool
+function _scope_label_match(scope::Kernel.ScopeSnapshot, label::String)::Bool
     return any(==(label), scope.labels)
 end
 
@@ -79,7 +91,7 @@ function _each_commits_filtered(
         session::Union{Symbol, Base.UUID, String},
         commit_label::Union{String, Nothing},
         src_file::Union{String, Nothing},
-    )
+    )::Vector{Kernel.CaptureTree}
     session_id = _resolve_session_id(project_driver, session)
     tape = Kernel.TapeIO(Kernel.tape_path(project_driver, session_id))
 
@@ -98,11 +110,15 @@ function _each_commits_filtered(
     end
 
     raws = Kernel.each_tape_records_filtered(tape; line_filter=line_filter, json_filter=json_filter)
-    return (Kernel._parse_commit(raw) for raw in raws)
+    commits = Kernel.CaptureTree[]
+    for raw in raws
+        push!(commits, Kernel._parse_commit(raw))
+    end
+    return commits
 end
 
 """
-    latest_scope(project_driver; session=:active, commit_label=nothing, src_file=nothing, scope_label=nothing) -> SimuleosScope
+    latest_scope(project_driver; session=:active, commit_label=nothing, src_file=nothing, scope_label=nothing) -> ScopeSnapshot
 
 Return the last scope available for the resolved session,
 optionally filtered by commit label and/or source file path.
@@ -147,7 +163,7 @@ _scope_expand_level(var::Kernel.VoidScopeVariable)::Symbol = var.level
 _scope_expand_level(var::Kernel.HashedScopeVariable)::Symbol = var.level
 
 function _scope_expand_runtime!(
-        scope::Kernel.SimuleosScope,
+        scope::Kernel.ScopeSnapshot,
         project_driver,
         name::Symbol
     )::Tuple{Symbol, Any}
@@ -191,10 +207,10 @@ function scope_table(
         _each_commits_filtered(project_driver, session, commit_label, src_file)
     end
     for commit in commits
-        if !isnothing(commit_label) && commit.commit_label != commit_label
+        if !isnothing(commit_label) && commit.label != commit_label
             continue
         end
-        for scope in commit.scopes
+        for scope in _tree_scopes(commit)
             if !isnothing(src_file) && !_src_file_match(scope, src_file)
                 continue
             end
@@ -202,7 +218,7 @@ function scope_table(
                 continue
             end
             row = Dict{Symbol, Any}()
-            row[:commit_label] = commit.commit_label
+            row[:commit_label] = commit.label
             row[:scope_labels] = join(scope.labels, ";")
             for (k, v) in scope.metadata
                 row[k] = v

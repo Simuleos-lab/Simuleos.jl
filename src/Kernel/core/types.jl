@@ -94,50 +94,57 @@ struct HashedScopeVariable <: ScopeVariable
 end
 
 # --------------------------------------------------
-# Scope & Commits
+# Scope Snapshot
 # --------------------------------------------------
 
 """
-    SimuleosScope
+    ScopeSnapshot <: PartialSnapshot
 
 A snapshot of variables captured at a specific point in execution.
 Contains labels for identification, variable bindings, and metadata.
 """
-mutable struct SimuleosScope
+mutable struct ScopeSnapshot <: PartialSnapshot
     labels::Vector{String}
     variables::Dict{Symbol, ScopeVariable}
     metadata::Dict{Symbol, Any}
 end
 
 # Default constructor
-SimuleosScope() = SimuleosScope(String[], Dict{Symbol, ScopeVariable}(), Dict{Symbol, Any}())
+ScopeSnapshot() = ScopeSnapshot(String[], Dict{Symbol, ScopeVariable}(), Dict{Symbol, Any}())
+
+# --------------------------------------------------
+# CaptureTree & CapturePolicy
+# --------------------------------------------------
 
 """
-    ScopeStage
+    CaptureTree
 
-Accumulator for scopes between commits.
-Captures are collected here until flushed by a commit.
+A recursive, labeled container for snapshots.
+Replaces both CaptureStage (accumulator) and CaptureCommit (committed group).
 """
-mutable struct ScopeStage
-    captures::Vector{SimuleosScope}
-    inline_vars::Set{Symbol}     # Variables marked for inline JSON
-    blob_vars::Set{Symbol}       # Variables marked for blob storage
-    hash_vars::Set{Symbol}       # Variables marked for hash-only storage
-    meta_buffer::Dict{Symbol, Any}  # Metadata to attach to next capture
-end
-
-ScopeStage() = ScopeStage(SimuleosScope[], Set{Symbol}(), Set{Symbol}(), Set{Symbol}(), Dict{Symbol, Any}())
-
-"""
-    ScopeCommit
-
-A committed group of scopes written to the tape.
-"""
-struct ScopeCommit
-    commit_label::String
+mutable struct CaptureTree
+    label::String
+    snapshots::Vector{PartialSnapshot}
+    children::Vector{CaptureTree}
     metadata::Dict{String, Any}
-    scopes::Vector{SimuleosScope}
 end
+
+CaptureTree(label::String="") = CaptureTree(label, PartialSnapshot[], CaptureTree[], Dict{String, Any}())
+
+"""
+    CapturePolicy
+
+Capture policy controlling how variables are stored.
+Extracted from the old CaptureStage to live on WorkSession separately.
+"""
+mutable struct CapturePolicy
+    inline_vars::Set{Symbol}
+    blob_vars::Set{Symbol}
+    hash_vars::Set{Symbol}
+    meta_buffer::Dict{Symbol, Any}
+end
+
+CapturePolicy() = CapturePolicy(Set{Symbol}(), Set{Symbol}(), Set{Symbol}(), Dict{Symbol, Any}())
 
 # --------------------------------------------------
 # TapeIO
@@ -225,8 +232,9 @@ queued commits pending tape flush, and session metadata.
 mutable struct WorkSession
     session_id::Base.UUID
     labels::Vector{String}
-    stage::ScopeStage
-    pending_commits::Vector{ScopeCommit}
+    stage::CaptureTree
+    pending_commits::Vector{CaptureTree}
+    capture_policy::CapturePolicy
     is_finalized::Bool
     metadata::Dict{String, Any}
     # Runtime-only registry of named context hashes (not persisted to session.json).
@@ -240,8 +248,8 @@ mutable struct WorkSession
     settings_access_log::Union{Nothing, Dict{String, Any}}
     settings_access_tracking::Bool
     # Capture subsystem: source and environment snapshots (runtime-only).
-    source_capture::Union{Nothing, SourceCapture}
-    environment_capture::Union{Nothing, EnvironmentCapture}
+    source_capture::Union{Nothing, SourceSnapshot}
+    environment_capture::Union{Nothing, EnvironmentSnapshot}
 end
 
 # --------------------------------------------------
@@ -307,7 +315,7 @@ mutable struct SimOs
     home::Union{Nothing, SimuleosHome}
     worksession::Union{Nothing, WorkSession}
     settings_stack::Union{Nothing, SettingsStack}  # Structured layered settings SSOT
-    shared_scopes::Dict{String, SimuleosScope}  # In-memory named shared scopes
+    shared_scopes::Dict{String, ScopeSnapshot}  # In-memory named shared scopes
     sqlite_db::Any  # Cached SQLite metadata-index connection (owned by @simos sqlite.*)
     sqlite_db_path::Union{Nothing, String}  # Canonical path for the cached SQLite DB
 end

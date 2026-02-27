@@ -96,7 +96,7 @@ Check if the work session has un-committed captures.
 """
 function isdirty(simos, ws::_Kernel.WorkSession)
     _ = simos
-    return !isempty(ws.stage.captures) || !isempty(ws.pending_commits)
+    return !isempty(ws.stage.snapshots) || !isempty(ws.pending_commits)
 end
 
 function _primary_session_label(ws::_Kernel.WorkSession)::Union{Nothing, String}

@@ -1,15 +1,15 @@
 # ============================================================
-# scoperias/base.jl — SimuleosScope constructors
+# scoperias/base.jl — ScopeSnapshot constructors
 # ============================================================
 
 """
-    SimuleosScope(labels, variables, metadata)
+    ScopeSnapshot(labels, variables, metadata)
 
 Construct a scope with flexible input types.
 - `variables` can be Dict{Symbol, ScopeVariable} or Dict{Symbol, Any}
   (raw values are wrapped as InlineScopeVariable with :local level)
 """
-function SimuleosScope(labels::Vector{String}, variables::Dict{Symbol, Any}, metadata::Dict{Symbol, Any})
+function ScopeSnapshot(labels::Vector{String}, variables::Dict{Symbol, Any}, metadata::Dict{Symbol, Any})
     typed_vars = Dict{Symbol, ScopeVariable}()
     for (name, val) in variables
         if val isa ScopeVariable
@@ -18,11 +18,11 @@ function SimuleosScope(labels::Vector{String}, variables::Dict{Symbol, Any}, met
             typed_vars[name] = InlineScopeVariable(:local, type_short(val), val)
         end
     end
-    return SimuleosScope(labels, typed_vars, metadata)
+    return ScopeSnapshot(labels, typed_vars, metadata)
 end
 
-SimuleosScope(labels::Vector{String}) = SimuleosScope(labels, Dict{Symbol, ScopeVariable}(), Dict{Symbol, Any}())
-SimuleosScope(label::String) = SimuleosScope(String[label])
+ScopeSnapshot(labels::Vector{String}) = ScopeSnapshot(labels, Dict{Symbol, ScopeVariable}(), Dict{Symbol, Any}())
+ScopeSnapshot(label::String) = ScopeSnapshot(String[label])
 
 """
     _make_scope_variable(level, value, inline_vars, blob_vars, hash_vars, name, storage) -> ScopeVariable

@@ -106,7 +106,7 @@ function _resolve_capture_filter_names(ws::_Kernel.WorkSession, labels::Abstract
     return out
 end
 
-function _effective_scope_rules(ws::_Kernel.WorkSession, scope::_Kernel.SimuleosScope)::Vector{RuleType}
+function _effective_scope_rules(ws::_Kernel.WorkSession, scope::_Kernel.ScopeSnapshot)::Vector{RuleType}
     rules = RuleType[]
     append!(rules, ws.simignore_rules)
 
@@ -118,7 +118,7 @@ function _effective_scope_rules(ws::_Kernel.WorkSession, scope::_Kernel.Simuleos
     return rules
 end
 
-function apply_capture_filters(scope::_Kernel.SimuleosScope, ws::_Kernel.WorkSession)::_Kernel.SimuleosScope
+function apply_capture_filters(scope::_Kernel.ScopeSnapshot, ws::_Kernel.WorkSession)::_Kernel.ScopeSnapshot
     rules = _effective_scope_rules(ws, scope)
     return _Kernel.filter_rules(scope, rules)
 end

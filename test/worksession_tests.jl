@@ -145,12 +145,12 @@ using Dates
         simos.worksession = wsmod.resolve_session(simos, proj; labels=["guard"])
         @test wsmod.isdirty(simos, simos.worksession) == false
 
-        push!(simos.worksession.stage.captures, kernel.SimuleosScope())
+        push!(simos.worksession.stage.snapshots, kernel.ScopeSnapshot())
         @test wsmod.isdirty(simos, simos.worksession) == true
         @test_throws ErrorException wsmod.session_init!(["another"], @__FILE__)
 
-        empty!(simos.worksession.stage.captures)
-        push!(simos.worksession.pending_commits, kernel.ScopeCommit("", Dict{String, Any}(), kernel.SimuleosScope[]))
+        empty!(simos.worksession.stage.snapshots)
+        push!(simos.worksession.pending_commits, kernel.CaptureTree(""))
         @test wsmod.isdirty(simos, simos.worksession) == true
     end
 
@@ -453,7 +453,7 @@ using Dates
                 @simos scope.capture("s1")
             end
             c1 = wsmod.session_batch_commit("c1"; max_pending_commits=2)
-            @test c1.commit_label == "c1"
+            @test c1.label == "c1"
             @test length(ws.pending_commits) == 1
             @test isempty(collect(kernel.iterate_commits(tape)))
 
@@ -461,11 +461,11 @@ using Dates
                 @simos scope.capture("s2")
             end
             c2 = wsmod.session_batch_commit("c2"; max_pending_commits=2)
-            @test c2.commit_label == "c2"
+            @test c2.label == "c2"
             @test isempty(ws.pending_commits)
 
             commits = collect(kernel.iterate_commits(tape))
-            @test [c.commit_label for c in commits] == ["c1", "c2"]
+            @test [c.label for c in commits] == ["c1", "c2"]
 
             let x = 3
                 @simos scope.capture("s3")
@@ -480,10 +480,10 @@ using Dates
             @test result.queued_tail_commit == true
             @test result.flushed_commits == 2
             @test isempty(ws.pending_commits)
-            @test isempty(ws.stage.captures)
+            @test isempty(ws.stage.snapshots)
 
             commits = collect(kernel.iterate_commits(tape))
-            @test [c.commit_label for c in commits] == ["c1", "c2", "c3", "tail"]
+            @test [c.label for c in commits] == ["c1", "c2", "c3", "tail"]
         end
     end
 
@@ -519,15 +519,16 @@ using Dates
                 @simos scope.capture("other")
             end
 
-            @test length(ws.stage.captures) == 3
-            @test haskey(ws.stage.captures[1].variables, :__flt_debug)
-            @test haskey(ws.stage.captures[1].variables, :__flt_hidden)
+            @test length(ws.stage.snapshots) == 3
+            @test haskey(ws.stage.snapshots[1].variables, :__flt_debug)
+            @test haskey(ws.stage.snapshots[1].variables, :__flt_hidden)
 
             commit = wsmod.session_commit("filtered")
-            @test commit.commit_label == "filtered"
-            @test isempty(ws.stage.captures)
+            @test commit.label == "filtered"
+            @test isempty(ws.stage.snapshots)
 
-            s1, s2, s3 = commit.scopes
+            _scopes = Simuleos.Kernel.ScopeSnapshot[s for s in commit.snapshots if s isa Simuleos.Kernel.ScopeSnapshot]
+            s1, s2, s3 = _scopes
             @test s1.labels[1] == "label1"
             @test s2.labels[1] == "label2"
             @test s3.labels[1] == "other"
@@ -547,9 +548,9 @@ using Dates
             tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
             commits = collect(kernel.iterate_commits(tape))
             @test length(commits) == 1
-            @test [c.commit_label for c in commits] == ["filtered"]
-            @test !haskey(commits[1].scopes[1].variables, :__flt_debug)
-            @test !haskey(commits[1].scopes[3].variables, :__flt_hidden)
+            @test [c.label for c in commits] == ["filtered"]
+            @test !haskey(commits[1].snapshots[1].variables, :__flt_debug)
+            @test !haskey(commits[1].snapshots[3].variables, :__flt_hidden)
         end
     end
 
@@ -580,7 +581,7 @@ using Dates
             end
             wsmod.session_batch_commit("c3"; max_pending_commits=99)
 
-            @test [c.commit_label for c in ws.pending_commits] == ["c1", "c2", "c3"]
+            @test [c.label for c in ws.pending_commits] == ["c1", "c2", "c3"]
 
             injected_calls = Ref(0)
             failing_writer = function (t, commit)
@@ -593,16 +594,16 @@ using Dates
 
             @test_throws ErrorException wsmod._flush_pending_commits!(proj2, ws; commit_writer=failing_writer)
 
-            @test [c.commit_label for c in ws.pending_commits] == ["c2", "c3"]
+            @test [c.label for c in ws.pending_commits] == ["c2", "c3"]
             commits_after_fail = collect(kernel.iterate_commits(tape))
-            @test [c.commit_label for c in commits_after_fail] == ["c1"]
+            @test [c.label for c in commits_after_fail] == ["c1"]
 
             flushed_retry = wsmod._flush_pending_commits!(proj2, ws)
             @test flushed_retry == 2
             @test isempty(ws.pending_commits)
 
             commits_after_retry = collect(kernel.iterate_commits(tape))
-            @test [c.commit_label for c in commits_after_retry] == ["c1", "c2", "c3"]
+            @test [c.label for c in commits_after_retry] == ["c1", "c2", "c3"]
         end
     end
 
@@ -636,8 +637,8 @@ using Dates
             data_a = [1, 2, 3]
             data_b = [4, 5, 6]
             @simos stage.hash(data_a, data_b)
-            @test :data_a in ws.stage.hash_vars
-            @test :data_b in ws.stage.hash_vars
+            @test :data_a in ws.capture_policy.hash_vars
+            @test :data_b in ws.capture_policy.hash_vars
 
             let data_a = data_a, data_b = data_b
                 @simos scope.capture("hashed")
@@ -647,7 +648,7 @@ using Dates
             tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
             commits = collect(kernel.iterate_commits(tape))
             @test length(commits) == 1
-            s = commits[1].scopes[1]
+            s = commits[1].snapshots[1]
 
             var_a = s.variables[:data_a]
             @test var_a isa kernel.HashedScopeVariable

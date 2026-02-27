@@ -511,19 +511,6 @@ function _index_session_tape!(db::SQLite.DB, project_driver::Kernel.SimuleosProj
     tape_info = _scope_tape_info(project_driver, session_id, tape)
     _upsert_tape!(db, tape_info)
 
-    ctx_file = Ref("")
-    ctx_line = Ref(0)
-
-    records = Kernel.each_tape_records_filtered(
-        tape;
-        line_filter = (line, ctx) -> true,
-        json_filter = (obj, ctx) -> begin
-            ctx_file[] = ctx.file
-            ctx_line[] = ctx.line_no
-            true
-        end,
-    )
-
     tape_record_ord = 0
     commit_ord = 0
     last_commit_file = nothing
@@ -532,41 +519,47 @@ function _index_session_tape!(db::SQLite.DB, project_driver::Kernel.SimuleosProj
     last_record_line = nothing
     last_record_hash = nothing
 
-    for raw in records
-        tape_record_ord += 1
-        rec_hash = _record_hash(raw)
-        _insert_tape_record!(db, tape_info.tape_uid, tape_record_ord, raw, ctx_file[], ctx_line[]; record_hash = rec_hash)
-        last_record_file = ctx_file[]
-        last_record_line = ctx_line[]
-        last_record_hash = rec_hash
-        _record_type(raw) == "commit" || continue
+    Kernel.scan_tape_records_filtered(
+        tape;
+        line_filter = (line, ctx) -> true,
+        json_filter = (obj, ctx) -> true,
+        on_record = function (raw, ctx)
+            tape_record_ord += 1
+            rec_hash = _record_hash(raw)
+            _insert_tape_record!(db, tape_info.tape_uid, tape_record_ord, raw, ctx.file, ctx.line_no; record_hash = rec_hash)
+            last_record_file = ctx.file
+            last_record_line = ctx.line_no
+            last_record_hash = rec_hash
+            _record_type(raw) == "commit" || return nothing
 
-        commit_ord += 1
-        commit = Kernel._parse_commit(raw)
-        commit_uid = _commit_uid(session_id, commit_ord)
+            commit_ord += 1
+            commit = Kernel._parse_commit(raw)
+            commit_uid = _commit_uid(session_id, commit_ord)
 
-        _sqlite_exec(db, """
-            INSERT INTO commits (
-                commit_uid, session_id, commit_ord, commit_label, commit_timestamp,
-                tape_record_ord, tape_file, tape_line_no
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            commit_uid,
-            session_id,
-            commit_ord,
-            commit.commit_label,
-            _string_or_nothing(get(commit.metadata, "timestamp", nothing)),
-            tape_record_ord,
-            ctx_file[],
-            ctx_line[],
-        ))
-        last_commit_file = ctx_file[]
-        last_commit_line = ctx_line[]
+            _sqlite_exec(db, """
+                INSERT INTO commits (
+                    commit_uid, session_id, commit_ord, commit_label, commit_timestamp,
+                    tape_record_ord, tape_file, tape_line_no
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                commit_uid,
+                session_id,
+                commit_ord,
+                commit.label,
+                _string_or_nothing(get(commit.metadata, "timestamp", nothing)),
+                tape_record_ord,
+                ctx.file,
+                ctx.line_no,
+            ))
+            last_commit_file = ctx.file
+            last_commit_line = ctx.line_no
 
-        for (scope_ord, scope) in enumerate(commit.scopes)
-            _index_scope!(db, session_id, commit_uid, commit_ord, scope_ord, scope)
-        end
-    end
+            for (scope_ord, scope) in enumerate(Kernel.ScopeSnapshot[s for s in commit.snapshots if s isa Kernel.ScopeSnapshot])
+                _index_scope!(db, session_id, commit_uid, commit_ord, scope_ord, scope)
+            end
+            return nothing
+        end,
+    )
     return (
         last_indexed_commit_ord = commit_ord,
         last_indexed_tape_record_ord = tape_record_ord,
@@ -677,18 +670,6 @@ function _index_session_tape_incremental!(
     tape_info = _scope_tape_info(project_driver, session_id, tape)
     _upsert_tape!(db, tape_info)
 
-    ctx_file = Ref("")
-    ctx_line = Ref(0)
-    records = Kernel.each_tape_records_filtered(
-        tape;
-        line_filter = (line, ctx) -> true,
-        json_filter = (obj, ctx) -> begin
-            ctx_file[] = ctx.file
-            ctx_line[] = ctx.line_no
-            true
-        end,
-    )
-
     tape_record_ord = 0
     commit_ord = 0
     last_commit_file = nothing
@@ -697,49 +678,55 @@ function _index_session_tape_incremental!(
     last_record_line = nothing
     last_record_hash = nothing
 
-    for raw in records
-        tape_record_ord += 1
-        rec_hash = _record_hash(raw)
-        last_record_file = ctx_file[]
-        last_record_line = ctx_line[]
-        last_record_hash = rec_hash
-        if tape_record_ord <= start_tape_record_ord
-            _verify_indexed_tape_record_prefix!(db, tape_info.tape_uid, tape_record_ord, raw, ctx_file[], ctx_line[]; record_hash = rec_hash)
-        else
-            _insert_tape_record!(db, tape_info.tape_uid, tape_record_ord, raw, ctx_file[], ctx_line[]; record_hash = rec_hash)
-        end
-        _record_type(raw) == "commit" || continue
-        commit_ord += 1
+    Kernel.scan_tape_records_filtered(
+        tape;
+        line_filter = (line, ctx) -> true,
+        json_filter = (obj, ctx) -> true,
+        on_record = function (raw, ctx)
+            tape_record_ord += 1
+            rec_hash = _record_hash(raw)
+            last_record_file = ctx.file
+            last_record_line = ctx.line_no
+            last_record_hash = rec_hash
+            if tape_record_ord <= start_tape_record_ord
+                _verify_indexed_tape_record_prefix!(db, tape_info.tape_uid, tape_record_ord, raw, ctx.file, ctx.line_no; record_hash = rec_hash)
+            else
+                _insert_tape_record!(db, tape_info.tape_uid, tape_record_ord, raw, ctx.file, ctx.line_no; record_hash = rec_hash)
+            end
+            _record_type(raw) == "commit" || return nothing
+            commit_ord += 1
 
-        commit = Kernel._parse_commit(raw)
-        last_commit_file = ctx_file[]
-        last_commit_line = ctx_line[]
+            commit = Kernel._parse_commit(raw)
+            last_commit_file = ctx.file
+            last_commit_line = ctx.line_no
 
-        if commit_ord <= start_commit_ord
-            _verify_indexed_commit_prefix!(db, session_id, commit_ord, commit, tape_record_ord, ctx_file[], ctx_line[])
-            continue
-        end
+            if commit_ord <= start_commit_ord
+                _verify_indexed_commit_prefix!(db, session_id, commit_ord, commit, tape_record_ord, ctx.file, ctx.line_no)
+                return nothing
+            end
 
-        commit_uid = _commit_uid(session_id, commit_ord)
-        _sqlite_exec(db, """
-            INSERT INTO commits (
-                commit_uid, session_id, commit_ord, commit_label, commit_timestamp,
-                tape_record_ord, tape_file, tape_line_no
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            commit_uid,
-            session_id,
-            commit_ord,
-            commit.commit_label,
-            _string_or_nothing(get(commit.metadata, "timestamp", nothing)),
-            tape_record_ord,
-            ctx_file[],
-            ctx_line[],
-        ))
-        for (scope_ord, scope) in enumerate(commit.scopes)
-            _index_scope!(db, session_id, commit_uid, commit_ord, scope_ord, scope)
-        end
-    end
+            commit_uid = _commit_uid(session_id, commit_ord)
+            _sqlite_exec(db, """
+                INSERT INTO commits (
+                    commit_uid, session_id, commit_ord, commit_label, commit_timestamp,
+                    tape_record_ord, tape_file, tape_line_no
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                commit_uid,
+                session_id,
+                commit_ord,
+                commit.label,
+                _string_or_nothing(get(commit.metadata, "timestamp", nothing)),
+                tape_record_ord,
+                ctx.file,
+                ctx.line_no,
+            ))
+            for (scope_ord, scope) in enumerate(Kernel.ScopeSnapshot[s for s in commit.snapshots if s isa Kernel.ScopeSnapshot])
+                _index_scope!(db, session_id, commit_uid, commit_ord, scope_ord, scope)
+            end
+            return nothing
+        end,
+    )
 
     if tape_record_ord < start_tape_record_ord
         throw(_SQLiteIndexDriftError(
@@ -769,7 +756,7 @@ function _verify_indexed_commit_prefix!(
         db::SQLite.DB,
         session_id::String,
         commit_ord::Int,
-        commit::Kernel.ScopeCommit,
+        commit::Kernel.CaptureTree,
         tape_record_ord::Int,
         tape_file::String,
         tape_line_no::Int,
@@ -784,7 +771,7 @@ function _verify_indexed_commit_prefix!(
     ))
 
     if row[:commit_uid] != _commit_uid(session_id, commit_ord) ||
-       row[:commit_label] != commit.commit_label ||
+       row[:commit_label] != commit.label ||
        row[:tape_record_ord] != tape_record_ord ||
        row[:tape_file] != tape_file ||
        row[:tape_line_no] != tape_line_no
@@ -846,7 +833,7 @@ function _index_scope!(
         commit_uid::String,
         commit_ord::Int,
         scope_ord::Int,
-        scope::Kernel.SimuleosScope,
+        scope::Kernel.ScopeSnapshot,
     )
     scope_uid = _scope_uid(session_id, commit_ord, scope_ord)
 

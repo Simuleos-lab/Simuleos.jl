@@ -3,7 +3,7 @@
 # ============================================================
 
 """
-    filter_rules(scope::SimuleosScope, rules::Vector{Dict{Symbol, Any}}) -> SimuleosScope
+    filter_rules(scope::ScopeSnapshot, rules::Vector{Dict{Symbol, Any}}) -> ScopeSnapshot
 
 Apply filtering rules to a scope's variables.
 
@@ -13,7 +13,7 @@ Each rule: Dict(:regex => r"pattern", :action => :include/:exclude[, :scope => "
 Baseline behavior: Module and Function types are excluded unless an :include
 rule matches (but include is still blocked for these types).
 """
-function filter_rules(scope::SimuleosScope, rules::Vector{Dict{Symbol, Any}})
+function filter_rules(scope::ScopeSnapshot, rules::Vector{Dict{Symbol, Any}})
     filtered_vars = Dict{Symbol, ScopeVariable}()
 
     for (name, var) in scope.variables
@@ -23,10 +23,10 @@ function filter_rules(scope::SimuleosScope, rules::Vector{Dict{Symbol, Any}})
         end
     end
 
-    return SimuleosScope(copy(scope.labels), filtered_vars, copy(scope.metadata))
+    return ScopeSnapshot(copy(scope.labels), filtered_vars, copy(scope.metadata))
 end
 
-function _resolve_action(name::Symbol, var::ScopeVariable, scope::SimuleosScope, rules)
+function _resolve_action(name::Symbol, var::ScopeVariable, scope::ScopeSnapshot, rules)
     name_str = string(name)
 
     # Baseline: exclude Module and Function

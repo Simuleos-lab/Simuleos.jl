@@ -2,15 +2,12 @@ using Test
 using Simuleos
 using UUIDs
 
-function _empty_stage()::Simuleos.Kernel.ScopeStage
-    return Simuleos.Kernel.ScopeStage()
-end
-
 function _test_worksession()::Simuleos.Kernel.WorkSession
     return Simuleos.Kernel.WorkSession(;
         session_id = uuid4(),
         labels = ["test"],
-        stage = _empty_stage(),
+        stage = Simuleos.Kernel.CaptureTree(),
+        capture_policy = Simuleos.Kernel.CapturePolicy(),
         metadata = Dict{String, Any}(),
         simignore_rules = Dict{Symbol, Any}[],
     )
@@ -22,7 +19,7 @@ function _is_kept_after_filters(
         value,
         scope_label::AbstractString
     )::Bool
-    scope = Simuleos.Kernel.SimuleosScope(
+    scope = Simuleos.Kernel.ScopeSnapshot(
         [String(scope_label)],
         Dict{Symbol, Any}(name => value),
         Dict{Symbol, Any}()

@@ -49,7 +49,7 @@ function _write_json(io::IO, var::HashedScopeVariable)
     return nothing
 end
 
-function _write_json(io::IO, scope::SimuleosScope)
+function _write_json(io::IO, scope::ScopeSnapshot)
     print(io, "{\"labels\":")
     _write_json(io, scope.labels)
     print(io, ",\"variables\":")
@@ -62,40 +62,43 @@ function _write_json(io::IO, scope::SimuleosScope)
     return nothing
 end
 
-function _write_json(io::IO, commit::ScopeCommit)
+function _write_json(io::IO, tree::CaptureTree)
     print(io, "{\"type\":\"commit\",\"metadata\":")
-    _write_json(io, commit.metadata)
+    _write_json(io, tree.metadata)
+    # Write ScopeSnapshot entries as "scopes" for tape format compatibility
+    scopes = ScopeSnapshot[s for s in tree.snapshots if s isa ScopeSnapshot]
     print(io, ",\"scopes\":")
-    _write_json(io, commit.scopes)
-    if !isempty(commit.commit_label)
+    _write_json(io, scopes)
+    if !isempty(tree.label)
         print(io, ",\"commit_label\":")
-        _write_json(io, commit.commit_label)
+        _write_json(io, tree.label)
     end
     print(io, "}")
     return nothing
 end
 
 """
-    commit_to_tape!(tape::TapeIO, commit::ScopeCommit)
+    commit_to_tape!(tape::TapeIO, tree::CaptureTree)
 
-Write a ScopeCommit to the tape as a single JSON line.
+Write a CaptureTree to the tape as a single JSON line.
 """
-function commit_to_tape!(tape::TapeIO, commit::ScopeCommit)
-    append!(tape, commit)
+function commit_to_tape!(tape::TapeIO, tree::CaptureTree)
+    append!(tape, tree)
 end
 
 """
-    take_stage_commit!(stage::ScopeStage; label::String="", metadata::Dict{String,Any}=Dict{String,Any}())
+    take_stage_commit!(stage::CaptureTree, policy::CapturePolicy; label::String="", metadata::Dict{String,Any}=Dict{String,Any}())
 
-Build a `ScopeCommit` from the current stage and clear staged captures.
+Build a `CaptureTree` (commit node) from the current stage and clear staged snapshots.
 Does not write to tape.
 """
-function take_stage_commit!(stage::ScopeStage;
+function take_stage_commit!(stage::CaptureTree, policy::CapturePolicy;
         label::String = "",
         metadata::Dict{String, Any} = Dict{String, Any}()
     )
-    commit = ScopeCommit(label, copy(metadata), copy(stage.captures))
-    empty!(stage.captures)
-    empty!(stage.inline_vars)
+    commit = CaptureTree(label, copy(stage.snapshots), copy(stage.children), copy(metadata))
+    empty!(stage.snapshots)
+    empty!(stage.children)
+    empty!(policy.inline_vars)
     return commit
 end

@@ -253,43 +253,37 @@ function _blob_adapter_index_tape_incremental!(
     tape_info = _blob_adapter_tape_info(project_driver, String(tape_path))
     _upsert_tape!(db, tape_info)
 
-    ctx_file = Ref("")
-    ctx_line = Ref(0)
-    records = Kernel.each_tape_records_filtered(
-        tape;
-        line_filter = (line, ctx) -> true,
-        json_filter = (obj, ctx) -> begin
-            ctx_file[] = ctx.file
-            ctx_line[] = ctx.line_no
-            true
-        end,
-    )
-
     record_ord = 0
     last_record_file = nothing
     last_record_line = nothing
     last_record_hash = nothing
 
-    for raw in records
-        record_ord += 1
-        rec_hash = _record_hash(raw)
-        last_record_file = ctx_file[]
-        last_record_line = ctx_line[]
-        last_record_hash = rec_hash
+    Kernel.scan_tape_records_filtered(
+        tape;
+        line_filter = (line, ctx) -> true,
+        json_filter = (obj, ctx) -> true,
+        on_record = function (raw, ctx)
+            record_ord += 1
+            rec_hash = _record_hash(raw)
+            last_record_file = ctx.file
+            last_record_line = ctx.line_no
+            last_record_hash = rec_hash
 
-        if record_ord <= start_record_ord
-            _verify_indexed_tape_record_prefix!(db, tape_info.tape_uid, record_ord, raw, ctx_file[], ctx_line[]; record_hash = rec_hash)
-            if _record_type(raw) == Kernel._BLOB_RECORD_TYPE
-                _blob_adapter_verify_blob_record_prefix!(db, tape_info.tape_uid, record_ord, raw)
+            if record_ord <= start_record_ord
+                _verify_indexed_tape_record_prefix!(db, tape_info.tape_uid, record_ord, raw, ctx.file, ctx.line_no; record_hash = rec_hash)
+                if _record_type(raw) == Kernel._BLOB_RECORD_TYPE
+                    _blob_adapter_verify_blob_record_prefix!(db, tape_info.tape_uid, record_ord, raw)
+                end
+                return nothing
             end
-            continue
-        end
 
-        _insert_tape_record!(db, tape_info.tape_uid, record_ord, raw, ctx_file[], ctx_line[]; record_hash = rec_hash)
-        if _record_type(raw) == Kernel._BLOB_RECORD_TYPE
-            _blob_adapter_insert_blob_record!(db, tape_info.tape_uid, record_ord, raw)
-        end
-    end
+            _insert_tape_record!(db, tape_info.tape_uid, record_ord, raw, ctx.file, ctx.line_no; record_hash = rec_hash)
+            if _record_type(raw) == Kernel._BLOB_RECORD_TYPE
+                _blob_adapter_insert_blob_record!(db, tape_info.tape_uid, record_ord, raw)
+            end
+            return nothing
+        end,
+    )
 
     if record_ord < start_record_ord
         throw(_SQLiteIndexDriftError(

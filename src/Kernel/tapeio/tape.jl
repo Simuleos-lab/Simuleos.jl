@@ -126,10 +126,10 @@ function Base.append!(tape::TapeIO, record::AbstractDict)
     return tape
 end
 
-function Base.append!(tape::TapeIO, commit::ScopeCommit)
+function Base.append!(tape::TapeIO, tree::CaptureTree)
     target = _append_target_path(tape)
     _ensure_tape_metadata!(tape, target)
-    _append_json_line!(target, commit)
+    _append_json_line!(target, tree)
     _check_tape_size(target)
     return tape
 end
@@ -231,7 +231,7 @@ Equivalent to iterating the `TapeIO` handle directly.
 """
 iterate_tape(tape::TapeIO) = tape
 
-# -- Lazy filtered iteration (string prefilter -> parse -> JSON filter) --
+# -- Filtered query helpers (string prefilter -> parse -> JSON filter) --
 
 """
     TapeRecordFilterCtx
@@ -259,37 +259,15 @@ end
 """
     each_tape_records_filtered(tape::TapeIO; line_filter, json_filter)
 
-Lazily iterate parsed tape records using a two-stage filter:
+Collect parsed tape records using a two-stage filter:
 1. `line_filter(line, ctx)` runs on the stripped JSONL line string (before parsing)
 2. `json_filter(obj, ctx)` runs only for lines accepted by `line_filter`
 
-Only records accepted by both filters are yielded.
+Only records accepted by both filters are returned.
 Either callback may call `stop!(ctx)` to stop further scanning. If `json_filter`
-returns `true` and also calls `stop!(ctx)`, the current record is yielded and
-iteration ends on the next step.
+returns `true` and also calls `stop!(ctx)`, that accepted record is included and
+the scan ends.
 """
-struct FilteredTapeRecordIterator
-    tape::TapeIO
-    line_filter::Function
-    json_filter::Function
-end
-
-function each_tape_records_filtered(
-        tape::TapeIO;
-        line_filter::Function = (line, ctx) -> true,
-        json_filter::Function = (obj, ctx) -> true,
-    )
-    return FilteredTapeRecordIterator(tape, line_filter, json_filter)
-end
-
-mutable struct _FilteredTapeRecordState
-    files::Vector{String}
-    file_idx::Int
-    io::Union{Nothing, IO}
-    line_no::Int
-    stop::Bool
-end
-
 function _filtered_tape_files(tape::TapeIO)::Vector{String}
     if _is_fragmented_tape_path(tape.path)
         return _fragment_files(tape.path)
@@ -297,88 +275,66 @@ function _filtered_tape_files(tape::TapeIO)::Vector{String}
     return isfile(tape.path) ? String[tape.path] : String[]
 end
 
-function _filtered_tape_close!(state::_FilteredTapeRecordState)
-    if !isnothing(state.io)
-        close(state.io)
-        state.io = nothing
-    end
-    return nothing
-end
+"""
+    scan_tape_records_filtered(tape::TapeIO; line_filter, json_filter, on_record) -> Int
 
-function _filtered_tape_open_current!(state::_FilteredTapeRecordState)::Bool
-    state.file_idx > length(state.files) && return false
-    state.io = open(state.files[state.file_idx], "r")
-    state.line_no = 0
-    return true
-end
+Scan tape records with line/JSON filters and invoke `on_record(record, ctx)` for
+each accepted row. Returns the accepted-row count.
+"""
+function scan_tape_records_filtered(
+        tape::TapeIO;
+        line_filter::Function = (line, ctx) -> true,
+        json_filter::Function = (obj, ctx) -> true,
+        on_record::Function = (record, ctx) -> nothing,
+    )::Int
+    accepted = 0
+    for file_path in _filtered_tape_files(tape)
+        open(file_path, "r") do io
+            line_no = 0
+            while !eof(io)
+                line_no += 1
+                stripped = strip(readline(io))
+                isempty(stripped) && continue
 
-function _filtered_tape_finish!(state::_FilteredTapeRecordState)
-    _filtered_tape_close!(state)
-    return nothing
-end
+                ctx = TapeRecordFilterCtx(file_path, line_no)
+                line_ok = line_filter(stripped, ctx)
+                if !line_ok
+                    ctx.stop && return accepted
+                    continue
+                end
 
-function _filtered_tape_next(it::FilteredTapeRecordIterator, state::_FilteredTapeRecordState)
-    state.stop && (_filtered_tape_finish!(state); return nothing)
+                local record::Dict{String, Any}
+                try
+                    record = _from_json_string(stripped)
+                catch e
+                    error("Malformed JSON in tape `$(ctx.file)` at line $(ctx.line_no): $(e)")
+                end
 
-    while true
-        io = state.io
-        isnothing(io) && return nothing
-
-        while !eof(io)
-            line = readline(io)
-            state.line_no += 1
-            stripped = strip(line)
-            isempty(stripped) && continue
-
-            ctx = TapeRecordFilterCtx(state.files[state.file_idx], state.line_no)
-
-            line_ok = it.line_filter(stripped, ctx)
-            ctx.stop && (state.stop = true)
-            if !line_ok
-                state.stop && (_filtered_tape_finish!(state); return nothing)
-                continue
+                if json_filter(record, ctx)
+                    on_record(record, ctx)
+                    accepted += 1
+                end
+                ctx.stop && return accepted
             end
-
-            local record::Dict{String, Any}
-            try
-                record = _from_json_string(stripped)
-            catch e
-                _filtered_tape_finish!(state)
-                error("Malformed JSON in tape `$(ctx.file)` at line $(ctx.line_no): $(e)")
-            end
-
-            json_ok = it.json_filter(record, ctx)
-            ctx.stop && (state.stop = true)
-
-            if json_ok
-                return (record, state)
-            end
-
-            state.stop && (_filtered_tape_finish!(state); return nothing)
         end
-
-        _filtered_tape_close!(state)
-        state.file_idx += 1
-        state.file_idx > length(state.files) && return nothing
-        _filtered_tape_open_current!(state) || return nothing
     end
+    return accepted
 end
 
-function Base.iterate(it::FilteredTapeRecordIterator)
-    files = _filtered_tape_files(it.tape)
-    isempty(files) && return nothing
-
-    state = _FilteredTapeRecordState(files, 1, nothing, 0, false)
-    _filtered_tape_open_current!(state) || return nothing
-    return _filtered_tape_next(it, state)
+function each_tape_records_filtered(
+        tape::TapeIO;
+        line_filter::Function = (line, ctx) -> true,
+        json_filter::Function = (obj, ctx) -> true,
+    )
+    rows = Dict{String, Any}[]
+    scan_tape_records_filtered(
+        tape;
+        line_filter = line_filter,
+        json_filter = json_filter,
+        on_record = (record, ctx) -> push!(rows, record),
+    )
+    return rows
 end
-
-function Base.iterate(it::FilteredTapeRecordIterator, state::_FilteredTapeRecordState)
-    return _filtered_tape_next(it, state)
-end
-
-Base.IteratorSize(::Type{FilteredTapeRecordIterator}) = Base.SizeUnknown()
-Base.eltype(::Type{FilteredTapeRecordIterator}) = Dict{String, Any}
 
 """
     findfirst_tape_record(tape::TapeIO; line_filter, json_filter) -> Union{Dict{String, Any}, Nothing}
@@ -386,9 +342,7 @@ Base.eltype(::Type{FilteredTapeRecordIterator}) = Dict{String, Any}
 Return the first record accepted by the two-stage filters, or `nothing` if no
 match is found.
 
-This helper calls `stop!(ctx)` internally on the first accepted record so the
-underlying filtered iterator can close resources cleanly without requiring the
-caller to manage `ctx.stop`.
+This helper calls `stop!(ctx)` internally on the first accepted record.
 """
 function findfirst_tape_record(
         tape::TapeIO;
@@ -401,9 +355,8 @@ function findfirst_tape_record(
         ok && stop!(ctx)
         return ok
     end
-    for record in each_tape_records_filtered(tape; line_filter=line_filter, json_filter=wrapped_json_filter)
-        found = record
-    end
+    rows = each_tape_records_filtered(tape; line_filter=line_filter, json_filter=wrapped_json_filter)
+    isempty(rows) || (found = rows[1])
     return found
 end
 
@@ -435,9 +388,7 @@ function findlast_tape_record(
         line_filter::Function = (line, ctx) -> true,
         json_filter::Function = (obj, ctx) -> true,
     )
-    found = nothing
-    for record in each_tape_records_filtered(tape; line_filter=line_filter, json_filter=json_filter)
-        found = record
-    end
-    return found
+    rows = each_tape_records_filtered(tape; line_filter=line_filter, json_filter=json_filter)
+    isempty(rows) && return nothing
+    return rows[end]
 end

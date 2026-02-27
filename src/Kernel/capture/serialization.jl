@@ -1,16 +1,16 @@
 # ============================================================
-# capture/serialization.jl — Serialize/deserialize PartialCapture
+# capture/serialization.jl — Serialize PartialSnapshot subtypes
 #
-# Bridge between in-memory capture structs and Dict
+# Bridge between in-memory snapshot structs and Dict
 # representations suitable for JSON/tape storage.
 # ============================================================
 
 """
-    serialize_capture(c::PartialCapture) -> Dict{String, Any}
+    serialize_capture(c::PartialSnapshot) -> Dict{String, Any}
 
-Convert a PartialCapture to a Dict for JSON serialization.
+Convert a PartialSnapshot to a Dict for JSON serialization.
 """
-function serialize_capture(c::SettingsCapture)::Dict{String, Any}
+function serialize_capture(c::SettingsSnapshot)::Dict{String, Any}
     return Dict{String, Any}(
         "type" => "settings_capture",
         "accessed" => copy(c.accessed),
@@ -18,7 +18,7 @@ function serialize_capture(c::SettingsCapture)::Dict{String, Any}
     )
 end
 
-function serialize_capture(c::SourceCapture)::Dict{String, Any}
+function serialize_capture(c::SourceSnapshot)::Dict{String, Any}
     return Dict{String, Any}(
         "type" => "source_capture",
         "git_commit" => c.git_commit,
@@ -28,7 +28,7 @@ function serialize_capture(c::SourceCapture)::Dict{String, Any}
     )
 end
 
-function serialize_capture(c::EnvironmentCapture)::Dict{String, Any}
+function serialize_capture(c::EnvironmentSnapshot)::Dict{String, Any}
     return Dict{String, Any}(
         "type" => "environment_capture",
         "julia_version" => c.julia_version,
@@ -40,7 +40,7 @@ function serialize_capture(c::EnvironmentCapture)::Dict{String, Any}
     )
 end
 
-function serialize_capture(c::ExecutionCapture)::Dict{String, Any}
+function serialize_capture(c::ExecutionSnapshot)::Dict{String, Any}
     return Dict{String, Any}(
         "type" => "execution_capture",
         "src_file" => c.src_file,
@@ -48,5 +48,17 @@ function serialize_capture(c::ExecutionCapture)::Dict{String, Any}
         "threadid" => c.threadid,
         "timestamp" => c.timestamp,
     )
+end
+
+function serialize_capture(c::ScopeSnapshot)::Dict{String, Any}
+    d = Dict{String, Any}(
+        "type" => "scope_capture",
+        "labels" => copy(c.labels),
+        "variables" => Dict{String, Any}(string(k) => string(v) for (k, v) in c.variables),
+    )
+    if !isempty(c.metadata)
+        d["metadata"] = Dict{String, Any}(string(k) => v for (k, v) in c.metadata)
+    end
+    return d
 end
 

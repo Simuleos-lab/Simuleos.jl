@@ -12,7 +12,7 @@ function SimOs(;
         home = nothing,
         worksession = nothing,
         settings_stack = nothing,
-        shared_scopes::Dict{String, SimuleosScope} = Dict{String, SimuleosScope}(),
+        shared_scopes::Dict{String, ScopeSnapshot} = Dict{String, ScopeSnapshot}(),
         sqlite_db = nothing,
         sqlite_db_path::Union{Nothing, String} = nothing,
     )
@@ -37,8 +37,9 @@ BlobStorage(proj::SimuleosProject) = BlobStorage(blobs_dir(proj.simuleos_dir))
 function WorkSession(;
         session_id::Base.UUID = uuid4(),
         labels::Vector{String} = String[],
-        stage::ScopeStage = ScopeStage(),
-        pending_commits::Vector{ScopeCommit} = ScopeCommit[],
+        stage::CaptureTree = CaptureTree(),
+        pending_commits::Vector{CaptureTree} = CaptureTree[],
+        capture_policy::CapturePolicy = CapturePolicy(),
         is_finalized::Bool = false,
         metadata::Dict{String, Any} = Dict{String, Any}(),
         context_hash_reg::Dict{String, String} = Dict{String, String}(),
@@ -48,14 +49,15 @@ function WorkSession(;
         capture_filter_bindings::Dict{String, Vector{String}} = Dict{String, Vector{String}}(),
         settings_access_log::Union{Nothing, Dict{String, Any}} = nothing,
         settings_access_tracking::Bool = true,
-        source_capture::Union{Nothing, SourceCapture} = nothing,
-        environment_capture::Union{Nothing, EnvironmentCapture} = nothing,
+        source_capture::Union{Nothing, SourceSnapshot} = nothing,
+        environment_capture::Union{Nothing, EnvironmentSnapshot} = nothing,
     )
     WorkSession(
         session_id,
         labels,
         stage,
         pending_commits,
+        capture_policy,
         is_finalized,
         metadata,
         context_hash_reg,
@@ -100,13 +102,13 @@ function Base.show(io::IO, v::HashedScopeVariable)
     print(io, "Hashed(", v.level, ", ", v.type_short, ", ", h, ")")
 end
 
-function Base.show(io::IO, scope::SimuleosScope)
+function Base.show(io::IO, scope::ScopeSnapshot)
     nv = length(scope.variables)
-    print(io, "SimuleosScope(labels=", scope.labels, ", vars=", nv, ")")
+    print(io, "ScopeSnapshot(labels=", scope.labels, ", vars=", nv, ")")
 end
 
-function Base.show(io::IO, ::MIME"text/plain", scope::SimuleosScope)
-    println(io, "SimuleosScope")
+function Base.show(io::IO, ::MIME"text/plain", scope::ScopeSnapshot)
+    println(io, "ScopeSnapshot")
     println(io, "  labels: ", scope.labels)
     println(io, "  variables (", length(scope.variables), "):")
     for (name, var) in sort(collect(scope.variables); by=first)
@@ -133,9 +135,11 @@ function Base.show(io::IO, ::MIME"text/plain", scope::SimuleosScope)
     end
 end
 
-function Base.show(io::IO, commit::ScopeCommit)
-    lbl = isempty(commit.commit_label) ? "(unlabeled)" : commit.commit_label
-    print(io, "ScopeCommit(", lbl, ", scopes=", length(commit.scopes), ")")
+function Base.show(io::IO, tree::CaptureTree)
+    lbl = isempty(tree.label) ? "(unlabeled)" : tree.label
+    ns = count(s -> s isa ScopeSnapshot, tree.snapshots)
+    nc = length(tree.children)
+    print(io, "CaptureTree(", lbl, ", snapshots=", ns, ", children=", nc, ")")
 end
 
 function Base.show(io::IO, proj::SimuleosProject)

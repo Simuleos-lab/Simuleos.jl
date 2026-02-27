@@ -4,8 +4,8 @@ using UUIDs
 
 # Convenience aliases for Kernel ScopeTapes + TapeIO + BlobStorage APIs
 const TapeIO = Simuleos.Kernel.TapeIO
-const ScopeCommit = Simuleos.Kernel.ScopeCommit
-const SimuleosScope = Simuleos.Kernel.SimuleosScope
+const CaptureTree = Simuleos.Kernel.CaptureTree
+const ScopeSnapshot = Simuleos.Kernel.ScopeSnapshot
 const InlineScopeVariable = Simuleos.Kernel.InlineScopeVariable
 const BlobScopeVariable = Simuleos.Kernel.BlobScopeVariable
 const VoidScopeVariable = Simuleos.Kernel.VoidScopeVariable
@@ -266,7 +266,7 @@ const exists = Simuleos.Kernel.exists
 
             commits = collect(iterate_commits(hashed_tape))
             @test length(commits) == 1
-            s = commits[1].scopes[1]
+            s = commits[1].snapshots[1]
             var_h = s.variables[:h]
             @test var_h isa HashedScopeVariable
             @test var_h.type_short == "Vector{Int64}"
@@ -279,18 +279,18 @@ const exists = Simuleos.Kernel.exists
             @test length(commits) == 2
 
             c1 = commits[1]
-            @test c1 isa ScopeCommit
-            @test c1.commit_label == "first_commit"
+            @test c1 isa CaptureTree
+            @test c1.label == "first_commit"
             @test c1.metadata["git_branch"] == "main"
             @test c1.metadata["timestamp"] == "2024-01-15T10:30:00"
 
             c2 = commits[2]
-            @test c2.commit_label == ""
+            @test c2.label == ""
             @test c2.metadata["timestamp"] == "2024-01-15T10:31:00"
 
-            @test length(c1.scopes) == 1
-            s = c1.scopes[1]
-            @test s isa SimuleosScope
+            @test length(c1.snapshots) == 1
+            s = c1.snapshots[1]
+            @test s isa ScopeSnapshot
             @test s.labels == ["scope1", "iteration", "step1"]
             @test s.metadata[:step] == 1
 
@@ -306,7 +306,7 @@ const exists = Simuleos.Kernel.exists
             @test var_y.level == :local
             @test var_y.blob_ref.hash == blob_hash
 
-            s2 = c2.scopes[1]
+            s2 = c2.snapshots[1]
             @test s2.variables[:k] isa VoidScopeVariable
         end
 

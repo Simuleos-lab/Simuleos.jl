@@ -17,8 +17,8 @@ function is_capture_excluded(var::ScopeVariable)::Bool
     return is_capture_excluded(var.value)
 end
 
-"""Check whether a SimuleosScope has a variable with the given name."""
-hasvar(scope::SimuleosScope, name::Symbol) = haskey(scope.variables, name)
+"""Check whether a ScopeSnapshot has a variable with the given name."""
+hasvar(scope::ScopeSnapshot, name::Symbol) = haskey(scope.variables, name)
 
 const LITE_TYPES = Union{Bool, Int, Float64, String, Nothing, Missing, Symbol}
 _is_lite(::LITE_TYPES) = true
