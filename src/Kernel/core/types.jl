@@ -120,7 +120,7 @@ ScopeSnapshot() = ScopeSnapshot(String[], Dict{Symbol, ScopeVariable}(), Dict{Sy
     CaptureTree
 
 A recursive, labeled container for snapshots.
-Replaces both CaptureStage (accumulator) and CaptureCommit (committed group).
+Used both as stage (accumulator between commits) and as committed tree node.
 """
 mutable struct CaptureTree
     label::String
@@ -134,8 +134,8 @@ CaptureTree(label::String="") = CaptureTree(label, PartialSnapshot[], CaptureTre
 """
     CapturePolicy
 
-Capture policy controlling how variables are stored.
-Extracted from the old CaptureStage to live on WorkSession separately.
+Capture policy controlling how variables are stored (inline, blob, hash).
+Lives on `WorkSession` separately from the `CaptureTree` stage.
 """
 mutable struct CapturePolicy
     inline_vars::Set{Symbol}

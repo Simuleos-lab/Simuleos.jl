@@ -56,5 +56,3 @@ struct ExecutionSnapshot <: PartialSnapshot
     threadid::Int
     timestamp::String
 end
-
-
