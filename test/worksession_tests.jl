@@ -661,7 +661,7 @@ using Dates
             @test length(var_b.value_hash) == 40
 
             # value() returns nothing for hashed vars
-            @test Simuleos.ScopeReader.value(var_a, proj2) === nothing
+            @test Simuleos.value(var_a, proj2) === nothing
 
             # same value → same hash
             ref_hash = kernel.blob_ref(("value_hash_v1", "data_a", [1, 2, 3])).hash

@@ -559,3 +559,131 @@ function findlast_tape_record(
     )
     return found
 end
+
+_normalize_tape_fetch_limit(limit::Nothing) = nothing
+function _normalize_tape_fetch_limit(limit::Integer)
+    limit > 0 || error("Expected `limit > 0`, got `$(limit)`.")
+    return Int(limit)
+end
+
+"""
+    each_tape_records(tape::TapeIO; line_filter, json_filter, on_record, reverse=false) -> Int
+
+Agnostic callback-based record scan.
+
+- `line_filter(line, ctx)`: pre-JSON filter
+- `json_filter(record, ctx)`: parsed-record filter
+- `on_record(record, ctx)`: callback for accepted records
+
+Returns accepted-record count.
+"""
+function each_tape_records(
+        tape::TapeIO;
+        line_filter::Function = (line, ctx) -> true,
+        json_filter::Function = (obj, ctx) -> true,
+        on_record::Function = (record, ctx) -> nothing,
+        reverse::Bool = false,
+    )::Int
+    scanner = reverse ? scan_tape_records_filtered_reverse : scan_tape_records_filtered
+    return scanner(
+        tape;
+        line_filter = line_filter,
+        json_filter = json_filter,
+        on_record = on_record,
+    )
+end
+
+"""
+    fetch_tape_records(tape::TapeIO; line_filter, json_filter, reverse=false, limit=nothing) -> Vector{Dict{String, Any}}
+
+Materialize accepted records from `each_tape_records`.
+"""
+function fetch_tape_records(
+        tape::TapeIO;
+        line_filter::Function = (line, ctx) -> true,
+        json_filter::Function = (obj, ctx) -> true,
+        reverse::Bool = false,
+        limit::Union{Nothing, Integer} = nothing,
+    )::Vector{Dict{String, Any}}
+    max_rows = _normalize_tape_fetch_limit(limit)
+    rows = Dict{String, Any}[]
+    each_tape_records(
+        tape;
+        line_filter = line_filter,
+        json_filter = json_filter,
+        reverse = reverse,
+        on_record = function (record, ctx)
+            push!(rows, record)
+            !isnothing(max_rows) && length(rows) >= max_rows && stop!(ctx)
+            return nothing
+        end,
+    )
+    return rows
+end
+
+"""
+    find_tape_records(tape::TapeIO; line_filter, json_filter, reverse=false, limit=nothing) -> Vector{Dict{String, Any}}
+
+Agnostic finder alias over `fetch_tape_records`.
+"""
+function find_tape_records(
+        tape::TapeIO;
+        line_filter::Function = (line, ctx) -> true,
+        json_filter::Function = (obj, ctx) -> true,
+        reverse::Bool = false,
+        limit::Union{Nothing, Integer} = nothing,
+    )::Vector{Dict{String, Any}}
+    return fetch_tape_records(
+        tape;
+        line_filter = line_filter,
+        json_filter = json_filter,
+        reverse = reverse,
+        limit = limit,
+    )
+end
+
+"""
+    latest_tape_record(tape::TapeIO; line_filter, json_filter) -> Union{Dict{String, Any}, Nothing}
+
+Return the latest matching record in tape order.
+"""
+function latest_tape_record(
+        tape::TapeIO;
+        line_filter::Function = (line, ctx) -> true,
+        json_filter::Function = (obj, ctx) -> true,
+    )::Union{Dict{String, Any}, Nothing}
+    return findlast_tape_record(
+        tape;
+        line_filter = line_filter,
+        json_filter = json_filter,
+    )
+end
+
+"""
+    table_tape_records(tape::TapeIO; line_filter, json_filter, row_builder, reverse=false, limit=nothing) -> Vector
+
+Map accepted tape records to table rows via `row_builder(record, ctx)`.
+"""
+function table_tape_records(
+        tape::TapeIO;
+        line_filter::Function = (line, ctx) -> true,
+        json_filter::Function = (obj, ctx) -> true,
+        row_builder::Function = (record, ctx) -> record,
+        reverse::Bool = false,
+        limit::Union{Nothing, Integer} = nothing,
+    )::Vector
+    max_rows = _normalize_tape_fetch_limit(limit)
+    rows = Any[]
+    each_tape_records(
+        tape;
+        line_filter = line_filter,
+        json_filter = json_filter,
+        reverse = reverse,
+        on_record = function (record, ctx)
+            push!(rows, row_builder(record, ctx))
+            !isnothing(max_rows) && length(rows) >= max_rows && stop!(ctx)
+            return nothing
+        end,
+    )
+    return rows
+end

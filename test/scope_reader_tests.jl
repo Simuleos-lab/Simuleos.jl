@@ -4,7 +4,7 @@ using UUIDs
 
 global _simuleos_expand_global = 0
 
-@testset "ScopeReader project-driven interface" begin
+@testset "Sessiontrace project-driven interface" begin
     mktempdir() do root
         simuleos_dir = joinpath(root, ".simuleos")
         mkpath(simuleos_dir)
@@ -46,7 +46,7 @@ global _simuleos_expand_global = 0
             ]
         ))
 
-        scopes_by_label = collect(Simuleos.ScopeReader.each_scopes(project_driver; session="reader-test"))
+        scopes_by_label = collect(Simuleos.Kernel.each_scopes(project_driver; session="reader-test"))
         @test length(scopes_by_label) == 1
         @test scopes_by_label[1].labels == ["scope-one", "tag"]
         latest = Simuleos.latest_scope(project_driver; session="reader-test")
@@ -82,12 +82,12 @@ global _simuleos_expand_global = 0
             end
         end
 
-        scopes_by_uuid = collect(Simuleos.ScopeReader.each_scopes(project_driver; session=session_id))
+        scopes_by_uuid = collect(Simuleos.Kernel.each_scopes(project_driver; session=session_id))
         @test length(scopes_by_uuid) == 1
         latest_by_uuid = Simuleos.latest_scope(project_driver; session=session_id)
         @test latest_by_uuid.labels == ["scope-one", "tag"]
 
-        @test_throws ErrorException collect(Simuleos.ScopeReader.each_scopes(project_driver; session="missing-label"))
+        @test_throws ErrorException collect(Simuleos.Kernel.each_scopes(project_driver; session="missing-label"))
         @test_throws ErrorException Simuleos.latest_scope(project_driver; session="missing-label")
 
         @testset "scope_table" begin
@@ -180,27 +180,27 @@ global _simuleos_expand_global = 0
             @test latest_both.metadata[:step] == 2
             @test latest_both.labels == ["second"]
 
-            scopes_by_commit_label = collect(Simuleos.ScopeReader.each_scopes(
+            scopes_by_commit_label = collect(Simuleos.Kernel.each_scopes(
                 project_driver; session="reader-filter", commit_label="stage-output"))
             @test [s.metadata[:step] for s in scopes_by_commit_label] == [1, 2]
             @test [s.labels[1] for s in scopes_by_commit_label] == ["first", "second"]
 
-            scopes_by_src = collect(Simuleos.ScopeReader.each_scopes(
+            scopes_by_src = collect(Simuleos.Kernel.each_scopes(
                 project_driver; session="reader-filter", src_file="stage.jl"))
             @test [s.metadata[:step] for s in scopes_by_src] == [1, 2]
             @test [s.labels[1] for s in scopes_by_src] == ["first", "second"]
 
-            scopes_both = collect(Simuleos.ScopeReader.each_scopes(
+            scopes_both = collect(Simuleos.Kernel.each_scopes(
                 project_driver; session="reader-filter", commit_label="stage-output", src_file="stage.jl"))
             @test [s.metadata[:step] for s in scopes_both] == [1, 2]
             @test [s.labels[1] for s in scopes_both] == ["first", "second"]
 
-            scopes_by_scope_label = collect(Simuleos.ScopeReader.each_scopes(
+            scopes_by_scope_label = collect(Simuleos.Kernel.each_scopes(
                 project_driver; session="reader-filter", scope_label="second"))
             @test [s.metadata[:step] for s in scopes_by_scope_label] == [2]
             @test [s.labels[1] for s in scopes_by_scope_label] == ["second"]
 
-            scopes_all_filters = collect(Simuleos.ScopeReader.each_scopes(
+            scopes_all_filters = collect(Simuleos.Kernel.each_scopes(
                 project_driver;
                 session="reader-filter",
                 commit_label="stage-output",

@@ -9,44 +9,61 @@ module Kernel
 using UUIDs
 using Dates
 
-# -- Core: snapshot types (no deps), then main types, then utilities --
-include("core/snapshot_types.jl")
-include("core/types.jl")
-include("core/base.jl")
-include("core/utils.jl")
-include("core/fs.jl")
-include("core/env.jl")
+# -- Foundation primitives and shared state types --
+include("Foundation/snapshot_types.jl")
+include("Foundation/types.jl")
+include("Foundation/state.jl")
+include("Foundation/utils.jl")
 
-# -- Data subsystems (depend on types + utils) --
-include("tapeio/json.jl")
-include("tapeio/tape.jl")
-include("tapeio/record.jl")
-include("blobstorage/blob.jl")
-include("cache.jl")
+# -- Infra (record-agnostic drivers + environment plumbing) --
+include("Infra/project/fs.jl")
+include("Infra/settings/env.jl")
+include("Infra/tapeio/json.jl")
+include("Infra/tapeio/tape.jl")
+include("Infra/tapeio/record.jl")
+include("Infra/blobstorage/blob.jl")
+include("Infra/cache/cache.jl")
 
-# -- Scope subsystems --
-include("scoperias/base.jl")
-include("scoperias/ops.jl")
-include("scoperias/macros.jl")
-include("scopetapes/base.jl")
-include("scopetapes/write.jl")
+# -- Semantic class system --
+include("ClassSystem/registry.jl")
+include("ClassSystem/catalog.jl")
+include("ClassSystem/tags.jl")
+classsystem_bootstrap!()
 
-# -- Git --
-include("gitmeta/git.jl")
+# -- Semantic class implementation lanes (placeholder scaffolds) --
+include("Classes/decode_dispatch.jl")
+include("Classes/encode_dispatch.jl")
+include("Classes/src/placeholder.jl")
+include("Classes/snap/placeholder.jl")
+include("Classes/rec/placeholder.jl")
 
-# -- Capture subsystem (collectors + serialization) --
-include("capture/collectors.jl")
-include("capture/serialization.jl")
+# -- Workflow: sessiontrace (formerly scope/scopetape flow) --
+include("Workflows/sessiontrace/scoperias/base.jl")
+include("Workflows/sessiontrace/scoperias/ops.jl")
+include("Workflows/sessiontrace/scoperias/macros.jl")
+include("Workflows/sessiontrace/scopetapes/base.jl")
+include("Workflows/sessiontrace/scopetapes/read.jl")
+include("Workflows/sessiontrace/scopetapes/write.jl")
+include("Workflows/sessiontrace/reader.jl")
 
-# -- Project and Home (depend on fs, json) --
-include("core/project.jl")
-include("core/home.jl")
+# -- Infra: git --
+include("Infra/git/git.jl")
 
-# -- Settings (depends on home, project, env) --
-include("core/settings.jl")
-include("core/cli_args.jl")
+# -- Workflow: capture --
+include("Workflows/capture/collectors.jl")
+include("Workflows/capture/serialization.jl")
+
+# -- Workflow placeholders for upcoming lane extraction --
+include("Workflows/contextref/placeholder.jl")
+include("Workflows/sharedstate/placeholder.jl")
+
+# -- Infra: project/home/settings --
+include("Infra/project/project.jl")
+include("Infra/home/home.jl")
+include("Infra/settings/settings.jl")
+include("Infra/settings/cli_args.jl")
 
 # -- SimOs global state (depends on everything above) --
-include("core/simos.jl")
+include("Foundation/simos.jl")
 
 end # module Kernel

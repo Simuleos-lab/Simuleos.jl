@@ -2,6 +2,11 @@
 # scopetapes/write.jl — Writing commits to tape
 # ============================================================
 
+function _require_scope_class_registration!()::Nothing
+    class_require!(_SCOPE_CLASS_ID, _SCOPE_CLASS_VERSION)
+    return nothing
+end
+
 """
     _write_json(io::IO, var::InlineScopeVariable)
 
@@ -50,7 +55,11 @@ function _write_json(io::IO, var::HashedScopeVariable)
 end
 
 function _write_json(io::IO, scope::ScopeSnapshot)
-    print(io, "{\"labels\":")
+    print(io, "{\"class_id\":")
+    _write_json(io, _SCOPE_CLASS_ID)
+    print(io, ",\"class_version\":")
+    _write_json(io, _SCOPE_CLASS_VERSION)
+    print(io, ",\"labels\":")
     _write_json(io, scope.labels)
     print(io, ",\"variables\":")
     _write_json(io, scope.variables)
@@ -63,6 +72,7 @@ function _write_json(io::IO, scope::ScopeSnapshot)
 end
 
 function _write_json(io::IO, tree::CaptureTree)
+    _require_scope_class_registration!()
     print(io, "{\"type\":\"commit\",\"metadata\":")
     _write_json(io, tree.metadata)
     # Write ScopeSnapshot entries as "scopes" for tape format compatibility

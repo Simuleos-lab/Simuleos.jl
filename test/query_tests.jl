@@ -13,11 +13,26 @@ const HashedScopeVariable = Simuleos.Kernel.HashedScopeVariable
 const iterate_tape = Simuleos.Kernel.iterate_tape
 const iterate_commits = Simuleos.Kernel.iterate_commits
 const each_tape_records_filtered = Simuleos.Kernel.each_tape_records_filtered
+const each_tape_records = Simuleos.Kernel.each_tape_records
+const fetch_tape_records = Simuleos.Kernel.fetch_tape_records
+const find_tape_records = Simuleos.Kernel.find_tape_records
+const latest_tape_record = Simuleos.Kernel.latest_tape_record
+const table_tape_records = Simuleos.Kernel.table_tape_records
 const scan_tape_records_filtered_reverse = Simuleos.Kernel.scan_tape_records_filtered_reverse
 const findfirst_tape_record = Simuleos.Kernel.findfirst_tape_record
 const any_tape_record = Simuleos.Kernel.any_tape_record
 const findlast_tape_record = Simuleos.Kernel.findlast_tape_record
 const tape_stop! = Simuleos.Kernel.stop!
+const decode_scope_commit_record = Simuleos.Kernel.decode_scope_commit_record
+const each_scope_commits = Simuleos.Kernel.each_scope_commits
+const fetch_scope_commits = Simuleos.Kernel.fetch_scope_commits
+const find_scope_commits = Simuleos.Kernel.find_scope_commits
+const latest_scope_commit = Simuleos.Kernel.latest_scope_commit
+const each_scope_snapshots = Simuleos.Kernel.each_scope_snapshots
+const fetch_scope_snapshots = Simuleos.Kernel.fetch_scope_snapshots
+const find_scope_snapshots = Simuleos.Kernel.find_scope_snapshots
+const latest_scope_snapshot = Simuleos.Kernel.latest_scope_snapshot
+const table_scope_snapshots = Simuleos.Kernel.table_scope_snapshots
 const BlobStorage = Simuleos.Kernel.BlobStorage
 const blob_ref = Simuleos.Kernel.blob_ref
 const blob_write = Simuleos.Kernel.blob_write
@@ -275,6 +290,56 @@ const exists = Simuleos.Kernel.exists
             @test accepted_reverse_stop == 1
             @test length(reverse_stop_rows) == 1
             @test get(reverse_stop_rows[1], "commit_label", "") == ""
+
+            callback_labels = String[]
+            accepted = each_tape_records(
+                tape;
+                line_filter = (line, ctx) -> occursin("\"type\":\"commit\"", line),
+                json_filter = (row, ctx) -> get(row, "type", "") == "commit",
+                on_record = (row, ctx) -> push!(callback_labels, get(row, "commit_label", "")),
+            )
+            @test accepted == 2
+            @test callback_labels == ["first_commit", ""]
+
+            fetched_reverse = fetch_tape_records(
+                tape;
+                line_filter = (line, ctx) -> occursin("\"type\":\"commit\"", line),
+                json_filter = (row, ctx) -> get(row, "type", "") == "commit",
+                reverse = true,
+                limit = 1,
+            )
+            @test length(fetched_reverse) == 1
+            @test get(fetched_reverse[1], "commit_label", "") == ""
+
+            found_forward = find_tape_records(
+                tape;
+                line_filter = (line, ctx) -> occursin("\"type\":\"commit\"", line),
+                json_filter = (row, ctx) -> get(row, "type", "") == "commit",
+                limit = 1,
+            )
+            @test length(found_forward) == 1
+            @test get(found_forward[1], "commit_label", "") == "first_commit"
+
+            latest_row = latest_tape_record(
+                tape;
+                line_filter = (line, ctx) -> occursin("\"type\":\"commit\"", line),
+                json_filter = (row, ctx) -> get(row, "type", "") == "commit",
+            )
+            @test !isnothing(latest_row)
+            @test get(latest_row, "commit_label", "") == ""
+
+            table_rows = table_tape_records(
+                tape;
+                line_filter = (line, ctx) -> occursin("\"type\":\"commit\"", line),
+                json_filter = (row, ctx) -> get(row, "type", "") == "commit",
+                reverse = true,
+                row_builder = (row, ctx) -> Dict(
+                    :commit_label => get(row, "commit_label", ""),
+                    :line_no => ctx.line_no,
+                ),
+            )
+            @test [row[:commit_label] for row in table_rows] == ["", "first_commit"]
+            @test [row[:line_no] for row in table_rows] == [3, 2]
         end
 
         @testset "HashedScopeVariable tape round-trip" begin
@@ -339,6 +404,80 @@ const exists = Simuleos.Kernel.exists
 
             s2 = c2.snapshots[1]
             @test s2.variables[:k] isa VoidScopeVariable
+        end
+
+        @testset "Scope semantic readers" begin
+            raw_commit = findfirst_tape_record(
+                tape;
+                line_filter = (line, ctx) -> occursin("\"first_commit\"", line),
+                json_filter = (row, ctx) -> get(row, "commit_label", "") == "first_commit",
+            )
+            @test !isnothing(raw_commit)
+            decoded = decode_scope_commit_record(raw_commit)
+            @test decoded.label == "first_commit"
+
+            callback_commit_labels = String[]
+            commit_count = each_scope_commits(
+                tape;
+                on_commit = (commit, raw, ctx) -> push!(callback_commit_labels, commit.label),
+            )
+            @test commit_count == 2
+            @test callback_commit_labels == ["first_commit", ""]
+
+            commits_forward = fetch_scope_commits(tape)
+            @test length(commits_forward) == 2
+            @test [c.label for c in commits_forward] == ["first_commit", ""]
+
+            commits_latest = find_scope_commits(tape; reverse = true, limit = 1)
+            @test length(commits_latest) == 1
+            @test commits_latest[1].label == ""
+
+            latest_commit = latest_scope_commit(tape)
+            @test !isnothing(latest_commit)
+            @test latest_commit.label == ""
+
+            scope_steps = Int[]
+            scope_count = each_scope_snapshots(
+                tape;
+                scope_filter = (scope, commit, raw, ctx, scope_ord) -> haskey(scope.metadata, :step),
+                on_scope = function (scope, commit, raw, ctx, scope_ord)
+                    push!(scope_steps, Int(scope.metadata[:step]))
+                    tape_stop!(ctx)
+                    return nothing
+                end,
+            )
+            @test scope_count == 1
+            @test scope_steps == [1]
+
+            scopes_by_commit = fetch_scope_snapshots(
+                tape;
+                commit_filter = (commit, raw, ctx) -> commit.label == "first_commit",
+            )
+            @test length(scopes_by_commit) == 1
+            @test scopes_by_commit[1].labels == ["scope1", "iteration", "step1"]
+
+            scopes_found = find_scope_snapshots(
+                tape;
+                scope_filter = (scope, commit, raw, ctx, scope_ord) -> haskey(scope.variables, :z),
+            )
+            @test length(scopes_found) == 1
+            @test scopes_found[1].labels == ["scope2"]
+
+            latest_scope = latest_scope_snapshot(tape)
+            @test !isnothing(latest_scope)
+            @test latest_scope.labels == ["scope2"]
+
+            scope_rows = table_scope_snapshots(
+                tape;
+                row_builder = (scope, commit, raw, ctx, scope_ord) -> Dict(
+                    :commit_label => commit.label,
+                    :scope_labels => join(scope.labels, ";"),
+                    :scope_ord => scope_ord,
+                ),
+            )
+            @test [row[:commit_label] for row in scope_rows] == ["first_commit", ""]
+            @test [row[:scope_labels] for row in scope_rows] == ["scope1;iteration;step1", "scope2"]
+            @test [row[:scope_ord] for row in scope_rows] == [1, 1]
         end
 
         @testset "TapeIO Key Normalization" begin

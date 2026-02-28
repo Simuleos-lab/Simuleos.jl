@@ -89,7 +89,7 @@ function _scan_scope_tape!(
             _record_type(raw) == "commit" || return nothing
             commit_ord += 1
 
-            commit = Kernel._parse_commit(raw)
+            commit = Kernel.decode_scope_commit_record(raw)
             last_commit_file = ctx.file
             last_commit_line = ctx.line_no
 

@@ -3,7 +3,6 @@
 # ============================================================
 
 const _SimWS = WorkSession
-const _SimSR = ScopeReader
 const _SimKrn = Kernel
 const _SimSQLI = SQLiteIndex
 const _SQLite = SQLite
