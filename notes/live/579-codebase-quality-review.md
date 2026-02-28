@@ -26,7 +26,7 @@ One file currently mixes settings data model definitions, stack caching, registr
 **Expected impact:**
 Lower cognitive load, smaller diffs, faster onboarding, and safer incremental changes in settings behavior.
 
-### Issue: `@simos` handlers remain broad and repetitive
+### ~~Issue: `@simos` handlers remain broad and repetitive~~
 
 **Location:** `src/SimosAPI/macro/handlers.jl`
 
