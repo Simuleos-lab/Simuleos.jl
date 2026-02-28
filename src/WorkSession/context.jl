@@ -34,6 +34,8 @@ function context_capture!(
         proj::_Kernel.SimuleosProject,
     )::_Kernel.RecordRef
 
+    _Kernel._require_context_class_registration!()
+
     # Flush settings access log
     settings_accessed = _flush_settings_access_log!(ws)
 
@@ -64,9 +66,11 @@ function context_capture!(
     tree["session_id"] = string(ws.session_id)
     tree["labels"] = copy(ws.labels)
 
+    payload = _Kernel.encode_snap_context_record(tree)
+
     # Write to tape
     tape = _Kernel.TapeIO(_Kernel.tape_path(proj, ws.session_id))
-    return _Kernel.record_write(tape, tree)
+    return _Kernel.record_write(tape, payload)
 end
 
 """
@@ -80,5 +84,8 @@ function context_resolve(
         ref_str::String,
     )::Union{Dict{String, Any}, Nothing}
     tape = _Kernel.TapeIO(_Kernel.tape_path(proj, ws.session_id))
-    return _Kernel.record_resolve(tape, ref_str)
+    payload = _Kernel.record_resolve(tape, ref_str)
+    isnothing(payload) && return nothing
+    payload isa AbstractDict || error("Expected context payload to be a dict-like record.")
+    return _Kernel.decode_snap_context_record(payload)
 end

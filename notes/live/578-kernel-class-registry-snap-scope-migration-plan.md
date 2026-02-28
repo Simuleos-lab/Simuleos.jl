@@ -15,7 +15,7 @@ This note now includes the follow-up migration plan for those out-of-scope class
 
 ## Phase 1: Minimal registry core
 
-- Add `src/Kernel/classsystem/registry.jl`.
+- Add `src/Kernel/ClassSystem/registry.jl`.
 - Define a minimal spec object with fields:
   - `id::String`
   - `version::Int`
@@ -66,7 +66,7 @@ Phase 1 implementation rule:
 
 - Route scope rehydration through registry metadata + Julia class-tag dispatch for `snap.scope`.
 - Update semantic scope readers to rely on registry decode, not ad-hoc direct parse calls.
-- Keep public read API unchanged (`ScopeReader` facade remains thin).
+- Keep public read API unchanged (top-level `Simuleos.latest_scope` and related helpers remain stable).
 
 ## Phase 5: SQLite adapter alignment
 
@@ -164,18 +164,22 @@ Extended definition of done (all classes):
 ## Status update
 
 - Phase 1 implemented on 2026-02-27:
-  - metadata-only registry scaffold added in `src/Kernel/classsystem/registry.jl`
+  - metadata-only registry scaffold added in `src/Kernel/ClassSystem/registry.jl`
   - Kernel wiring added in `src/Kernel/Kernel.jl`
   - tests added in `test/class_registry_tests.jl`
 - Phase 2 implemented on 2026-02-27:
-  - built-in class catalog added in `src/Kernel/classsystem/catalog.jl`
+  - built-in class catalog added in `src/Kernel/ClassSystem/catalog.jl`
   - bootstrap wiring added in `src/Kernel/Kernel.jl`
   - bootstrap presence assertions added in `test/class_registry_tests.jl`
 - Phase 3 implemented on 2026-02-27:
-  - `snap.scope` class stamping added on scope serialization in `src/Kernel/scopetapes/write.jl`
-  - write boundary class gate added via registry requirement in `src/Kernel/scopetapes/write.jl`
+  - `snap.scope` class stamping added on scope serialization in `src/Kernel/Workflows/sessiontrace/scopetapes/write.jl`
+  - write boundary class gate added via registry requirement in `src/Kernel/Workflows/sessiontrace/scopetapes/write.jl`
   - gate + marker assertions added in `test/class_registry_tests.jl`
 - Phase 4 implemented on 2026-02-28:
-  - scope decode now resolves `class_id`/`class_version` and routes through Julia class-tag dispatch in `src/Kernel/scopetapes/base.jl`
-  - semantic scope readers now consume the class-dispatch decode path via existing commit/scope read APIs in `src/Kernel/scopetapes/read.jl`
+  - scope decode now resolves `class_id`/`class_version` and routes through Julia class-tag dispatch.
+  - `snap.scope` class semantics now live in `src/Kernel/Classes/snap/scope.jl` and are consumed by sessiontrace readers in `src/Kernel/Workflows/sessiontrace/scopetapes/read.jl`.
   - class-tag read assertions (valid + invalid class markers) added in `test/class_registry_tests.jl`
+- Phase 8 partially implemented on 2026-02-28:
+  - `snap.context` write path now stamps class metadata through `encode_snap_context_record` in `src/Kernel/Classes/snap/context.jl`.
+  - context capture now enforces class registration gate before persistence in `src/WorkSession/context.jl`.
+  - context resolve now routes through class-dispatch decode in `src/Kernel/Classes/snap/context.jl` while keeping `Dict{String, Any}` API shape.

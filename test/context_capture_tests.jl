@@ -32,6 +32,8 @@
             # Resolve
             data = WS.context_resolve(proj, ws, ref.hash)
             @test data isa Dict{String, Any}
+            @test data["class_id"] == "snap.context"
+            @test data["class_version"] == 1
             @test haskey(data, "session_id")
             @test data["session_id"] == string(ws.session_id)
             @test haskey(data, "labels")

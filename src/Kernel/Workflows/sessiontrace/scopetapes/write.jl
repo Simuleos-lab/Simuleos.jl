@@ -55,20 +55,7 @@ function _write_json(io::IO, var::HashedScopeVariable)
 end
 
 function _write_json(io::IO, scope::ScopeSnapshot)
-    print(io, "{\"class_id\":")
-    _write_json(io, _SCOPE_CLASS_ID)
-    print(io, ",\"class_version\":")
-    _write_json(io, _SCOPE_CLASS_VERSION)
-    print(io, ",\"labels\":")
-    _write_json(io, scope.labels)
-    print(io, ",\"variables\":")
-    _write_json(io, scope.variables)
-    if !isempty(scope.metadata)
-        print(io, ",\"metadata\":")
-        _write_json(io, scope.metadata)
-    end
-    print(io, "}")
-    return nothing
+    return encode_snap_scope_record!(io, scope)
 end
 
 function _write_json(io::IO, tree::CaptureTree)

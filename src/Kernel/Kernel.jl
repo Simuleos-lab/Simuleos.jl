@@ -34,7 +34,9 @@ classsystem_bootstrap!()
 include("Classes/decode_dispatch.jl")
 include("Classes/encode_dispatch.jl")
 include("Classes/src/placeholder.jl")
-include("Classes/snap/placeholder.jl")
+include("Classes/snap/scope.jl")
+include("Classes/snap/context.jl")
+include("Classes/snap/shared_placeholder.jl")
 include("Classes/rec/placeholder.jl")
 
 # -- Workflow: sessiontrace (formerly scope/scopetape flow) --
