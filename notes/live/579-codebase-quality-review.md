@@ -47,7 +47,7 @@ The handlers file centralizes many command families and repeats wrapper patterns
 **Expected impact:**
 More uniform command behavior, reduced duplication bugs, and easier extension of `@simos` surfaces.
 
-### Issue: Multiple silent catch/fallback paths hide actionable failures
+### ~~Issue: Multiple silent catch/fallback paths hide actionable failures~~
 
 **Location:** `src/Kernel/Foundation/simos.jl`, `src/SQLiteIndex/sql_helpers.jl`, `src/Kernel/Infra/project/project.jl`, `src/Kernel/Infra/cache/cache.jl`
 

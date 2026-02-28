@@ -15,10 +15,11 @@ function _with_sqlite_transaction(f::Function, db::SQLite.DB)
     try
         f()
         _sqlite_exec(db, "COMMIT")
-    catch
+    catch err
         try
             _sqlite_exec(db, "ROLLBACK")
-        catch
+        catch rollback_err
+            throw(CompositeException([err, rollback_err]))
         end
         rethrow()
     end

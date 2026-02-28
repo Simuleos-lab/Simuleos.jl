@@ -66,8 +66,6 @@ function _simos_close_cached_sqlite_db!(sim::SimOs)
 
     try
         close(db)
-    catch
-        # Reset should not fail solely because a cached SQLite handle was already closed.
     finally
         sim.sqlite_db = nothing
         sim.sqlite_db_path = nothing

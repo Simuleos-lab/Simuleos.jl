@@ -111,6 +111,19 @@ using Dates
         @test resolved.labels == [label, "new"]
     end
 
+    @testset "session timestamp parsing fails hard on malformed metadata" begin
+        @test_throws ErrorException kernel._session_timestamp(Dict{String, Any}())
+        @test_throws ArgumentError kernel._session_timestamp(
+            Dict{String, Any}(kernel.SESSION_META_TIMESTAMP_KEY => "not-a-datetime")
+        )
+    end
+
+    @testset "cache hit parsing fails hard on malformed metadata" begin
+        @test kernel._cache_hits(2) == 2
+        @test kernel._cache_hits("3") == 3
+        @test_throws ArgumentError kernel._cache_hits("not-an-int")
+    end
+
     @testset "resolve_session(proj, label) creates new session when missing" begin
         label = "new-" * string(uuid4())
         resolved = wsmod.resolve_session(proj, label)

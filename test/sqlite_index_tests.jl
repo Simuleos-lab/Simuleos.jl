@@ -16,6 +16,23 @@ function _sqlite_one(db, sql::AbstractString, params = ())
     return only(rows)
 end
 
+@testset "_with_sqlite_transaction surfaces rollback failures" begin
+    db = SQLite.DB(tempname() * ".sqlite")
+    err = try
+        Simuleos.SQLiteIndex._with_sqlite_transaction(db) do
+            SQLite.close(db)
+            error("primary transaction failure")
+        end
+        nothing
+    catch e
+        e
+    end
+
+    @test err isa CompositeException
+    @test length(err.exceptions) == 2
+    @test err.exceptions[1] isa ErrorException
+end
+
 @testset "SQLiteIndex Phase 2 refresh incremental + drift fallback" begin
     mktempdir() do root
         project_driver = Simuleos.Kernel.proj_init_at(root)

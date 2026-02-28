@@ -143,12 +143,8 @@ end
 
 function _session_timestamp(meta::Dict{String, Any})::Dates.DateTime
     raw = get(meta, SESSION_META_TIMESTAMP_KEY, nothing)
-    raw isa String || return Dates.DateTime(0)
-    try
-        return Dates.DateTime(raw)
-    catch
-        return Dates.DateTime(0)
-    end
+    raw isa String || error("Session metadata `timestamp` must be a String.")
+    return Dates.DateTime(raw)
 end
 
 function _session_meta(raw::Dict{String, Any})::Dict{String, Any}

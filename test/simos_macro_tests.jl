@@ -3,6 +3,9 @@ using Simuleos
 using UUIDs
 using SQLite
 
+struct _CloseFailureHandle end
+Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
+
 @testset "@simos dispatch macro" begin
     kernel = Simuleos.Kernel
     wsmod = Simuleos.WorkSession
@@ -577,6 +580,18 @@ using SQLite
             @test isnothing(sim.sqlite_db_path)
             @test (@simos sqlite.close()) == false
             @test_throws ErrorException (@simos sqlite.execute("SELECT 1"))
+        end
+    end
+
+    @testset "@simos sqlite.close surfaces close failures" begin
+        with_test_context() do _
+            sim = kernel._get_sim()
+            sim.sqlite_db = _CloseFailureHandle()
+            sim.sqlite_db_path = "metadata-v1.sqlite"
+
+            @test_throws ErrorException (@simos sqlite.close())
+            @test isnothing(sim.sqlite_db)
+            @test isnothing(sim.sqlite_db_path)
         end
     end
 

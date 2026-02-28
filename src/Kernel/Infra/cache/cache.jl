@@ -33,14 +33,8 @@ function _cache_tags(tags)::Vector{String}
 end
 
 function _cache_hits(v)::Int
-    if v isa Integer
-        return Int(v)
-    end
-    try
-        return parse(Int, string(v))
-    catch
-        return 0
-    end
+    v isa Integer && return Int(v)
+    return parse(Int, string(v))
 end
 
 function _cache_meta_seed(namespace::String, ctx_hash::String, ref::BlobRef; tags = String[])::Dict{String, Any}
