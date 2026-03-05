@@ -10,7 +10,7 @@
 
 - `002-core-design-principles.md` — Foundational product/design principles for simulation work.
 - `003-public-api-surface.md` — Ownership and promotion rules for external API.
-- `004-system-architecture-principles.md` — Core architecture and state model constraints.
+- `004-system-architecture-principles.md` — Core architecture, state model, and settings stack design (layers, registry, alias system).
 - `005-integration-model.md` — Explicit-vs-implicit integration guidance for interface design.
 - `006-workflow-surfaces.md` — High-level user workflow surfaces and invariants.
 - `007-index-governance.md` — Rules for what belongs in the index and how it is curated.

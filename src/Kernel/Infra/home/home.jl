@@ -26,7 +26,7 @@ function home_init!(path::String = _default_home_path())
 end
 
 function home_init!(simos::SimOs)
-    configured = get(simos.bootstrap, "home.path", nothing)
+    configured = get(simos.runtime_settings, SETTING_KEY_HOME_PATH, nothing)
     home_path = if configured isa String && !isempty(strip(configured))
         configured
     else

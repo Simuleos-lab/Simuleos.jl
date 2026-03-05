@@ -3,13 +3,13 @@
 # ============================================================
 
 _scope_record_is_commit(raw::AbstractDict)::Bool =
-    string(get(raw, "type", get(raw, :type, ""))) == "commit"
+    _record_class_id_value(raw; default = "") == _CAPTURE_COMMIT_CLASS_ID
 
 _scope_commit_line_filter(line::AbstractString, ctx::TapeRecordFilterCtx)::Bool =
-    occursin("\"type\":\"commit\"", line)
+    occursin("\"$(CLASS_ID_KEY)\":\"$(_CAPTURE_COMMIT_CLASS_ID)\"", line)
 
-_commit_scope_snapshots(commit::CaptureTree)::Vector{ScopeSnapshot} =
-    ScopeSnapshot[s for s in commit.snapshots if s isa ScopeSnapshot]
+_commit_scope_snapshots(commit::RecCaptureCommitV1)::Vector{SnapScopeV1} =
+    commit_scope_snapshots(commit)
 
 _normalize_scope_fetch_limit(limit::Nothing) = nothing
 function _normalize_scope_fetch_limit(limit::Integer)
@@ -56,7 +56,7 @@ function each_scope_commits(
 end
 
 """
-    fetch_scope_commits(tape::TapeIO; line_filter, record_filter, commit_filter, reverse=false, limit=nothing) -> Vector{CaptureTree}
+    fetch_scope_commits(tape::TapeIO; line_filter, record_filter, commit_filter, reverse=false, limit=nothing) -> Vector{RecCaptureCommitV1}
 
 Materialize semantic commit reads.
 """
@@ -67,9 +67,9 @@ function fetch_scope_commits(
         commit_filter::Function = (commit, raw, ctx) -> true,
         reverse::Bool = false,
         limit::Union{Nothing, Integer} = nothing,
-    )::Vector{CaptureTree}
+    )::Vector{RecCaptureCommitV1}
     max_rows = _normalize_scope_fetch_limit(limit)
-    commits = CaptureTree[]
+    commits = RecCaptureCommitV1[]
     each_scope_commits(
         tape;
         line_filter = line_filter,
@@ -86,7 +86,7 @@ function fetch_scope_commits(
 end
 
 """
-    find_scope_commits(tape::TapeIO; line_filter, record_filter, commit_filter, reverse=false, limit=nothing) -> Vector{CaptureTree}
+    find_scope_commits(tape::TapeIO; line_filter, record_filter, commit_filter, reverse=false, limit=nothing) -> Vector{RecCaptureCommitV1}
 
 Semantic finder alias over `fetch_scope_commits`.
 """
@@ -97,7 +97,7 @@ function find_scope_commits(
         commit_filter::Function = (commit, raw, ctx) -> true,
         reverse::Bool = false,
         limit::Union{Nothing, Integer} = nothing,
-    )::Vector{CaptureTree}
+    )::Vector{RecCaptureCommitV1}
     return fetch_scope_commits(
         tape;
         line_filter = line_filter,
@@ -109,7 +109,7 @@ function find_scope_commits(
 end
 
 """
-    latest_scope_commit(tape::TapeIO; line_filter, record_filter, commit_filter) -> Union{CaptureTree, Nothing}
+    latest_scope_commit(tape::TapeIO; line_filter, record_filter, commit_filter) -> Union{RecCaptureCommitV1, Nothing}
 
 Return the latest semantic commit match in tape order.
 """
@@ -118,7 +118,7 @@ function latest_scope_commit(
         line_filter::Function = _scope_commit_line_filter,
         record_filter::Function = (raw, ctx) -> true,
         commit_filter::Function = (commit, raw, ctx) -> true,
-    )::Union{CaptureTree, Nothing}
+    )::Union{RecCaptureCommitV1, Nothing}
     commits = fetch_scope_commits(
         tape;
         line_filter = line_filter,
@@ -206,7 +206,7 @@ function each_scope_snapshots(
 end
 
 """
-    fetch_scope_snapshots(tape::TapeIO; line_filter, record_filter, commit_filter, scope_filter, reverse=false, limit=nothing) -> Vector{ScopeSnapshot}
+    fetch_scope_snapshots(tape::TapeIO; line_filter, record_filter, commit_filter, scope_filter, reverse=false, limit=nothing) -> Vector{SnapScopeV1}
 
 Materialize semantic scope reads.
 """
@@ -218,9 +218,9 @@ function fetch_scope_snapshots(
         scope_filter::Function = (scope, commit, raw, ctx, scope_ord) -> true,
         reverse::Bool = false,
         limit::Union{Nothing, Integer} = nothing,
-    )::Vector{ScopeSnapshot}
+    )::Vector{SnapScopeV1}
     max_rows = _normalize_scope_fetch_limit(limit)
-    scopes = ScopeSnapshot[]
+    scopes = SnapScopeV1[]
     each_scope_snapshots(
         tape;
         line_filter = line_filter,
@@ -238,7 +238,7 @@ function fetch_scope_snapshots(
 end
 
 """
-    find_scope_snapshots(tape::TapeIO; line_filter, record_filter, commit_filter, scope_filter, reverse=false, limit=nothing) -> Vector{ScopeSnapshot}
+    find_scope_snapshots(tape::TapeIO; line_filter, record_filter, commit_filter, scope_filter, reverse=false, limit=nothing) -> Vector{SnapScopeV1}
 
 Semantic finder alias over `fetch_scope_snapshots`.
 """
@@ -250,7 +250,7 @@ function find_scope_snapshots(
         scope_filter::Function = (scope, commit, raw, ctx, scope_ord) -> true,
         reverse::Bool = false,
         limit::Union{Nothing, Integer} = nothing,
-    )::Vector{ScopeSnapshot}
+    )::Vector{SnapScopeV1}
     return fetch_scope_snapshots(
         tape;
         line_filter = line_filter,
@@ -263,7 +263,7 @@ function find_scope_snapshots(
 end
 
 """
-    latest_scope_snapshot(tape::TapeIO; line_filter, record_filter, commit_filter, scope_filter) -> Union{ScopeSnapshot, Nothing}
+    latest_scope_snapshot(tape::TapeIO; line_filter, record_filter, commit_filter, scope_filter) -> Union{SnapScopeV1, Nothing}
 
 Return the latest semantic scope match in tape order.
 """
@@ -273,7 +273,7 @@ function latest_scope_snapshot(
         record_filter::Function = (raw, ctx) -> true,
         commit_filter::Function = (commit, raw, ctx) -> true,
         scope_filter::Function = (scope, commit, raw, ctx, scope_ord) -> true,
-    )::Union{ScopeSnapshot, Nothing}
+    )::Union{SnapScopeV1, Nothing}
     scopes = fetch_scope_snapshots(
         tape;
         line_filter = line_filter,
@@ -287,8 +287,8 @@ function latest_scope_snapshot(
 end
 
 function _default_scope_row(
-        scope::ScopeSnapshot,
-        commit::CaptureTree,
+        scope::SnapScopeV1,
+        commit::RecCaptureCommitV1,
         raw::AbstractDict,
         ctx::TapeRecordFilterCtx,
         scope_ord::Int,
@@ -342,15 +342,15 @@ function table_scope_snapshots(
     return rows
 end
 
-scope_value(var::InlineScopeVariable, project_driver::SimuleosProject) = var.value
-scope_value(var::BlobScopeVariable, project_driver::SimuleosProject) = blob_read(project_driver.blobstorage, var.blob_ref)
-scope_value(var::VoidScopeVariable, project_driver::SimuleosProject) = nothing
-scope_value(var::HashedScopeVariable, project_driver::SimuleosProject) = nothing
+scope_value(var::InlineScopeVariable, proj::SimuleosProject) = var.value
+scope_value(var::BlobScopeVariable, proj::SimuleosProject) = blob_read(proj.blobstorage, var.blob_ref)
+scope_value(var::VoidScopeVariable, proj::SimuleosProject) = nothing
+scope_value(var::HashedScopeVariable, proj::SimuleosProject) = nothing
 scope_value(var::InlineScopeVariable, ::Nothing) = var.value
 scope_value(var::VoidScopeVariable, ::Nothing) = nothing
 scope_value(var::HashedScopeVariable, ::Nothing) = nothing
 function scope_value(var::BlobScopeVariable, ::Nothing)
-    error("Cannot resolve blob-backed scope variable `$(var.type_short)` without a project driver.")
+    error("Cannot resolve blob-backed scope variable `$(var.type_short)` without a project.")
 end
 
 scope_expand_level(var::InlineScopeVariable)::Symbol = var.level
@@ -358,19 +358,40 @@ scope_expand_level(var::BlobScopeVariable)::Symbol = var.level
 scope_expand_level(var::VoidScopeVariable)::Symbol = var.level
 scope_expand_level(var::HashedScopeVariable)::Symbol = var.level
 
-"""
-    scope_expand_runtime!(scope::ScopeSnapshot, project_driver, name::Symbol) -> Tuple{Symbol, Any}
-
-Resolve one scope variable for runtime scope binding.
-"""
-function scope_expand_runtime!(
-        scope::ScopeSnapshot,
-        project_driver,
+function _scope_expand_runtime_impl(
+        variables::Dict{Symbol, ScopeVariable},
+        proj,
         name::Symbol,
     )::Tuple{Symbol, Any}
-    haskey(scope.variables, name) || error("Variable `$(name)` not found in scope.")
-    var = scope.variables[name]
-    return (scope_expand_level(var), scope_value(var, project_driver))
+    haskey(variables, name) || error("Variable `$(name)` not found in scope.")
+    var = variables[name]
+    return (scope_expand_level(var), scope_value(var, proj))
+end
+
+"""
+    scope_expand_runtime!(scope::SnapScopeV1, proj, name::Symbol) -> Tuple{Symbol, Any}
+
+Resolve one captured scope variable for runtime scope binding.
+"""
+function scope_expand_runtime!(
+        scope::SnapScopeV1,
+        proj,
+        name::Symbol,
+    )::Tuple{Symbol, Any}
+    return _scope_expand_runtime_impl(scope.variables, proj, name)
+end
+
+"""
+    scope_expand_runtime!(scope::SnapSharedV1, proj, name::Symbol) -> Tuple{Symbol, Any}
+
+Resolve one captured shared variable for runtime scope binding.
+"""
+function scope_expand_runtime!(
+        scope::SnapSharedV1,
+        proj,
+        name::Symbol,
+    )::Tuple{Symbol, Any}
+    return _scope_expand_runtime_impl(scope.variables, proj, name)
 end
 
 """

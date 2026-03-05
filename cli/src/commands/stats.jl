@@ -105,10 +105,11 @@ function _session_tape_stats(
     tape_bytes = _sum_file_sizes(tape_files)
 
     tape = Simuleos.Kernel.TapeIO(tape_path)
-    for commit in Simuleos.Kernel.iterate_tape(tape)
+    for commit in Simuleos.Kernel.iterate_commits(tape)
         commit_count += 1
-        scope_count += length(commit.scopes)
-        for scope in commit.scopes
+        scopes = Simuleos.Kernel.commit_scope_snapshots(commit)
+        scope_count += length(scopes)
+        for scope in scopes
             variable_count += length(scope.variables)
             for variable in values(scope.variables)
                 if variable isa Simuleos.Kernel.InlineScopeVariable

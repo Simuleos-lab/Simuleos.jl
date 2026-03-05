@@ -36,7 +36,7 @@ end
 function _capture_session_metadata(; script_path::String = "", extra...)
     meta = _session_metadata_base(; include_runtime = true, script_path = script_path)
 
-    sim = _Kernel._get_sim_or_nothing()
+    sim = _Kernel._get_simos_or_nothing()
     gh = (!isnothing(sim) && !isnothing(sim.project)) ? sim.project.git_handler : nothing
     _append_git_metadata!(meta, gh)
 

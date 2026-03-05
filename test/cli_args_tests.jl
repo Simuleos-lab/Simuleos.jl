@@ -92,7 +92,7 @@
 
     @testset "settings_source_add_args! integrates with stack" begin
         with_test_context() do ctx
-            sim = Kernel._get_sim()
+            sim = Kernel._get_simos()
 
             args = ["--set", "run.alpha=0.5", "--set", "run.seed=42"]
             layer = Kernel.settings_source_add_args!(sim, args)
@@ -102,22 +102,20 @@
             @test layer.data["run.alpha"] === 0.5
             @test layer.data["run.seed"] === 42
 
-            # CLI should override lower layers
+            # :cli is inserted after :session — highest priority, overrides :script
             Kernel.settings_layer_set!(sim, :script, "run.alpha", 999.0)
-            # But cli is inserted after :env, before :bootstrap/:script/:session
-            # So :script (higher priority) should win
-            val = Kernel.get_setting(sim, "run.alpha")
-            @test val === 999.0
+            val = Kernel.settings(sim, "run.alpha")
+            @test val === 0.5
 
             # CLI should override :env and below
-            val_seed = Kernel.get_setting(sim, "run.seed")
+            val_seed = Kernel.settings(sim, "run.seed")
             @test val_seed === 42
         end
     end
 
     @testset "settings_source_add_args! merges on repeated calls" begin
         with_test_context() do ctx
-            sim = Kernel._get_sim()
+            sim = Kernel._get_simos()
 
             Kernel.settings_source_add_args!(sim, ["--set", "a=1"])
             Kernel.settings_source_add_args!(sim, ["--set", "b=2"])
@@ -129,17 +127,16 @@
         end
     end
 
-    @testset "layer priority: home < project < json_file < env < cli < bootstrap < script < session" begin
+    @testset "layer priority: defaults < home < project < json_file < env < runtime < script < session < cli" begin
         with_test_context() do ctx
-            sim = Kernel._get_sim()
+            sim = Kernel._get_simos()
 
-            # Set in :env (lower than :cli)
-            Kernel.settings_layer_set!(sim, :bootstrap, "test.priority", "bootstrap")
+            # :cli is highest priority — overrides :runtime
+            Kernel.settings_layer_set!(sim, :runtime, "test.priority", "runtime")
             Kernel.settings_source_add_args!(sim, ["--set", "test.priority=cli"])
 
-            # :bootstrap is higher priority than :cli, so bootstrap wins
-            val = Kernel.get_setting(sim, "test.priority")
-            @test val == "bootstrap"
+            val = Kernel.settings(sim, "test.priority")
+            @test val == "cli"
 
             # But if we set in env and cli, cli wins
             stack = Kernel._settings_stack_required(sim)
@@ -148,7 +145,7 @@
             Kernel._settings_stack_rebuild!(stack)
 
             Kernel.settings_source_add_args!(sim, ["--set", "test.envkey=from_cli"])
-            val2 = Kernel.get_setting(sim, "test.envkey")
+            val2 = Kernel.settings(sim, "test.envkey")
             @test val2 == "from_cli"
         end
     end

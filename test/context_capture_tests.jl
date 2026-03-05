@@ -3,20 +3,17 @@
     WS = Simuleos.WorkSession
 
     with_test_context() do ctx
-        sim = Kernel._get_sim()
+        sim = Kernel._get_simos()
         proj = Kernel.sim_project(sim)
 
-        # Set some settings
         Kernel.settings_layer_set!(sim, :script, "run.alpha", 0.5)
         Kernel.settings_layer_set!(sim, :script, "run.beta", 1.0)
 
-        # Init session
         ws = WS.session_init!(sim, proj; labels=["context-test"])
 
         @testset "context_capture! returns RecordRef" begin
-            # Access some settings to populate the log
-            Kernel.get_setting(sim, "run.alpha")
-            Kernel.get_setting(sim, "run.beta")
+            Kernel.settings(sim, "run.alpha")
+            Kernel.settings(sim, "run.beta")
 
             ref = WS.context_capture!(ws, proj)
             @test ref isa Kernel.RecordRef
@@ -24,58 +21,49 @@
             @test length(ref.short) == Kernel.RECORD_REF_SHORT_LEN
         end
 
-        @testset "context_resolve retrieves full tree" begin
-            # Access a setting and capture
-            Kernel.get_setting(sim, "run.alpha")
+        @testset "context_resolve returns typed context" begin
+            Kernel.settings(sim, "run.alpha")
             ref = WS.context_capture!(ws, proj)
 
-            # Resolve
             data = WS.context_resolve(proj, ws, ref.hash)
-            @test data isa Dict{String, Any}
-            @test data["class_id"] == "snap.context"
-            @test data["class_version"] == 1
-            @test haskey(data, "session_id")
-            @test data["session_id"] == string(ws.session_id)
-            @test haskey(data, "labels")
-            @test haskey(data, "execution")
-            @test data["execution"]["type"] == "execution_capture"
+            @test data isa Kernel.SnapContextV1
+            @test data.session_id == string(ws.session_id)
+            @test data.labels == ws.labels
+            @test data.execution isa Kernel.SrcExecutionSiteV1
+            @test !isempty(data.execution.timestamp)
         end
 
-        @testset "context tree includes source and environment" begin
+        @testset "context includes source and environment" begin
             ref = WS.context_capture!(ws, proj)
             data = WS.context_resolve(proj, ws, ref.hash)
 
-            @test haskey(data, "source")
-            @test data["source"]["type"] == "source_capture"
-
-            @test haskey(data, "environment")
-            @test data["environment"]["type"] == "environment_capture"
-            @test data["environment"]["julia_version"] == string(VERSION)
+            @test data isa Kernel.SnapContextV1
+            @test data.source isa Kernel.SrcCodebaseV1
+            @test data.environment isa Kernel.SrcRuntimeHostV1
+            @test data.environment.julia_version == string(VERSION)
         end
 
-        @testset "context tree includes settings when accessed" begin
-            Kernel.get_setting(sim, "run.alpha")
+        @testset "context includes settings when accessed" begin
+            Kernel.settings(sim, "run.alpha")
             ref = WS.context_capture!(ws, proj)
             data = WS.context_resolve(proj, ws, ref.hash)
 
-            @test haskey(data, "settings")
-            @test data["settings"]["type"] == "settings_capture"
-            @test data["settings"]["accessed"]["run.alpha"] == 0.5
+            @test data isa Kernel.SnapContextV1
+            @test data.settings isa Kernel.SrcSettingsAccessV1
+            @test data.settings.accessed["run.alpha"] == 0.5
         end
 
         @testset "settings log flushed after capture" begin
-            Kernel.get_setting(sim, "run.beta")
+            Kernel.settings(sim, "run.beta")
             WS.context_capture!(ws, proj)
-
-            # Log should be flushed
             @test isempty(ws.settings_access_log)
         end
 
         @testset "resolve by short prefix" begin
             ref = WS.context_capture!(ws, proj)
             data = WS.context_resolve(proj, ws, ref.short)
-            @test data isa Dict{String, Any}
-            @test data["session_id"] == string(ws.session_id)
+            @test data isa Kernel.SnapContextV1
+            @test data.session_id == string(ws.session_id)
         end
 
         @testset "resolve nonexistent returns nothing" begin

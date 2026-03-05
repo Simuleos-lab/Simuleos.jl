@@ -67,7 +67,7 @@ function _simos_dispatch_cache_remember(mod, src, posargs::Vector{Any}, kwargs::
 end
 
 const _SIMOS_COMMAND_SPECS = (
-    _simos_command_spec((:system, :init), "Engine init/reinit (`bootstrap`, `sandbox`, `reinit`, `sandbox_cleanup`, `project_basename_hint`)", _simos_init;
+    _simos_command_spec((:system, :init), "Engine init/reinit (`sandbox`, `reinit`, `sandbox_cleanup`, `project_basename_hint`, plus runtime-setting kwargs)", _simos_init;
         invoke_mode = :kw_assigns,
         require_no_do = true,
         posargs_rule = :none,
@@ -141,7 +141,7 @@ const _SIMOS_COMMAND_SPECS = (
         invoke_mode = :mod_src_posargs_kwargs,
         require_no_do = true,
     ),
-    _simos_command_spec((:settings, :source, :reload), "Reload one source or all reloadable sources", _simos_settings_source_reload;
+    _simos_command_spec((:settings, :source, :reload), "Reload one source or all reloadable sources", _simos_settings_source_reload_external;
         invoke_mode = :mod_src_posargs_kwargs,
         require_no_do = true,
     ),

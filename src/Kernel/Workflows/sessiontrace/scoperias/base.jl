@@ -1,15 +1,15 @@
 # ============================================================
-# scoperias/base.jl — ScopeSnapshot constructors
+# scoperias/base.jl — SnapScopeV1 constructors
 # ============================================================
 
 """
-    ScopeSnapshot(labels, variables, metadata)
+    SnapScopeV1(labels, variables, metadata)
 
 Construct a scope with flexible input types.
 - `variables` can be Dict{Symbol, ScopeVariable} or Dict{Symbol, Any}
   (raw values are wrapped as InlineScopeVariable with :local level)
 """
-function ScopeSnapshot(labels::Vector{String}, variables::Dict{Symbol, Any}, metadata::Dict{Symbol, Any})
+function SnapScopeV1(labels::Vector{String}, variables::Dict{Symbol, Any}, metadata::Dict{Symbol, Any})
     typed_vars = Dict{Symbol, ScopeVariable}()
     for (name, val) in variables
         if val isa ScopeVariable
@@ -18,11 +18,42 @@ function ScopeSnapshot(labels::Vector{String}, variables::Dict{Symbol, Any}, met
             typed_vars[name] = InlineScopeVariable(:local, type_short(val), val)
         end
     end
-    return ScopeSnapshot(labels, typed_vars, metadata)
+    return SnapScopeV1(labels, typed_vars, metadata)
 end
 
-ScopeSnapshot(labels::Vector{String}) = ScopeSnapshot(labels, Dict{Symbol, ScopeVariable}(), Dict{Symbol, Any}())
-ScopeSnapshot(label::String) = ScopeSnapshot(String[label])
+SnapScopeV1(labels::Vector{String}) = SnapScopeV1(labels, Dict{Symbol, ScopeVariable}(), Dict{Symbol, Any}())
+SnapScopeV1(label::String) = SnapScopeV1(String[label])
+
+"""
+    SnapSharedV1(labels, variables, metadata, shared_key)
+
+Construct a shared scope with flexible input types.
+- `variables` can be Dict{Symbol, ScopeVariable} or Dict{Symbol, Any}
+  (raw values are wrapped as InlineScopeVariable with :shared level)
+"""
+function SnapSharedV1(
+        labels::Vector{String},
+        variables::Dict{Symbol, Any},
+        metadata::Dict{Symbol, Any},
+        shared_key::String,
+    )
+    typed_vars = Dict{Symbol, ScopeVariable}()
+    for (name, val) in variables
+        if val isa ScopeVariable
+            typed_vars[name] = val
+        else
+            typed_vars[name] = InlineScopeVariable(:shared, type_short(val), val)
+        end
+    end
+    return SnapSharedV1(labels, typed_vars, metadata, shared_key)
+end
+
+SnapSharedV1(shared_key::String) = SnapSharedV1(
+    String[shared_key],
+    Dict{Symbol, ScopeVariable}(),
+    Dict{Symbol, Any}(),
+    shared_key,
+)
 
 """
     _make_scope_variable(level, value, inline_vars, blob_vars, hash_vars, name, storage) -> ScopeVariable

@@ -3,7 +3,7 @@ function _simos_stage_mark_vars(args, cmd::String, capture_field::Symbol)
     for v in args
         v isa Symbol || error("@simos $(cmd) expects variable names, got: $v")
         push!(stmts, quote
-            let sim = $(_SimKrn)._get_sim()
+            let sim = $(_SimKrn)._get_simos()
                 isnothing(sim.worksession) && error("No active session. Call `@simos session.init(...)` first.")
                 push!(getfield(sim.worksession.capture_policy, $(QuoteNode(capture_field))), $(QuoteNode(v)))
             end
@@ -37,7 +37,7 @@ function _simos_meta(mod, src, args)
             k = QuoteNode(p.args[1])
             v = p.args[2]
             push!(stmts, quote
-                let sim = $(_SimKrn)._get_sim()
+                let sim = $(_SimKrn)._get_simos()
                     isnothing(sim.worksession) && error("No active session. Call `@simos session.init(...)` first.")
                     sim.worksession.capture_policy.meta_buffer[$k] = $v
                 end

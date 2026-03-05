@@ -161,19 +161,19 @@ function _simos_settings_source_add_args(mod, src, args, kwargs::Vector{Expr}=Ex
     )
 end
 
-function _simos_settings_source_reload(mod, src, args, kwargs::Vector{Expr}=Expr[])
+function _simos_settings_source_reload_external(mod, src, args, kwargs::Vector{Expr}=Expr[])
     _ = mod
     _ = src
     _simos_disallow_kwargs((:settings, :source, :reload), kwargs)
     length(args) <= 1 || error("@simos settings.source.reload expects no arguments or one source name.")
     if isempty(args)
         return quote
-            $(_SimosAPI)._simos_settings_source_reload_runtime()
+            $(_SimosAPI)._simos_settings_source_reload_external_runtime()
         end
     end
     name_expr = args[1]
     return quote
-        $(_SimosAPI)._simos_settings_source_reload_runtime($(name_expr))
+        $(_SimosAPI)._simos_settings_source_reload_external_runtime($(name_expr))
     end
 end
 
@@ -198,7 +198,7 @@ function _simos_settings_registry_register(mod, src, args, kwargs::Vector{Expr}=
     _simos_validate_kwargs("settings.registry.register", kwargs, (:replace,))
 
     call_args = Any[
-        :($(_SimKrn)._get_sim()),
+        :($(_SimKrn)._get_simos_unsafe()),
         :(string($(args[1]))),
         args[2],
     ]
@@ -211,7 +211,7 @@ function _simos_settings_registry_unregister(mod, src, args)
     length(args) == 1 || error("@simos settings.registry.unregister expects exactly one key or alias.")
     key_expr = args[1]
     return quote
-        $(_SimKrn).settings_registry_unregister!($(_SimKrn)._get_sim(), string($(key_expr)))
+        $(_SimKrn).settings_registry_unregister!($(_SimKrn)._get_simos_unsafe(), string($(key_expr)))
     end
 end
 
@@ -219,6 +219,6 @@ function _simos_settings_registry_list(mod, src)
     _ = mod
     _ = src
     return quote
-        $(_SimKrn).settings_registry_list($(_SimKrn)._get_sim())
+        $(_SimKrn).settings_registry_list($(_SimKrn)._get_simos_unsafe())
     end
 end

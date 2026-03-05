@@ -126,10 +126,10 @@ function Base.append!(tape::TapeIO, record::AbstractDict)
     return tape
 end
 
-function Base.append!(tape::TapeIO, tree::CaptureTree)
+function Base.append!(tape::TapeIO, commit::RecCaptureCommitV1)
     target = _append_target_path(tape)
     _ensure_tape_metadata!(tape, target)
-    _append_json_line!(target, tree)
+    _append_json_line!(target, commit)
     _check_tape_size(target)
     return tape
 end

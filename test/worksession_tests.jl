@@ -2,12 +2,31 @@ using Test
 using Simuleos
 using UUIDs
 using Dates
+import LibGit2
 
 @testset "WorkSession lifecycle (Option A)" begin
     kernel = Simuleos.Kernel
     wsmod = Simuleos.WorkSession
 
-    simos = kernel._get_sim()
+    function _ws_seed_git_repo!(root::String)
+        gh = kernel.GitHandler(root)
+        kernel.git_init(gh)
+        tracked_file = joinpath(root, "session-init-policy-marker.jl")
+        write(tracked_file, "# session-init dirty-policy marker\n")
+
+        repo = LibGit2.GitRepo(root)
+        try
+            LibGit2.add!(repo, ".")
+            LibGit2.update!(repo, ".")
+            sig = LibGit2.Signature("Test User", "test@example.com")
+            LibGit2.commit(repo, "initial"; author = sig, committer = sig)
+        finally
+            close(repo)
+        end
+        return gh
+    end
+
+    simos = kernel._get_simos()
     proj = kernel.sim_project(simos)
 
     @testset "resolve_session has no side effects" begin
@@ -158,12 +177,12 @@ using Dates
         simos.worksession = wsmod.resolve_session(simos, proj; labels=["guard"])
         @test wsmod.isdirty(simos, simos.worksession) == false
 
-        push!(simos.worksession.stage.snapshots, kernel.ScopeSnapshot())
+        push!(simos.worksession.stage.snapshots, kernel.SnapScopeV1())
         @test wsmod.isdirty(simos, simos.worksession) == true
         @test_throws ErrorException wsmod.session_init!(["another"], @__FILE__)
 
         empty!(simos.worksession.stage.snapshots)
-        push!(simos.worksession.pending_commits, kernel.CaptureTree(""))
+        push!(simos.worksession.pending_commits, kernel.RecCaptureCommitV1(; label=""))
         @test wsmod.isdirty(simos, simos.worksession) == true
     end
 
@@ -175,10 +194,43 @@ using Dates
         @test simos.worksession.labels == ["label-a"]
     end
 
+    @testset "session_init git_dirty policy supports error and commit_all" begin
+        with_test_context() do ctx
+            _ws_seed_git_repo!(ctx[:project_path])
+            sim = kernel._get_simos()
+            proj2 = kernel.sim_project(sim)
+            gh = proj2.git_handler
+            @test !isnothing(gh)
+            gh = gh::kernel.GitHandler
+
+            dirty_file = joinpath(ctx[:project_path], "session-init-policy-marker.jl")
+            write(dirty_file, "# v1\n")
+            @test kernel.git_dirty(gh) == true
+
+            err = try
+                wsmod.session_init!(["dirty-error-" * string(uuid4())], @__FILE__)
+                nothing
+            catch ex
+                ex
+            end
+            @test err !== nothing
+            @test occursin("Cannot start session: git repository has uncommitted changes.", string(err))
+
+            hash_before = kernel.git_hash(gh)
+            kernel.settings_layer_set!(sim, :script, "session.init.git_dirty_policy", "commit_all")
+            ws = wsmod.session_init!(["dirty-commit-all-" * string(uuid4())], @__FILE__)
+
+            @test ws.metadata[kernel.SESSION_META_GIT_DIRTY_KEY] == false
+            @test kernel.git_dirty(gh) == false
+            hash_after = kernel.git_hash(gh)
+            @test hash_after != hash_before
+        end
+    end
+
     @testset "@simos ctx_hash records named hashes from scope values" begin
         with_test_context() do _
             @simos session.init("ctxhash-" * string(uuid4()))
-            ws = kernel._get_sim().worksession
+            ws = kernel._get_simos().worksession
             @test !isnothing(ws)
             @test isempty(ws.context_hash_reg)
 
@@ -205,15 +257,15 @@ using Dates
 
     @testset "@simos ctx_hash requires active session" begin
         with_test_context() do _
-            kernel._get_sim().worksession = nothing
+            kernel._get_simos().worksession = nothing
             @test_throws ErrorException @simos cache.key("no-session", tol=1e-6)
         end
     end
 
-    @testset "remember! reuses blob-backed values by named ctx hash" begin
+    @testset "cache_remember! reuses blob-backed values by named ctx hash" begin
         with_test_context() do ctx
             @simos session.init("cache-a-" * string(uuid4()))
-            ws = kernel._get_sim().worksession
+            ws = kernel._get_simos().worksession
             @test !isnothing(ws)
 
             model = "iJO1366"
@@ -224,7 +276,7 @@ using Dates
             @test ws.context_hash_reg["fva-inputs"] == h
 
             calls = Ref(0)
-            value1, status1 = Simuleos.remember!("fva"; ctx="fva-inputs", tags=["fva", "expensive"]) do
+            value1, status1 = Simuleos.cache_remember!("fva"; ctx="fva-inputs", tags=["fva", "expensive"]) do
                 calls[] += 1
                 Dict("status" => "ok", "objective" => 0.92)
             end
@@ -232,7 +284,7 @@ using Dates
             @test calls[] == 1
             @test value1["status"] == "ok"
 
-            value2, status2 = Simuleos.remember!("fva"; ctx="fva-inputs", tags=["fva", "expensive"]) do
+            value2, status2 = Simuleos.cache_remember!("fva"; ctx="fva-inputs", tags=["fva", "expensive"]) do
                 calls[] += 1
                 Dict("status" => "ok", "objective" => 9.99)
             end
@@ -242,10 +294,8 @@ using Dates
 
             kernel.sim_reset!()
             kernel.sim_init!(
-                bootstrap = Dict{String, Any}(
-                    "project.root" => ctx[:project_path],
-                    "home.path" => ctx[:home_path],
-                )
+                project_root = ctx[:project_path],
+                home_path = ctx[:home_path],
             )
             @simos session.init("cache-b-" * string(uuid4()))
             model = "iJO1366"
@@ -253,7 +303,7 @@ using Dates
             solver = "HiGHS"
             @simos cache.key("fva-inputs", model, eps, solver)
 
-            value3, status3 = Simuleos.remember!("fva"; ctx="fva-inputs") do
+            value3, status3 = Simuleos.cache_remember!("fva"; ctx="fva-inputs") do
                 calls[] += 1
                 Dict("status" => "ok", "objective" => 7.77)
             end
@@ -263,18 +313,18 @@ using Dates
         end
     end
 
-    @testset "remember! supports explicit ctx_hash and validates inputs" begin
+    @testset "cache_remember! supports explicit ctx_hash and validates inputs" begin
         with_test_context() do _
             @simos session.init("cache-explicit-" * string(uuid4()))
             x = 10
             h = @simos cache.key("demo", x)
 
             calls = Ref(0)
-            v1, s1 = Simuleos.remember!("demo"; ctx_hash=h) do
+            v1, s1 = Simuleos.cache_remember!("demo"; ctx_hash=h) do
                 calls[] += 1
                 x^2
             end
-            v2, s2 = Simuleos.remember!("demo"; ctx_hash=h) do
+            v2, s2 = Simuleos.cache_remember!("demo"; ctx_hash=h) do
                 calls[] += 1
                 x^3
             end
@@ -284,9 +334,9 @@ using Dates
 
             race_calls = Ref(0)
             race_ctx_extra = (metric="race",)
-            v_race, s_race = Simuleos.remember!("demo"; ctx_hash=h, ctx_extra=race_ctx_extra) do
+            v_race, s_race = Simuleos.cache_remember!("demo"; ctx_hash=h, ctx_extra=race_ctx_extra) do
                 race_calls[] += 1
-                proj = kernel.sim_project(kernel._get_sim())
+                proj = kernel.sim_project(kernel._get_simos())
                 race_ctx_hash = wsmod._ctx_hash_compose(h, race_ctx_extra)
                 outcome = kernel.cache_store!(proj, "demo", race_ctx_hash, 111)
                 @test outcome.status == :stored
@@ -295,15 +345,15 @@ using Dates
             @test (v_race, s_race) == (111, :race_lost)
             @test race_calls[] == 1
 
-            v3, s3 = Simuleos.remember!("demo"; ctx_hash=h, ctx_extra=(metric="cube",)) do
+            v3, s3 = Simuleos.cache_remember!("demo"; ctx_hash=h, ctx_extra=(metric="cube",)) do
                 calls[] += 1
                 x^3
             end
-            v4, s4 = Simuleos.remember!("demo"; ctx_hash=h, ctx_extra=(metric="cube",)) do
+            v4, s4 = Simuleos.cache_remember!("demo"; ctx_hash=h, ctx_extra=(metric="cube",)) do
                 calls[] += 1
                 x^4
             end
-            v5, s5 = Simuleos.remember!("demo"; ctx_hash=h, ctx_extra=(metric="square",)) do
+            v5, s5 = Simuleos.cache_remember!("demo"; ctx_hash=h, ctx_extra=(metric="square",)) do
                 calls[] += 1
                 x^2 + 1
             end
@@ -312,19 +362,19 @@ using Dates
             @test (v5, s5) == (101, :miss)
             @test calls[] == 3
 
-            @test_throws ErrorException Simuleos.remember!("demo"; ctx="demo", ctx_hash=h) do
+            @test_throws ErrorException Simuleos.cache_remember!("demo"; ctx="demo", ctx_hash=h) do
                 1
             end
-            @test_throws ErrorException Simuleos.remember!("demo"; ctx="missing") do
+            @test_throws ErrorException Simuleos.cache_remember!("demo"; ctx="missing") do
                 1
             end
-            @test_throws ErrorException Simuleos.remember!("demo"; ctx_hash=h, ctx_extra=("cube", 1)) do
+            @test_throws ErrorException Simuleos.cache_remember!("demo"; ctx_hash=h, ctx_extra=("cube", 1)) do
                 1
             end
-            @test_throws ErrorException Simuleos.remember!("demo"; ctx_hash=h, ctx_extra=["cube", 1]) do
+            @test_throws ErrorException Simuleos.cache_remember!("demo"; ctx_hash=h, ctx_extra=["cube", 1]) do
                 1
             end
-            @test_throws ErrorException Simuleos.remember!("demo"; ctx_hash=h, ctx_extra="cube") do
+            @test_throws ErrorException Simuleos.cache_remember!("demo"; ctx_hash=h, ctx_extra="cube") do
                 1
             end
         end
@@ -357,7 +407,7 @@ using Dates
             @test calls_a[] == 1
 
             status_a_race = @simos cache.remember(h, a_race) do
-                proj = kernel.sim_project(kernel._get_sim())
+                proj = kernel.sim_project(kernel._get_simos())
                 ns = wsmod._remember_namespace(:a_race)
                 outcome = kernel.cache_store!(proj, ns, string(h), 41)
                 @test outcome.status == :stored
@@ -452,11 +502,11 @@ using Dates
 
     @testset "queued commits and session finalizer" begin
         with_test_context() do _
-            simos2 = kernel._get_sim()
+            simos2 = kernel._get_simos()
             proj2 = kernel.sim_project(simos2)
 
             @simos session.init("queue-" * string(uuid4()))
-            ws = kernel._get_sim().worksession
+            ws = kernel._get_simos().worksession
             @test !isnothing(ws)
 
             tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
@@ -502,11 +552,11 @@ using Dates
 
     @testset "commit-time capture filters integrate with simignore" begin
         with_test_context() do _
-            simos2 = kernel._get_sim()
+            simos2 = kernel._get_simos()
             proj2 = kernel.sim_project(simos2)
 
             @simos session.init("filters-" * string(uuid4()))
-            ws = kernel._get_sim().worksession
+            ws = kernel._get_simos().worksession
             @test !isnothing(ws)
 
             Simuleos.capture_filters_reset!()
@@ -540,7 +590,7 @@ using Dates
             @test commit.label == "filtered"
             @test isempty(ws.stage.snapshots)
 
-            _scopes = Simuleos.Kernel.ScopeSnapshot[s for s in commit.snapshots if s isa Simuleos.Kernel.ScopeSnapshot]
+            _scopes = Simuleos.Kernel.commit_scope_snapshots(commit)
             s1, s2, s3 = _scopes
             @test s1.labels[1] == "label1"
             @test s2.labels[1] == "label2"
@@ -562,18 +612,19 @@ using Dates
             commits = collect(kernel.iterate_commits(tape))
             @test length(commits) == 1
             @test [c.label for c in commits] == ["filtered"]
-            @test !haskey(commits[1].snapshots[1].variables, :__flt_debug)
-            @test !haskey(commits[1].snapshots[3].variables, :__flt_hidden)
+            c1_scopes = kernel.commit_scope_snapshots(commits[1])
+            @test !haskey(c1_scopes[1].variables, :__flt_debug)
+            @test !haskey(c1_scopes[3].variables, :__flt_hidden)
         end
     end
 
     @testset "queued commit flush trims flushed prefix on error (retry-safe)" begin
         with_test_context() do _
-            simos2 = kernel._get_sim()
+            simos2 = kernel._get_simos()
             proj2 = kernel.sim_project(simos2)
 
             @simos session.init("queue-flush-failure-" * string(uuid4()))
-            ws = kernel._get_sim().worksession
+            ws = kernel._get_simos().worksession
             @test !isnothing(ws)
 
             tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
@@ -624,7 +675,7 @@ using Dates
         with_test_context() do _
             expected_init_line = (@__LINE__) + 1
             @simos session.init("warn-a-" * string(uuid4()))
-            ws = kernel._get_sim().worksession
+            ws = kernel._get_simos().worksession
             @test ws.is_finalized == false
             @test haskey(ws.metadata, kernel.SESSION_META_INIT_FILE_KEY)
             @test haskey(ws.metadata, kernel.SESSION_META_INIT_LINE_KEY)
@@ -632,7 +683,7 @@ using Dates
             @test Int(ws.metadata[kernel.SESSION_META_INIT_LINE_KEY]) == expected_init_line
 
             @test_logs (:warn, r"initialized at .*:") wsmod.session_init!(["warn-b-" * string(uuid4())], @__FILE__)
-            ws2 = kernel._get_sim().worksession
+            ws2 = kernel._get_simos().worksession
             @test ws2.labels[1] != ws.labels[1]
             @test ws2.is_finalized == false
         end
@@ -640,11 +691,11 @@ using Dates
 
     @testset "@simos hash captures SHA-1 fingerprint" begin
         with_test_context() do _
-            simos2 = kernel._get_sim()
+            simos2 = kernel._get_simos()
             proj2 = kernel.sim_project(simos2)
 
             @simos session.init("store-hash-" * string(uuid4()))
-            ws = kernel._get_sim().worksession
+            ws = kernel._get_simos().worksession
             @test !isnothing(ws)
 
             data_a = [1, 2, 3]
@@ -661,7 +712,7 @@ using Dates
             tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
             commits = collect(kernel.iterate_commits(tape))
             @test length(commits) == 1
-            s = commits[1].snapshots[1]
+            s = kernel.commit_scope_snapshots(commits[1])[1]
 
             var_a = s.variables[:data_a]
             @test var_a isa kernel.HashedScopeVariable
@@ -689,7 +740,7 @@ using Dates
         with_test_context() do _
             @simos session.init("final-a-" * string(uuid4()))
             wsmod.session_finalize()
-            ws = kernel._get_sim().worksession
+            ws = kernel._get_simos().worksession
             @test ws.is_finalized == true
 
             @test_logs wsmod.session_init!(["final-b-" * string(uuid4())], @__FILE__)

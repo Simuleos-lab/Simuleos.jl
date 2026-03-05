@@ -2,8 +2,14 @@
 # Classes/snap/scope.jl — `snap.scope` class semantics
 # ============================================================
 
-const _SCOPE_CLASS_ID = "snap.scope"
-const _SCOPE_CLASS_VERSION = 1
+const _SCOPE_CLASS_SPEC = CLASS_SPEC_SNAP_SCOPE
+const _SCOPE_CLASS_ID = _class_id(_SCOPE_CLASS_SPEC)
+const _SCOPE_CLASS_VERSION = _class_version(_SCOPE_CLASS_SPEC)
+
+function _require_scope_class_registration!()::Nothing
+    class_require!(_SCOPE_CLASS_ID, _SCOPE_CLASS_VERSION)
+    return nothing
+end
 
 """
     decode_snap_scope_variable_record(name::String, data::AbstractDict) -> ScopeVariable
@@ -25,49 +31,68 @@ function decode_snap_scope_variable_record(name::String, data::AbstractDict)::Sc
     end
 end
 
+function encode_scope_variable_record(var::InlineScopeVariable)::Dict{String, Any}
+    return Dict{String, Any}(
+        "src_type" => var.type_short,
+        "src" => string(var.level),
+        "value" => var.value,
+    )
+end
+
+function encode_scope_variable_record(var::BlobScopeVariable)::Dict{String, Any}
+    return Dict{String, Any}(
+        "src_type" => var.type_short,
+        "src" => string(var.level),
+        "blob_ref" => var.blob_ref.hash,
+    )
+end
+
+function encode_scope_variable_record(var::VoidScopeVariable)::Dict{String, Any}
+    return Dict{String, Any}(
+        "src_type" => var.type_short,
+        "src" => string(var.level),
+    )
+end
+
+function encode_scope_variable_record(var::HashedScopeVariable)::Dict{String, Any}
+    return Dict{String, Any}(
+        "src_type" => var.type_short,
+        "src" => string(var.level),
+        "value_hash" => var.value_hash,
+    )
+end
+
+function _encode_scope_variables_record(vars::Dict{Symbol, ScopeVariable})::Dict{String, Any}
+    out = Dict{String, Any}()
+    for name in sort!(collect(keys(vars)); by = string)
+        out[string(name)] = encode_scope_variable_record(vars[name])
+    end
+    return out
+end
+
 function _decode_snap_scope_record_by_class(
-        cls::SimuleosClass,
+        cls::SimuleosClassTag,
         data::AbstractDict,
-    )::ScopeSnapshot
+    )::SnapScopeV1
     error("No snap.scope decoder registered for class `$(class_spec_string(cls))`.")
 end
 
 function _decode_snap_scope_record_by_class(
-        ::SimuleosClass{Symbol("snap.scope"), 1},
+        ::SimuleosClassTag{Symbol(_SCOPE_CLASS_ID), _SCOPE_CLASS_VERSION},
         data::AbstractDict,
-    )::ScopeSnapshot
-    labels = String[]
-    if haskey(data, "labels")
-        for l in data["labels"]
-            s = string(l)
-            s in labels || push!(labels, s)
-        end
-    end
-
-    variables = Dict{Symbol, ScopeVariable}()
-    if haskey(data, "variables")
-        for (k, v) in data["variables"]
-            name = string(k)
-            variables[Symbol(name)] = decode_snap_scope_variable_record(name, v)
-        end
-    end
-
-    metadata = Dict{Symbol, Any}()
-    if haskey(data, "metadata") && data["metadata"] isa AbstractDict
-        for (k, v) in data["metadata"]
-            metadata[Symbol(k)] = v
-        end
-    end
-
-    return ScopeSnapshot(labels, variables, metadata)
+    )::SnapScopeV1
+    labels = _decode_namespace_binding_labels(data)
+    variables = _decode_namespace_binding_variables(data)
+    metadata = _decode_namespace_binding_metadata(data)
+    return SnapScopeV1(labels, variables, metadata)
 end
 
 """
-    decode_snap_scope_record(data::AbstractDict) -> ScopeSnapshot
+    decode_snap_scope_record(data::AbstractDict) -> SnapScopeV1
 
 Decode one `snap.scope` payload using class-id dispatch.
 """
-function decode_snap_scope_record(data::AbstractDict)::ScopeSnapshot
+function decode_snap_scope_record(data::AbstractDict)::SnapScopeV1
     cls = _record_class_tag(
         data;
         default_id = _SCOPE_CLASS_ID,
@@ -77,21 +102,24 @@ function decode_snap_scope_record(data::AbstractDict)::ScopeSnapshot
     return _decode_snap_scope_record_by_class(cls, data)
 end
 
+function encode_snap_scope_record(scope::SnapScopeV1)::Dict{String, Any}
+    _require_scope_class_registration!()
+    out = _stamp_class_record(Dict{String, Any}(
+        "labels" => copy(scope.labels),
+        "variables" => _encode_scope_variables_record(scope.variables),
+    ), _SCOPE_CLASS_ID, _SCOPE_CLASS_VERSION)
+    if !isempty(scope.metadata)
+        out["metadata"] = Dict{String, Any}(string(k) => v for (k, v) in scope.metadata)
+    end
+    return out
+end
+
 """
-    encode_snap_scope_record!(io::IO, scope::ScopeSnapshot) -> Nothing
+    encode_snap_scope_record!(io::IO, scope::SnapScopeV1) -> Nothing
 
 Encode one scope payload with `snap.scope` class markers.
 """
-function encode_snap_scope_record!(io::IO, scope::ScopeSnapshot)::Nothing
-    _write_json_class_header(io, _SCOPE_CLASS_ID, _SCOPE_CLASS_VERSION)
-    print(io, ",\"labels\":")
-    _write_json(io, scope.labels)
-    print(io, ",\"variables\":")
-    _write_json(io, scope.variables)
-    if !isempty(scope.metadata)
-        print(io, ",\"metadata\":")
-        _write_json(io, scope.metadata)
-    end
-    print(io, "}")
+function encode_snap_scope_record!(io::IO, scope::SnapScopeV1)::Nothing
+    _write_json(io, encode_snap_scope_record(scope))
     return nothing
 end

@@ -80,11 +80,8 @@ function _remember_extra_parts_expr(spec::Expr)
     return :(Any[$(parts...)])
 end
 
-const _BATCH_COMMIT_MAX_PENDING_DEFAULT = 10
-const _BATCH_COMMIT_MAX_PENDING_KEY = "worksession.batch_commit.max_pending_commits"
-
 function _require_active_worksession_and_project()
-    sim = _Kernel._get_sim()
+    sim = _Kernel._get_simos()
     ws = sim.worksession
     isnothing(ws) && error("No active session. Call `@simos session.init(...)` first.")
     proj = _Kernel.sim_project(sim)
@@ -92,7 +89,7 @@ function _require_active_worksession_and_project()
 end
 
 function _ctx_hash_record!(label::AbstractString, entries::AbstractVector{<:Tuple})::String
-    sim = _Kernel._get_sim()
+    sim = _Kernel._get_simos()
     ws = sim.worksession
     isnothing(ws) && error("No active session. Call `@simos session.init(...)` first.")
     key_label = strip(String(label))
@@ -111,7 +108,7 @@ end
 
 function _batch_commit_limit(ws::_Kernel.WorkSession, max_pending_commits)::Int
     raw = isnothing(max_pending_commits) ?
-        session_setting(ws, _BATCH_COMMIT_MAX_PENDING_KEY, _BATCH_COMMIT_MAX_PENDING_DEFAULT) :
+        session_setting(ws, _Kernel.SETTING_KEY_BATCH_COMMIT_MAX_PENDING) :
         max_pending_commits
     return _normalize_batch_commit_limit(raw)
 end
@@ -137,23 +134,24 @@ function _batch_commit_gate_allows_queue!(ws::_Kernel.WorkSession, label::String
     return false
 end
 
-function _apply_commit_capture_filters!(ws::_Kernel.WorkSession, tree::_Kernel.CaptureTree)::_Kernel.CaptureTree
+function _apply_commit_capture_filters!(ws::_Kernel.WorkSession, commit::_Kernel.RecCaptureCommitV1)::_Kernel.RecCaptureCommitV1
+    tree = commit.capture
     for i in eachindex(tree.snapshots)
         s = tree.snapshots[i]
-        if s isa _Kernel.ScopeSnapshot
+        if s isa _Kernel.SnapScopeV1
             tree.snapshots[i] = _WS.apply_capture_filters(s, ws)
         end
     end
-    return tree
+    return commit
 end
 
-function _take_stage_commit_filtered!(ws::_Kernel.WorkSession, gh; label::String = "")::_Kernel.CaptureTree
+function _take_stage_commit_filtered!(ws::_Kernel.WorkSession, gh; label::String = "")::_Kernel.RecCaptureCommitV1
     meta = _session_commit_metadata(gh)
     commit = _Kernel.take_stage_commit!(ws.stage, ws.capture_policy; label=label, metadata=meta)
     return _apply_commit_capture_filters!(ws, commit)
 end
 
-function _queue_stage_commit!(ws::_Kernel.WorkSession, gh; label::String = "")::_Kernel.CaptureTree
+function _queue_stage_commit!(ws::_Kernel.WorkSession, gh; label::String = "")::_Kernel.RecCaptureCommitV1
     commit = _take_stage_commit_filtered!(ws, gh; label=label)
     push!(ws.pending_commits, commit)
     ws.is_finalized = false
@@ -166,7 +164,7 @@ function _flush_pending_commits!(proj::_Kernel.SimuleosProject, ws::_Kernel.Work
     n = length(ws.pending_commits)
     n == 0 && return 0
 
-    tape = _Kernel.TapeIO(_Kernel.tape_path(proj, ws.session_id))
+    tape = _Kernel.session_tape(proj, ws.session_id)
     flushed = 0
     try
         for i in 1:n
@@ -190,12 +188,12 @@ function scope_capture(
         src_line::Int
     )
     # Hot path: this runs on every capture call; allocation/perf optimizations are always welcome.
-    sim = _Kernel._get_sim()
+    sim = _Kernel._get_simos()
     ws = sim.worksession
     isnothing(ws) && error("No active session. Call `@simos session.init(...)` first.")
     proj = _Kernel.sim_project(sim)
 
-    scope = _Kernel.ScopeSnapshot()
+    scope = _Kernel.SnapScopeV1()
     policy = ws.capture_policy
     for (name, val) in locals
         _Kernel.is_capture_excluded(val) && continue
@@ -233,7 +231,7 @@ function session_commit(label::String="")
 
     # Preserve logical commit order when mixing queued and immediate commit paths.
     _flush_pending_commits!(proj, ws)
-    tape = _Kernel.TapeIO(_Kernel.tape_path(proj, ws.session_id))
+    tape = _Kernel.session_tape(proj, ws.session_id)
     commit = _take_stage_commit_filtered!(ws, proj.git_handler; label=label)
     _Kernel.commit_to_tape!(tape, commit)
     ws.is_finalized = false

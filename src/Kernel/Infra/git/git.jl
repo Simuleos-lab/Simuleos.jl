@@ -59,7 +59,7 @@ end
 
 function git_init(gh::GitHandler)
     _verify_repo(gh)
-    if !isdir(joinpath(gh.root_path, ".git"))
+    if !_git_repo_marker_exists(gh)
         LibGit2.init(gh.root_path)
     end
     return gh
@@ -103,5 +103,35 @@ function git_describe(gh::GitHandler)::String
             n = min(12, lastindex(head))
             return head[1:n]
         end
+    end
+end
+
+function _git_signature_for_commit(repo::LibGit2.GitRepo)::LibGit2.Signature
+    try
+        return LibGit2.Signature(repo)
+    catch err
+        _git_nonfatal_error(err) || rethrow()
+        return LibGit2.Signature("Simuleos", "simuleos@local")
+    end
+end
+
+function git_commit_all!(gh::GitHandler, message::AbstractString)::String
+    _verify_repo(gh)
+    _git_repo_marker_exists(gh) || error("git_commit_all! requires a git repository at `$(gh.root_path)`.")
+
+    msg = strip(String(message))
+    isempty(msg) && error("git_commit_all! commit message cannot be empty.")
+
+    return _with_repo(gh) do repo
+        # Equivalent to a non-interactive `git add -A`.
+        LibGit2.add!(repo, ".")
+        LibGit2.update!(repo, ".")
+
+        # Nothing staged after normalization (for example, ignored-only workspace drift).
+        LibGit2.isdirty(repo) || return git_hash(gh)
+
+        sig = _git_signature_for_commit(repo)
+        oid = LibGit2.commit(repo, msg; author = sig, committer = sig)
+        return string(oid)
     end
 end

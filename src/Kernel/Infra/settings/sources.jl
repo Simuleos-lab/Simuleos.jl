@@ -2,11 +2,11 @@
 # sources.jl — Settings layer mutation and source lifecycle
 # ============================================================
 
-# Protected layer names: builtins (:home, :project, :env, :bootstrap, :script, :session)
+# Protected layer names: builtins (:home, :project, :env, :runtime, :script, :session)
 # plus :cli which is created on demand by settings_source_add_args! but should not be
 # overwritten by JSON sources or removed once present.
 function _settings_protected_layer_name(name::Symbol)::Bool
-    return name in (:home, :project, :env, :cli, :bootstrap, :script, :session)
+    return name in (:defaults, :home, :project, :env, :cli, :runtime, :script, :session)
 end
 
 function _settings_layer_info(layer::SettingsLayer, priority::Int)
@@ -19,6 +19,11 @@ function _settings_layer_info(layer::SettingsLayer, priority::Int)
         priority = priority,
         origin = copy(layer.origin),
     )
+end
+
+function _settings_require_ready!(simos::SimOs, op_name::String)::Nothing
+    simos.lifecycle === _SIMOS_LIFECYCLE_READY && return nothing
+    error("$(op_name) requires initialized Simuleos engine. Call `sim_init!()` first.")
 end
 
 function settings_source_list(simos::SimOs)
@@ -42,11 +47,14 @@ function settings_layer_set!(
         simos::SimOs,
         layer_name::Symbol,
         key::String,
-        value,
+        value;
+        source::String = SETTINGS_SOURCE_TAG_USER,
     )::Nothing
     stack = _settings_stack_required(simos)
     layer = _settings_mutable_layer_required(stack, layer_name)
-    layer.data[_settings_validate_key(key)] = value
+    k = _settings_validate_key(key)
+    layer.data[k] = value
+    layer.key_origin[k] = source
     _settings_stack_rebuild!(stack)
     return nothing
 end
@@ -58,8 +66,12 @@ function settings_layer_unset!(
     )::Bool
     stack = _settings_stack_required(simos)
     layer = _settings_mutable_layer_required(stack, layer_name)
-    removed = pop!(layer.data, _settings_validate_key(key), __MISSING__) !== __MISSING__
-    removed && _settings_stack_rebuild!(stack)
+    k = _settings_validate_key(key)
+    removed = pop!(layer.data, k, __MISSING__) !== __MISSING__
+    if removed
+        delete!(layer.key_origin, k)
+        _settings_stack_rebuild!(stack)
+    end
     return removed
 end
 
@@ -75,6 +87,7 @@ function settings_layer_clear!(
     if isnothing(prefix)
         removed = length(layer.data)
         empty!(layer.data)
+        empty!(layer.key_origin)
     else
         prefix_s = _settings_validate_key(string(prefix))
         doomed = String[]
@@ -84,6 +97,7 @@ function settings_layer_clear!(
         end
         for k in doomed
             delete!(layer.data, k)
+            delete!(layer.key_origin, k)
         end
         removed = length(doomed)
     end
@@ -99,12 +113,19 @@ function settings_layer_merge!(
         layer_name::Symbol,
         data::AbstractDict;
         clear::Bool = false,
+        source::String = SETTINGS_SOURCE_TAG_USER,
     )::SettingsLayer
     stack = _settings_stack_required(simos)
     layer = _settings_mutable_layer_required(stack, layer_name)
     incoming = _settings_flatten_dict(data)
-    clear && empty!(layer.data)
+    if clear
+        empty!(layer.data)
+        empty!(layer.key_origin)
+    end
     merge!(layer.data, incoming)
+    for k in keys(incoming)
+        layer.key_origin[k] = source
+    end
     _settings_stack_rebuild!(stack)
     return layer
 end
@@ -189,6 +210,7 @@ function settings_source_add_json!(
         optional::Bool = false,
         replace::Bool = false,
     )::SettingsLayer
+    _settings_require_ready!(simos, "settings.source.add_json")
     stack = _settings_stack_required(simos)
     layer_name = if isnothing(name)
         _settings_next_file_layer_name(stack)
@@ -206,6 +228,7 @@ function settings_source_add_json!(
 end
 
 function settings_source_remove!(simos::SimOs, name::Symbol)::Nothing
+    _settings_require_ready!(simos, "settings.source.remove")
     stack = _settings_stack_required(simos)
     idx = _settings_require_layer_index(stack, name)
     layer = stack.layers[idx]
@@ -230,7 +253,7 @@ function _settings_reload_layer_data(layer::SettingsLayer)::Dict{String, Any}
     if layer.kind == :env
         return env_settings()
     end
-    if layer.kind == :bootstrap
+    if layer.kind == :runtime
         return layer.data
     end
     if layer.kind == :cli
@@ -239,20 +262,29 @@ function _settings_reload_layer_data(layer::SettingsLayer)::Dict{String, Any}
     error("Unsupported settings layer kind for reload: $(layer.kind)")
 end
 
-function settings_source_reload!(simos::SimOs, name::Symbol)::SettingsLayer
+function _settings_reload_layer!(layer::SettingsLayer)::SettingsLayer
+    layer.data = _string_keys(_settings_reload_layer_data(layer))
+    layer.key_origin = Dict{String, String}()
+    _settings_fill_key_origin!(layer)
+    return layer
+end
+
+function settings_source_reload_external!(simos::SimOs, name::Symbol)::SettingsLayer
+    _settings_require_ready!(simos, "settings.source.reload")
     stack = _settings_stack_required(simos)
     idx = _settings_require_layer_index(stack, name)
     layer = stack.layers[idx]
-    layer.data = _string_keys(_settings_reload_layer_data(layer))
+    _settings_reload_layer!(layer)
     _settings_stack_rebuild!(stack)
     return layer
 end
 
-function settings_reload!(simos::SimOs)::SettingsStack
+function settings_reload_externals!(simos::SimOs)::SettingsStack
+    _settings_require_ready!(simos, "settings.source.reload")
     stack = _settings_stack_required(simos)
     for layer in stack.layers
-        if layer.kind in (:home, :project, :json_file, :env, :cli)
-            layer.data = _string_keys(_settings_reload_layer_data(layer))
+        if layer.kind in (:home, :project, :json_file, :env, :cli)  # :defaults is static, never reloaded
+            _settings_reload_layer!(layer)
         end
     end
     _settings_stack_rebuild!(stack)

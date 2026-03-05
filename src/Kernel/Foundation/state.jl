@@ -6,17 +6,18 @@ import UUIDs: uuid4
 
 # -- SimOs --
 function SimOs(;
-        bootstrap = Dict{String, Any}(),
+        lifecycle::Symbol = _SIMOS_LIFECYCLE_BOOTSTRAP,
+        runtime_settings = Dict{String, Any}(),
         sandbox = nothing,
         project = nothing,
         home = nothing,
         worksession = nothing,
         settings_stack = nothing,
-        shared_scopes::Dict{String, ScopeSnapshot} = Dict{String, ScopeSnapshot}(),
+        shared_scopes::Dict{String, SnapSharedV1} = Dict{String, SnapSharedV1}(),
         sqlite_db = nothing,
         sqlite_db_path::Union{Nothing, String} = nothing,
     )
-    SimOs(bootstrap, sandbox, project, home, worksession, settings_stack, shared_scopes, sqlite_db, sqlite_db_path)
+    SimOs(lifecycle, runtime_settings, sandbox, project, home, worksession, settings_stack, shared_scopes, sqlite_db, sqlite_db_path)
 end
 
 # -- SimuleosProject --
@@ -38,7 +39,7 @@ function WorkSession(;
         session_id::Base.UUID = uuid4(),
         labels::Vector{String} = String[],
         stage::CaptureTree = CaptureTree(),
-        pending_commits::Vector{CaptureTree} = CaptureTree[],
+        pending_commits::Vector{RecCaptureCommitV1} = RecCaptureCommitV1[],
         capture_policy::CapturePolicy = CapturePolicy(),
         is_finalized::Bool = false,
         metadata::Dict{String, Any} = Dict{String, Any}(),
@@ -49,8 +50,8 @@ function WorkSession(;
         capture_filter_bindings::Dict{String, Vector{String}} = Dict{String, Vector{String}}(),
         settings_access_log::Union{Nothing, Dict{String, Any}} = nothing,
         settings_access_tracking::Bool = true,
-        source_capture::Union{Nothing, SourceSnapshot} = nothing,
-        environment_capture::Union{Nothing, EnvironmentSnapshot} = nothing,
+        source_capture::Union{Nothing, SrcCodebaseV1} = nothing,
+        environment_capture::Union{Nothing, SrcRuntimeHostV1} = nothing,
     )
     WorkSession(
         session_id,
@@ -102,13 +103,47 @@ function Base.show(io::IO, v::HashedScopeVariable)
     print(io, "Hashed(", v.level, ", ", v.type_short, ", ", h, ")")
 end
 
-function Base.show(io::IO, scope::ScopeSnapshot)
+function Base.show(io::IO, scope::SnapScopeV1)
     nv = length(scope.variables)
-    print(io, "ScopeSnapshot(labels=", scope.labels, ", vars=", nv, ")")
+    print(io, "SnapScopeV1(labels=", scope.labels, ", vars=", nv, ")")
 end
 
-function Base.show(io::IO, ::MIME"text/plain", scope::ScopeSnapshot)
-    println(io, "ScopeSnapshot")
+function Base.show(io::IO, ::MIME"text/plain", scope::SnapScopeV1)
+    println(io, "SnapScopeV1")
+    println(io, "  labels: ", scope.labels)
+    println(io, "  variables (", length(scope.variables), "):")
+    for (name, var) in sort(collect(scope.variables); by=first)
+        if var isa InlineScopeVariable
+            val_str = sprint(show, var.value; context=:compact=>true)
+            if length(val_str) > 60
+                val_str = val_str[1:57] * "..."
+            end
+            println(io, "    ", name, " [", var.level, "] ", var.type_short, " = ", val_str)
+        elseif var isa BlobScopeVariable
+            println(io, "    ", name, " [", var.level, "] ", var.type_short, " blob:", var.blob_ref)
+        elseif var isa HashedScopeVariable
+            h = length(var.value_hash) > 12 ? var.value_hash[1:12] * "..." : var.value_hash
+            println(io, "    ", name, " [", var.level, "] ", var.type_short, " hash:", h)
+        elseif var isa VoidScopeVariable
+            println(io, "    ", name, " [", var.level, "] ", var.type_short, " void")
+        end
+    end
+    if !isempty(scope.metadata)
+        println(io, "  metadata:")
+        for (k, v) in scope.metadata
+            println(io, "    ", k, " = ", v)
+        end
+    end
+end
+
+function Base.show(io::IO, scope::SnapSharedV1)
+    nv = length(scope.variables)
+    print(io, "SnapSharedV1(key=", scope.shared_key, ", labels=", scope.labels, ", vars=", nv, ")")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", scope::SnapSharedV1)
+    println(io, "SnapSharedV1")
+    println(io, "  shared_key: ", scope.shared_key)
     println(io, "  labels: ", scope.labels)
     println(io, "  variables (", length(scope.variables), "):")
     for (name, var) in sort(collect(scope.variables); by=first)
@@ -137,7 +172,7 @@ end
 
 function Base.show(io::IO, tree::CaptureTree)
     lbl = isempty(tree.label) ? "(unlabeled)" : tree.label
-    ns = count(s -> s isa ScopeSnapshot, tree.snapshots)
+    ns = count(s -> s isa SnapScopeV1, tree.snapshots)
     nc = length(tree.children)
     print(io, "CaptureTree(", lbl, ", snapshots=", ns, ", children=", nc, ")")
 end
@@ -153,7 +188,7 @@ end
 
 function _capture_tree_stats(tree::CaptureTree)
     snapshot_count = length(tree.snapshots)
-    scope_count = count(s -> s isa ScopeSnapshot, tree.snapshots)
+    scope_count = count(s -> s isa SnapScopeV1, tree.snapshots)
 
     for child in tree.children
         child_stats = _capture_tree_stats(child)
@@ -168,14 +203,14 @@ function _pending_commit_stats(ws::WorkSession)
     snapshot_count = 0
     scope_count = 0
     for commit in ws.pending_commits
-        stats = _capture_tree_stats(commit)
+        stats = _capture_tree_stats(commit.capture)
         snapshot_count += stats.snapshot_count
         scope_count += stats.scope_count
     end
     return (snapshot_count = snapshot_count, scope_count = scope_count)
 end
 
-function _shared_scope_var_count(shared_scopes::Dict{String, ScopeSnapshot})::Int
+function _shared_scope_var_count(shared_scopes::Dict{String, SnapSharedV1})::Int
     total = 0
     for scope in values(shared_scopes)
         total += length(scope.variables)
@@ -191,7 +226,8 @@ function Base.show(io::IO, sim::SimOs)
 
     print(
         io,
-        "SimOs(project=", project_state,
+        "SimOs(lifecycle=", sim.lifecycle,
+        ", project=", project_state,
         ", session=", session_state,
         ", settings_layers=", settings_layers,
         ", shared_scopes=", length(sim.shared_scopes),
@@ -202,7 +238,8 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", sim::SimOs)
     println(io, "SimOs")
-    println(io, "  bootstrap_keys: ", length(sim.bootstrap))
+    println(io, "  lifecycle: ", sim.lifecycle)
+    println(io, "  runtime_settings_keys: ", length(sim.runtime_settings))
 
     if isnothing(sim.sandbox)
         println(io, "  sandbox: none")

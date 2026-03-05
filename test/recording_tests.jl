@@ -88,7 +88,7 @@
         @test filename == "plot_abcdef123456.png"
     end
 
-    @testset "generic_record ignored by commit iteration" begin
+    @testset "rec.ref ignored by commit iteration" begin
         with_test_context() do ctx
             tape_dir = joinpath(ctx[:project_path], ".simuleos", "test_tapes", "mixed")
             mkpath(tape_dir)
@@ -98,18 +98,19 @@
             Kernel.record_write(tape, Dict{String, Any}("note" => "context snapshot"))
 
             # Write a commit
-            scope = Kernel.ScopeSnapshot(["test"])
-            commit = Kernel.CaptureTree("label", Kernel.PartialSnapshot[scope], Kernel.CaptureTree[], Dict{String, Any}())
+            scope = Kernel.SnapScopeV1(["test"])
+            capture = Kernel.CaptureTree("label", Kernel.SimuleosDataClass[scope], Kernel.CaptureTree[], Dict{String, Any}())
+            commit = Kernel.RecCaptureCommitV1(; label="label", capture=capture)
             Kernel.commit_to_tape!(tape, commit)
 
-            # Filter for commits only — generic_record should not appear
+            # Filter for commits only — rec.ref should not appear
             commits = Dict{String, Any}[]
             for rec in Kernel.each_tape_records_filtered(tape;
-                    json_filter = (obj, ctx) -> get(obj, "type", "") == "commit")
+                    json_filter = (obj, ctx) -> get(obj, "class_id", "") == "rec.capture_commit")
                 push!(commits, rec)
             end
             @test length(commits) == 1
-            @test commits[1]["type"] == "commit"
+            @test commits[1]["class_id"] == "rec.capture_commit"
         end
     end
 

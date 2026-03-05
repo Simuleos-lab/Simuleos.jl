@@ -17,7 +17,7 @@ try
     include("worksession_tests.jl")
     include("settings_tests.jl")
     include("scoperias_tests.jl")
-    include("snapshot_types_tests.jl")
+    include("dataclass_types_tests.jl")
     include("class_registry_tests.jl")
     include("settings_tracking_tests.jl")
     include("recording_tests.jl")

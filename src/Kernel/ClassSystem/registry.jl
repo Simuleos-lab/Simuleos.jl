@@ -5,14 +5,8 @@
 const _SIM_CLASS_ID_RE = r"^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*$"
 const _SIM_CLASS_SPEC_RE = r"^([a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*)@v([1-9][0-9]*)$"
 
-"""
-    SimuleosClass{ID, V}
-
-Parametric Julia class tag used for internal dispatch ergonomics.
-`ID` is a `Symbol` semantic class id (for example `Symbol("snap.scope")`) and
-`V` is a positive class version integer.
-"""
-struct SimuleosClass{ID, V} end
+"""Compile-time class identity tag used only for class dispatch."""
+struct SimuleosClassTag{ID, V} end
 
 """
     SimuleosClassFieldSpec(name, semantic_type; required=true)
@@ -136,20 +130,20 @@ function class_parse(spec::AbstractString)
     return (id = id, version = version, spec = class_spec_string(id, version))
 end
 
-SimuleosClass(id::AbstractString, version::Integer) =
-    SimuleosClass{Symbol(_normalize_class_id(id)), _normalize_class_version(version)}()
+SimuleosClassTag(id::AbstractString, version::Integer) =
+    SimuleosClassTag{Symbol(_normalize_class_id(id)), _normalize_class_version(version)}()
 
-SimuleosClass(spec::AbstractString) = begin
+SimuleosClassTag(spec::AbstractString) = begin
     parsed = class_parse(spec)
-    SimuleosClass(parsed.id, parsed.version)
+    SimuleosClassTag(parsed.id, parsed.version)
 end
 
-class_tag(id::AbstractString, version::Integer) = SimuleosClass(id, version)
-class_tag(spec::AbstractString) = SimuleosClass(spec)
+class_tag(id::AbstractString, version::Integer) = SimuleosClassTag(id, version)
+class_tag(spec::AbstractString) = SimuleosClassTag(spec)
 
-class_id(::SimuleosClass{ID, V}) where {ID, V} = String(ID)
-class_version(::SimuleosClass{ID, V}) where {ID, V} = Int(V)
-class_spec_string(cls::SimuleosClass{ID, V}) where {ID, V} = class_spec_string(String(ID), Int(V))
+class_id(::SimuleosClassTag{ID, V}) where {ID, V} = String(ID)
+class_version(::SimuleosClassTag{ID, V}) where {ID, V} = Int(V)
+class_spec_string(cls::SimuleosClassTag{ID, V}) where {ID, V} = class_spec_string(String(ID), Int(V))
 
 """
     class_register!(spec::SimuleosClassSpec) -> SimuleosClassSpec

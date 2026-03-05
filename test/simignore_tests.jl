@@ -19,7 +19,7 @@ function _is_kept_after_filters(
         value,
         scope_label::AbstractString
     )::Bool
-    scope = Simuleos.Kernel.ScopeSnapshot(
+    scope = Simuleos.Kernel.SnapScopeV1(
         [String(scope_label)],
         Dict{Symbol, Any}(name => value),
         Dict{Symbol, Any}()

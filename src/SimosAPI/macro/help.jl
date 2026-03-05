@@ -25,7 +25,7 @@ macro simos(invocation...)
     local sgl_enabled
     sgl_enabled = nothing
     if isempty(invocation)
-        result_expr = :($(_SimKrn).SIMOS[])
+        result_expr = :($(_SimKrn)._get_simos_or_nothing())
     elseif length(invocation) == 1 && invocation[1] === :help
         # @simos help — print full help overview
         help_str = _simos_help_text()

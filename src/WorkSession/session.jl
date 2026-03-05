@@ -58,12 +58,12 @@ Parse a raw session dict into a WorkSession.
 """
 function parse_session(proj::_Kernel.SimuleosProject, raw::AbstractDict)
     _ = proj
-    payload = _Kernel._string_keys(raw)
-    haskey(payload, _Kernel.SESSION_FILE_ID_KEY) || error("Invalid session file: missing `session_id`.")
+    payload = _Kernel.decode_src_session_state_record(raw)
+    isempty(payload.session_id) && error("Invalid session file: missing `session_id`.")
     return _Kernel.WorkSession(;
-        session_id = UUIDs.UUID(string(payload[_Kernel.SESSION_FILE_ID_KEY])),
-        labels = _Kernel._session_labels(payload),
-        metadata = _Kernel._session_meta(payload),
+        session_id = UUIDs.UUID(payload.session_id),
+        labels = copy(payload.labels),
+        metadata = copy(payload.meta),
     )
 end
 
@@ -80,11 +80,7 @@ Write session.json to disk.
 function _persist_session!(proj::_Kernel.SimuleosProject, ws::_Kernel.WorkSession)
     sjson = _Kernel.session_json_path(proj, ws.session_id)
     # `context_hash_reg` is intentionally runtime-only and is not persisted in session.json.
-    _Kernel._write_json_file(sjson, Dict(
-        _Kernel.SESSION_FILE_ID_KEY => string(ws.session_id),
-        _Kernel.SESSION_FILE_LABELS_KEY => ws.labels,
-        _Kernel.SESSION_FILE_META_KEY => ws.metadata,
-    ))
+    _Kernel._write_json_file(sjson, _Kernel.encode_src_session_state_record(ws))
     # Ensure tapes dir exists
     _Kernel.ensure_dir(_Kernel._tapes_dir(proj.simuleos_dir, ws.session_id))
 end
@@ -137,6 +133,50 @@ function _warn_if_switching_unfinalized_session!(current_ws::_Kernel.WorkSession
     return nothing
 end
 
+function _session_init_git_dirty_policy(simos::_Kernel.SimOs)::String
+    raw = _Kernel.settings(simos, _Kernel.SETTING_KEY_SESSION_INIT_GIT_DIRTY_POLICY)
+    raw isa AbstractString ||
+        error("Setting `$(_Kernel.SETTING_KEY_SESSION_INIT_GIT_DIRTY_POLICY)` must be a String.")
+
+    policy = lowercase(strip(String(raw)))
+    policy in ("error", "commit_all") ||
+        error(
+            "Setting `$(_Kernel.SETTING_KEY_SESSION_INIT_GIT_DIRTY_POLICY)` must be one of " *
+            "`error` or `commit_all`, got `$(raw)`."
+        )
+    return policy
+end
+
+function _session_init_checkpoint_message(labels::Vector{String}, script_path::String)::String
+    parts = String[]
+    !isempty(labels) && push!(parts, "session=$(labels[1])")
+    !isempty(script_path) && push!(parts, "script=$(basename(script_path))")
+    suffix = isempty(parts) ? "" : " (" * join(parts, ", ") * ")"
+    return "simuleos(session-init): checkpoint" * suffix
+end
+
+function _session_init_apply_git_dirty_policy!(
+        simos::_Kernel.SimOs,
+        proj::_Kernel.SimuleosProject;
+        labels::Vector{String},
+        script_path::String,
+    )::Nothing
+    gh = proj.git_handler
+    isnothing(gh) && return nothing
+    _Kernel.git_dirty(gh) || return nothing
+
+    policy = _session_init_git_dirty_policy(simos)
+    policy == "error" && return nothing
+
+    msg = _session_init_checkpoint_message(labels, script_path)
+    _Kernel.git_commit_all!(gh, msg)
+
+    _Kernel.git_dirty(gh) &&
+        error("Cannot start session: git repository is still dirty after session-init checkpoint commit.")
+
+    return nothing
+end
+
 """
     session_init!(simos::_Kernel.SimOs, proj::_Kernel.SimuleosProject;
                   session_id=nothing, labels=String[], script_path="") -> WorkSession
@@ -154,6 +194,7 @@ function session_init!(simos::_Kernel.SimOs, proj::_Kernel.SimuleosProject;
 
     # Capture metadata if not already present
     if isempty(ws.metadata)
+        _session_init_apply_git_dirty_policy!(simos, proj; labels, script_path)
         ws.metadata = _capture_session_metadata(; script_path)
         _set_session_init_callsite!(ws.metadata; init_file, init_line)
     end
@@ -180,7 +221,7 @@ function session_init!(labels::Vector{String}, script_path::String;
         init_file::String = "",
         init_line::Int = 0,
     )
-    simos = _Kernel._get_sim()
+    simos = _Kernel._get_simos()
     proj = _Kernel.sim_project(simos)
 
     # Guard against reinit with dirty session
@@ -208,26 +249,25 @@ function _macro_labels_to_strings(labels::Vector)::Vector{String}
 end
 
 function _macro_ensure_engine_initialized!(;
-        bootstrap = nothing,
+        runtime_settings::Dict{Symbol, Any} = Dict{Symbol, Any}(),
         sandbox = nothing,
         reinit::Bool = false,
         sandbox_cleanup::Symbol = :auto,
     )
-    sim = _Kernel._get_sim_or_nothing()
+    sim = _Kernel._get_simos_or_nothing()
 
     if reinit && !isnothing(sim)
         _Kernel.sim_reset!(; sandbox_cleanup = sandbox_cleanup)
         sim = nothing
     end
 
-    has_engine_options = reinit || !isnothing(bootstrap) || !isnothing(sandbox)
+    has_engine_options = reinit || !isempty(runtime_settings) || !isnothing(sandbox)
 
     if isnothing(sim)
-        if isnothing(bootstrap)
+        if isempty(runtime_settings)
             _Kernel.sim_init!(; sandbox = sandbox)
         else
-            bootstrap isa Dict || error("@simos system.init `bootstrap` option must be a Dict.")
-            _Kernel.sim_init!(; bootstrap = bootstrap, sandbox = sandbox)
+            _Kernel.sim_init!(; sandbox = sandbox, runtime_settings...)
         end
         return nothing
     end
@@ -272,21 +312,24 @@ Entry point from `@simos system.init(...)`. Initializes or reinitializes the Sim
 engine only. Does not start a recording session.
 """
 function engine_init_from_macro!(script_path::String, src_line::Int;
-        bootstrap = nothing,
         sandbox = nothing,
         reinit::Bool = false,
         sandbox_cleanup::Symbol = :auto,
         project_basename_hint = nothing,
+        kwargs...
     )
     _ = script_path
     _ = src_line
+    haskey(kwargs, :bootstrap) &&
+        error("@simos system.init `bootstrap` was removed. Pass runtime settings as direct keyword args.")
+    runtime_settings = Dict{Symbol, Any}(k => v for (k, v) in kwargs)
     _macro_ensure_engine_initialized!(;
-        bootstrap,
+        runtime_settings,
         sandbox,
         reinit,
         sandbox_cleanup,
     )
-    sim = _Kernel._get_sim()
+    sim = _Kernel._get_simos()
     _macro_validate_project_basename_hint!(sim; project_basename_hint)
     return sim
 end

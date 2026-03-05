@@ -3,6 +3,7 @@
 # ============================================================
 
 const RuleType = Dict{Symbol, Any}
+const _FilterableScopeSnapshot = Union{_Kernel.SnapScopeV1, _Kernel.SnapSharedV1}
 
 function _rule_str(rule::RuleType)
     scope = haskey(rule, :scope) ? " scope=$(rule[:scope])" : ""
@@ -10,7 +11,7 @@ function _rule_str(rule::RuleType)
 end
 
 function _active_worksession()::_Kernel.WorkSession
-    sim = _Kernel._get_sim()
+    sim = _Kernel._get_simos()
     isnothing(sim.worksession) && error("No active session.")
     return sim.worksession
 end
@@ -106,7 +107,7 @@ function _resolve_capture_filter_names(ws::_Kernel.WorkSession, labels::Abstract
     return out
 end
 
-function _effective_scope_rules(ws::_Kernel.WorkSession, scope::_Kernel.ScopeSnapshot)::Vector{RuleType}
+function _effective_scope_rules(ws::_Kernel.WorkSession, scope::_FilterableScopeSnapshot)::Vector{RuleType}
     rules = RuleType[]
     append!(rules, ws.simignore_rules)
 
@@ -118,7 +119,7 @@ function _effective_scope_rules(ws::_Kernel.WorkSession, scope::_Kernel.ScopeSna
     return rules
 end
 
-function apply_capture_filters(scope::_Kernel.ScopeSnapshot, ws::_Kernel.WorkSession)::_Kernel.ScopeSnapshot
+function apply_capture_filters(scope::_FilterableScopeSnapshot, ws::_Kernel.WorkSession)
     rules = _effective_scope_rules(ws, scope)
     return _Kernel.filter_rules(scope, rules)
 end

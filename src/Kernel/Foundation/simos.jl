@@ -3,22 +3,42 @@
 # ============================================================
 
 """
-    _get_sim() -> SimOs
+    _get_simos() -> SimOs
 
 Get the current global SimOs instance. Throws if uninitialized.
 """
-function _get_sim()
+_simos_is_ready(sim::SimOs)::Bool = (sim.lifecycle === _SIMOS_LIFECYCLE_READY)
+
+"""
+    _get_simos_unsafe() -> SimOs
+
+Get the current global SimOs instance in any lifecycle state. Internal use only.
+"""
+function _get_simos_unsafe()::SimOs
     sim = SIMOS[]
-    isnothing(sim) && error("Simuleos not initialized. Call `sim_init!()` first.")
+    if isnothing(sim)
+        return _simos_bootstrap_init!()
+    end
+    return sim
+end
+
+function _get_simos()
+    sim = _get_simos_unsafe()
+    _simos_is_ready(sim) || error("Simuleos not initialized. Call `sim_init!()` first.")
     return sim
 end
 
 """
-    _get_sim_or_nothing() -> Union{SimOs, Nothing}
+    _get_simos_or_nothing() -> Union{SimOs, Nothing}
 
-Get the current global SimOs instance, or nothing.
+Get the current global SimOs instance only when lifecycle is `:ready`, or `nothing`.
 """
-_get_sim_or_nothing() = SIMOS[]
+function _get_simos_or_nothing()::Union{Nothing, SimOs}
+    sim = SIMOS[]
+    isnothing(sim) && return nothing
+    _simos_is_ready(sim) || return nothing
+    return sim
+end
 
 """
     sim_project() -> SimuleosProject
@@ -26,7 +46,7 @@ _get_sim_or_nothing() = SIMOS[]
 Get the project from the current global SimOs. Throws if no project.
 """
 function sim_project()
-    sim = _get_sim()
+    sim = _get_simos()
     isnothing(sim.project) && error("No active project. Ensure sim_init!() found a .simuleos directory.")
     return sim.project
 end
@@ -42,7 +62,7 @@ function sim_project(simos::SimOs)
 end
 
 function sim_home()
-    sim = _get_sim()
+    sim = _get_simos()
     isnothing(sim.home) && error("No active home.")
     return sim.home
 end
@@ -158,56 +178,103 @@ function _sandbox_prepare(sandbox)::Tuple{Union{Nothing, SimuleosSandbox}, Dict{
     _sandbox_write_marker!(sb)
 
     return sb, Dict{String, Any}(
-        "home.path" => home_path,
-        "project.root" => project_root,
+        SETTING_KEY_HOME_PATH    => home_path,
+        SETTING_KEY_PROJECT_ROOT => project_root,
     )
 end
 
-function _bootstrap_merge_with_sandbox(
-        bootstrap::Dict{String, Any},
-        sandbox_bootstrap::Dict{String, Any},
+function _runtime_settings_from_pairs(kwargs)::Dict{String, Any}
+    runtime_settings = Dict{String, Any}()
+    for (k, v) in kwargs
+        key_raw = string(k)
+        key_raw == "bootstrap" &&
+            error("sim_init! `bootstrap` was removed. Pass runtime settings as direct keyword args.")
+        key = _settings_validate_key(replace(key_raw, "_" => "."))
+        haskey(runtime_settings, key) &&
+            error("sim_init! duplicate runtime setting key `$(key)`.")
+        runtime_settings[key] = v
+    end
+    return runtime_settings
+end
+
+function _runtime_settings_merge_with_sandbox(
+        runtime_settings::Dict{String, Any},
+        sandbox_runtime_settings::Dict{String, Any},
     )::Dict{String, Any}
-    if isempty(sandbox_bootstrap)
-        return bootstrap
+    if isempty(sandbox_runtime_settings)
+        return runtime_settings
     end
 
-    for key in ("home.path", "project.root")
-        haskey(bootstrap, key) &&
-            error("sim_init! sandbox mode sets `$(key)` automatically. Remove it from `bootstrap`.")
+    for key in (SETTING_KEY_HOME_PATH, SETTING_KEY_PROJECT_ROOT)
+        haskey(runtime_settings, key) &&
+            error("sim_init! sandbox mode sets `$(key)` automatically. Remove that runtime setting.")
     end
 
-    merged = copy(bootstrap)
-    merge!(merged, sandbox_bootstrap)
+    merged = copy(runtime_settings)
+    merge!(merged, sandbox_runtime_settings)
     return merged
 end
 
-function _bootstrap_project_root_from_value(value)::String
+function _runtime_settings_project_root_from_value(value)::String
     if value isa AbstractString
         root = String(value)
-        isempty(strip(root)) && error("sim_init! bootstrap `project.root` cannot be empty.")
+        isempty(strip(root)) && error("sim_init! runtime setting `project.root` cannot be empty.")
         return abspath(root)
     elseif value isa Module
         root = pkgdir(value)
         isnothing(root) &&
             error(
-                "sim_init! bootstrap `project.root` module `$(value)` has no package directory. " *
+                "sim_init! runtime setting `project.root` module `$(value)` has no package directory. " *
                 "Use a package module (for example `SomePkg`) or a string path."
             )
         return abspath(String(root))
     end
 
     error(
-        "sim_init! bootstrap `project.root` must be a String path or a Module (resolved via `pkgdir`). " *
+        "sim_init! runtime setting `project.root` must be a String path or a Module (resolved via `pkgdir`). " *
         "Got $(typeof(value))."
     )
 end
 
-function _bootstrap_normalize_paths(bootstrap::Dict{String, Any})::Dict{String, Any}
-    normalized = copy(bootstrap)
-    if haskey(normalized, "project.root")
-        normalized["project.root"] = _bootstrap_project_root_from_value(normalized["project.root"])
+function _runtime_settings_normalize_paths(runtime_settings::Dict{String, Any})::Dict{String, Any}
+    normalized = copy(runtime_settings)
+    if haskey(normalized, SETTING_KEY_PROJECT_ROOT)
+        normalized[SETTING_KEY_PROJECT_ROOT] = _runtime_settings_project_root_from_value(normalized[SETTING_KEY_PROJECT_ROOT])
     end
     return normalized
+end
+
+function _bootstrap_cli_source_add!(sim::SimOs)::SimOs
+    args = String[string(a) for a in Base.ARGS]
+    isempty(args) && return sim
+    try
+        settings_source_add_args!(sim, args; after = :session)
+    catch err
+        @warn "Simuleos pre-init CLI settings were skipped due to parse failure." error=string(err)
+    end
+    return sim
+end
+
+function _simos_bootstrap_init!()::SimOs
+    sim = SimOs(; lifecycle = _SIMOS_LIFECYCLE_BOOTSTRAP)
+    load_settings_stack!(sim)
+    _bootstrap_cli_source_add!(sim)
+    return set_sim!(sim)
+end
+
+function _preinit_runtime_seed_settings()::Dict{String, Any}
+    sim = SIMOS[]
+    if isnothing(sim) || sim.lifecycle !== _SIMOS_LIFECYCLE_BOOTSTRAP || isnothing(sim.settings_stack)
+        return Dict{String, Any}()
+    end
+
+    stack = sim.settings_stack::SettingsStack
+    seeded = Dict{String, Any}()
+    for layer in stack.layers
+        layer.name in (:runtime, :script, :session, :cli) || continue
+        merge!(seeded, _string_keys(layer.data))
+    end
+    return seeded
 end
 
 function _sandbox_cleanup_mode(sb::SimuleosSandbox, sandbox_cleanup::Symbol)::Bool
@@ -239,7 +306,7 @@ function _sandbox_cleanup!(sb::SimuleosSandbox)
 end
 
 """
-    sim_init!(; bootstrap::Dict = Dict{String, Any}(), sandbox=nothing) -> SimOs
+    sim_init!(; sandbox=nothing, kwargs...) -> SimOs
 
 Initialize the global Simuleos system.
 
@@ -248,13 +315,14 @@ Initialize the global Simuleos system.
 3. Searches for a project (.simuleos/project.json) starting from pwd
 4. Loads and merges settings from all layers
 """
-function sim_init!(; bootstrap::Dict = Dict{String, Any}(), sandbox = nothing)
-    bootstrap_norm = Dict{String, Any}(string(k) => v for (k, v) in bootstrap)
-    sandbox_meta, sandbox_bootstrap = _sandbox_prepare(sandbox)
-    bootstrap_final = _bootstrap_merge_with_sandbox(bootstrap_norm, sandbox_bootstrap)
-    bootstrap_final = _bootstrap_normalize_paths(bootstrap_final)
+function sim_init!(; sandbox = nothing, kwargs...)
+    runtime_settings = _preinit_runtime_seed_settings()
+    merge!(runtime_settings, _runtime_settings_from_pairs(kwargs))
+    sandbox_meta, sandbox_runtime_settings = _sandbox_prepare(sandbox)
+    runtime_settings_final = _runtime_settings_merge_with_sandbox(runtime_settings, sandbox_runtime_settings)
+    runtime_settings_final = _runtime_settings_normalize_paths(runtime_settings_final)
 
-    simos = SimOs(; bootstrap = bootstrap_final, sandbox = sandbox_meta)
+    simos = SimOs(; lifecycle = _SIMOS_LIFECYCLE_READY, runtime_settings = runtime_settings_final, sandbox = sandbox_meta)
 
     # Phase 1: Home
     home_init!(simos)
@@ -277,16 +345,16 @@ end
 """
     sim_reset!(; sandbox_cleanup=:auto)
 
-Reset the global SimOs to nothing.
+Reset the global SimOs to bootstrap pre-init state.
 """
 function sim_reset!(; sandbox_cleanup::Symbol = :auto)
-    sim = SIMOS[]
+    sim = _get_simos_unsafe()
     if !isnothing(sim)
         _simos_close_cached_sqlite_db!(sim)
     end
     if !isnothing(sim) && !isnothing(sim.sandbox) && _sandbox_cleanup_mode(sim.sandbox, sandbox_cleanup)
         _sandbox_cleanup!(sim.sandbox)
     end
-    SIMOS[] = nothing
+    _simos_bootstrap_init!()
     return nothing
 end

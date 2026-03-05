@@ -16,7 +16,7 @@ function _simos_sqlite_sync_mode(sync)::Symbol
 end
 
 function _simos_sqlite_require_sim_project()
-    sim = _SimKrn._get_sim()
+    sim = _SimKrn._get_simos()
     proj = _SimKrn.sim_project(sim)
     return sim, proj
 end
@@ -111,7 +111,7 @@ function _simos_sqlite_rebuild_runtime!()
 end
 
 function _simos_sqlite_close_runtime!()
-    sim = _SimKrn._get_sim()
+    sim = _SimKrn._get_simos()
     return _simos_sqlite_close_cached_if_any!(sim)
 end
 
@@ -137,23 +137,23 @@ function _simos_settings_layer_symbol(layer)::Symbol
 end
 
 function _simos_settings_get_runtime(key_in; default=nothing, layer=:effective)
-    sim = _SimKrn._get_sim()
+    sim = _SimKrn._get_simos_unsafe()
     key = string(key_in)
     layer_sym = _simos_settings_layer_symbol(layer)
     if layer_sym === :effective
-        return _SimKrn.get_setting(sim, key, default)
+        return _SimKrn.settings(sim, key, default)
     end
     ex = _SimKrn.settings_explain(sim, key; layer = layer_sym)
     return ex.found ? ex.value : default
 end
 
 function _simos_settings_explain_runtime(key_in; layer=:effective)
-    sim = _SimKrn._get_sim()
+    sim = _SimKrn._get_simos_unsafe()
     return _SimKrn.settings_explain(sim, string(key_in); layer = _simos_settings_layer_symbol(layer))
 end
 
 function _simos_settings_layers_runtime()
-    sim = _SimKrn._get_sim()
+    sim = _SimKrn._get_simos_unsafe()
     return _SimKrn.settings_source_list(sim)
 end
 
@@ -163,7 +163,7 @@ function _simos_settings_has_runtime(key_in; layer=:effective)::Bool
 end
 
 function _simos_settings_require_runtime(key_in; layer=:effective)
-    sim = _SimKrn._get_sim()
+    sim = _SimKrn._get_simos_unsafe()
     key = string(key_in)
     layer_sym = _simos_settings_layer_symbol(layer)
     if layer_sym === :effective
@@ -175,7 +175,7 @@ function _simos_settings_require_runtime(key_in; layer=:effective)
 end
 
 function _simos_settings_snapshot_runtime(; layer=:effective, prefix="", nested::Bool=false)
-    sim = _SimKrn._get_sim()
+    sim = _SimKrn._get_simos_unsafe()
     stack = _SimKrn._settings_stack_required(sim)
     layer_sym = _simos_settings_layer_symbol(layer)
 
@@ -201,24 +201,24 @@ function _simos_settings_snapshot_runtime(; layer=:effective, prefix="", nested:
 end
 
 function _simos_settings_set_runtime(key_in, value; layer=:script)
-    sim = _SimKrn._get_sim()
+    sim = _SimKrn._get_simos_unsafe()
     _SimKrn.settings_layer_set!(sim, _simos_settings_layer_symbol(layer), string(key_in), value)
     return nothing
 end
 
 function _simos_settings_unset_runtime(key_in; layer=:script)
-    sim = _SimKrn._get_sim()
+    sim = _SimKrn._get_simos_unsafe()
     return _SimKrn.settings_layer_unset!(sim, _simos_settings_layer_symbol(layer), string(key_in))
 end
 
 function _simos_settings_merge_runtime(data; layer=:script, clear::Bool=false)
-    sim = _SimKrn._get_sim()
+    sim = _SimKrn._get_simos_unsafe()
     data isa AbstractDict || error("@simos settings.merge expects an AbstractDict payload.")
     return _SimKrn.settings_layer_merge!(sim, _simos_settings_layer_symbol(layer), data; clear = clear)
 end
 
 function _simos_settings_clear_runtime(; layer=:script, prefix=nothing)
-    sim = _SimKrn._get_sim()
+    sim = _SimKrn._get_simos_unsafe()
     return _SimKrn.settings_layer_clear!(sim, _simos_settings_layer_symbol(layer); prefix = prefix)
 end
 
@@ -234,8 +234,8 @@ function _simos_settings_source_name_symbol(name)::Symbol
     end
 end
 
-function _simos_settings_source_add_args_runtime(args; after=:env)
-    sim = _SimKrn._get_sim()
+function _simos_settings_source_add_args_runtime(args; after=:session)
+    sim = _SimKrn._get_simos_unsafe()
     args isa AbstractVector || error("@simos settings.source.add_args expects a Vector{String} argument.")
     args_str = String[string(a) for a in args]
     after_sym = _simos_settings_layer_symbol(after)
@@ -253,7 +253,7 @@ function _simos_settings_source_add_json_runtime(
         optional::Bool=false,
         replace::Bool=false,
     )
-    sim = _SimKrn._get_sim()
+    sim = _SimKrn._get_simos()
     name_norm = isnothing(name) ? nothing : _simos_settings_source_name_symbol(name)
     after_norm = _simos_settings_layer_symbol(after)
     return _SimKrn.settings_source_add_json!(
@@ -267,23 +267,23 @@ function _simos_settings_source_add_json_runtime(
 end
 
 function _simos_settings_source_remove_runtime(name_in)
-    sim = _SimKrn._get_sim()
+    sim = _SimKrn._get_simos()
     _SimKrn.settings_source_remove!(sim, _simos_settings_source_name_symbol(name_in))
     return nothing
 end
 
-function _simos_settings_source_reload_runtime()
-    sim = _SimKrn._get_sim()
-    return _SimKrn.settings_reload!(sim)
+function _simos_settings_source_reload_external_runtime()
+    sim = _SimKrn._get_simos()
+    return _SimKrn.settings_reload_externals!(sim)
 end
 
-function _simos_settings_source_reload_runtime(name_in)
-    sim = _SimKrn._get_sim()
-    return _SimKrn.settings_source_reload!(sim, _simos_settings_source_name_symbol(name_in))
+function _simos_settings_source_reload_external_runtime(name_in)
+    sim = _SimKrn._get_simos()
+    return _SimKrn.settings_source_reload_external!(sim, _simos_settings_source_name_symbol(name_in))
 end
 
 function _simos_context_capture_runtime!()
-    sim = _SimKrn._get_sim()
+    sim = _SimKrn._get_simos()
     ws = sim.worksession
     isnothing(ws) && error("No active session. Call `@simos session.init(...)` first.")
     proj = _SimKrn.sim_project(sim)
@@ -291,7 +291,7 @@ function _simos_context_capture_runtime!()
 end
 
 function _simos_context_resolve_runtime(ref_input)
-    sim = _SimKrn._get_sim()
+    sim = _SimKrn._get_simos()
     ws = sim.worksession
     isnothing(ws) && error("No active session. Call `@simos session.init(...)` first.")
     proj = _SimKrn.sim_project(sim)
@@ -319,7 +319,7 @@ function _simos_context_resolve(mod, src, args)
 end
 
 function _simos_settings_tracking_toggle_runtime!(on::Bool)::Bool
-    sim = _SimKrn._get_sim()
+    sim = _SimKrn._get_simos()
     ws = sim.worksession
     isnothing(ws) && error("No active session. Call `@simos session.init(...)` first.")
     ws.settings_access_tracking = on

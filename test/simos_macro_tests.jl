@@ -35,14 +35,12 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
         )
     end
 
-    @testset "no-argument form returns global SIMOS[]" begin
+    @testset "no-argument form returns ready SIMOS or nothing" begin
         kernel.sim_reset!()
-        @test (@simos) === kernel.SIMOS[]
         @test (@simos) === nothing
 
         with_test_context() do _
-            @test (@simos) === kernel.SIMOS[]
-            @test (@simos) === kernel._get_sim()
+            @test (@simos) === kernel._get_simos()
         end
     end
 
@@ -64,7 +62,7 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
             @test proj0 === kernel.sim_project()
 
             blob_key = ("simos-blob-meta", string(uuid4()))
-            blob_ref_obj = kernel.blob_write(kernel._get_sim(), blob_key, Dict("x" => 1))
+            blob_ref_obj = kernel.blob_write(kernel._get_simos(), blob_key, Dict("x" => 1))
 
             meta_by_ref = @simos blob.meta(blob_ref_obj)
             @test meta_by_ref isa Dict
@@ -80,7 +78,7 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
             @test isnothing(@simos blob.meta("0000000000000000000000000000000000000000"))
 
             @simos session.init("simos-callstyle-" * string(uuid4()))
-            ws = kernel._get_sim().worksession
+            ws = kernel._get_simos().worksession
             @test !isnothing(ws)
 
             @simos stage.blob(a, b)
@@ -135,23 +133,56 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
             @__MODULE__,
             :(Simuleos.@simos system.init("x"))
         )
+        @test_throws ErrorException Base.macroexpand(
+            @__MODULE__,
+            :(Simuleos.@simos system.init(bootstrap = Dict{String, Any}("x" => 1)))
+        )
 
         root = mktempdir()
         try
             kernel.sim_reset!()
-            @simos system.init(; reinit = true, sandbox = (root = root, cleanup_on_reset = false))
-            sim = kernel._get_sim()
+            @simos system.init(;
+                reinit = true,
+                sandbox = (root = root, cleanup_on_reset = false),
+                var"demo.key" = "macro-runtime",
+            )
+            sim = kernel._get_simos()
             @test !isnothing(sim)
             @test isnothing(sim.worksession)
             @test !isnothing(sim.sandbox)
+            @test kernel.settings(sim, "demo.key") == "macro-runtime"
 
             @simos session.init("simos-call-init")
-            ws = kernel._get_sim().worksession
+            ws = kernel._get_simos().worksession
             @test !isnothing(ws)
             @test ws.labels[1] == "simos-call-init"
 
             @simos system.reset()
-            @test isnothing(kernel._get_sim_or_nothing())
+            @test isnothing(kernel._get_simos_or_nothing())
+        finally
+            kernel.sim_reset!()
+            isdir(root) && rm(root; recursive = true, force = true)
+        end
+    end
+
+    @testset "system.init runtime-setting kwargs configure project/home/runtime layer" begin
+        root = mktempdir()
+        proj_root = joinpath(root, "proj")
+        home_root = joinpath(root, "home")
+        mkpath(proj_root)
+
+        try
+            kernel.sim_reset!()
+            sim = @simos system.init(;
+                reinit = true,
+                project_root = proj_root,
+                home_path = home_root,
+                var"solver.tol" = 1e-6,
+            )
+            @test sim === kernel._get_simos()
+            @test sim.project.root_path == abspath(proj_root)
+            @test sim.home.path == abspath(home_root)
+            @test kernel.settings(sim, "solver.tol") == 1e-6
         finally
             kernel.sim_reset!()
             isdir(root) && rm(root; recursive = true, force = true)
@@ -163,7 +194,7 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
             expected = basename(ctx[:project_path])
 
             sim = @simos system.init(project_basename_hint = expected)
-            @test sim === kernel._get_sim()
+            @test sim === kernel._get_simos()
 
             mismatch_err = try
                 @simos system.init(project_basename_hint = "wrong-" * expected)
@@ -184,7 +215,7 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
 
     @testset "@simos settings.registry.*" begin
         with_test_context() do _
-            sim = kernel._get_sim()
+            sim = kernel._get_simos()
 
             kernel.settings_layer_set!(sim, :script, "macro.registry.demo", "script-value")
 
@@ -193,7 +224,7 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
                 Dict("alias" => ["macroRegistryDemo"]),
             )
             @test entry.canonical == "macro.registry.demo"
-            @test kernel.get_setting(sim, "macroRegistryDemo") == "script-value"
+            @test kernel.settings(sim, "macroRegistryDemo") == "script-value"
 
             listed = @simos settings.registry.list()
             @test listed isa Vector
@@ -205,8 +236,8 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
                 replace = true,
             )
             @test entry2.canonical == "macro.registry.demo"
-            @test kernel.get_setting(sim, "macroRegistryDemo", :missing) == :missing
-            @test kernel.get_setting(sim, "macroRegistryDemo2") == "script-value"
+            @test kernel.settings(sim, "macroRegistryDemo", :missing) == :missing
+            @test kernel.settings(sim, "macroRegistryDemo2") == "script-value"
 
             @test (@simos settings.registry.unregister("macroRegistryDemo2")) == true
             @test (@simos settings.registry.unregister("macroRegistryDemo2")) == false
@@ -215,7 +246,7 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
 
     @testset "@simos settings.get / settings.explain / settings.layers" begin
         with_test_context() do _
-            sim = kernel._get_sim()
+            sim = kernel._get_simos()
 
             kernel.settings_layer_set!(sim, :script, "macro.settings.demo", "script-value")
             kernel.settings_layer_set!(sim, :session, "macro.settings.demo", "session-value")
@@ -244,7 +275,7 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
 
     @testset "@simos settings.has / settings.require / settings.snapshot" begin
         with_test_context() do _
-            sim = kernel._get_sim()
+            sim = kernel._get_simos()
 
             kernel.settings_layer_set!(sim, :script, "macro.snap.demo", "script")
             kernel.settings_layer_set!(sim, :session, "macro.snap.demo", "session")
@@ -327,11 +358,11 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
         with_test_context() do _
             kernel.sim_reset!()
             @simos system.init()
-            @test !isnothing(kernel._get_sim())
-            @test isnothing(kernel._get_sim().worksession)
+            @test !isnothing(kernel._get_simos())
+            @test isnothing(kernel._get_simos().worksession)
 
             @simos session.init("simos-init-" * string(uuid4()))
-            ws = kernel._get_sim().worksession
+            ws = kernel._get_simos().worksession
             @test !isnothing(ws)
             @test startswith(ws.labels[1], "simos-init-")
         end
@@ -340,7 +371,7 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
     @testset "@simos stage.blob / stage.hash / stage.inline" begin
         with_test_context() do _
             @simos session.init("simos-storage-" * string(uuid4()))
-            ws = kernel._get_sim().worksession
+            ws = kernel._get_simos().worksession
 
             @simos stage.blob(a, b)
             @test :a in ws.capture_policy.blob_vars
@@ -359,7 +390,7 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
     @testset "@simos stage.meta" begin
         with_test_context() do _
             @simos session.init("simos-meta-" * string(uuid4()))
-            ws = kernel._get_sim().worksession
+            ws = kernel._get_simos().worksession
 
             @simos stage.meta(step=1, phase="training")
             @test ws.capture_policy.meta_buffer[:step] == 1
@@ -370,7 +401,7 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
     @testset "@simos scope.capture produces scope with source info" begin
         with_test_context() do _
             @simos session.init("simos-capture-" * string(uuid4()))
-            ws = kernel._get_sim().worksession
+            ws = kernel._get_simos().worksession
 
             let x = 42, y = "hello"
                 @simos scope.capture("test-scope")
@@ -421,7 +452,7 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
             z = "ok"
             @simos shared.capture("extra", z)
             merged = @simos shared.merge("typed", "extra")
-            @test merged isa kernel.ScopeSnapshot
+            @test merged isa kernel.SnapSharedV1
 
             z = ""
             @simos shared.bind("typed", z::String)
@@ -440,11 +471,11 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
 
     @testset "@simos session.commit" begin
         with_test_context() do _
-            simos2 = kernel._get_sim()
+            simos2 = kernel._get_simos()
             proj2 = kernel.sim_project(simos2)
 
             @simos session.init("simos-commit-" * string(uuid4()))
-            ws = kernel._get_sim().worksession
+            ws = kernel._get_simos().worksession
 
             let x = 1
                 @simos scope.capture("s1")
@@ -460,11 +491,11 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
 
     @testset "@simos session.queue and session.close" begin
         with_test_context() do _
-            simos2 = kernel._get_sim()
+            simos2 = kernel._get_simos()
             proj2 = kernel.sim_project(simos2)
 
             @simos session.init("simos-batch-" * string(uuid4()))
-            ws = kernel._get_sim().worksession
+            ws = kernel._get_simos().worksession
 
             let x = 1
                 @simos scope.capture("s1")
@@ -487,11 +518,11 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
 
     @testset "@simos session.queue supports cmt_every kwarg" begin
         with_test_context() do _
-            simos2 = kernel._get_sim()
+            simos2 = kernel._get_simos()
             proj2 = kernel.sim_project(simos2)
 
             @simos session.init("simos-batch-gated-" * string(uuid4()))
-            ws = kernel._get_sim().worksession
+            ws = kernel._get_simos().worksession
 
             let x = 1
                 @simos scope.capture("g1")
@@ -508,7 +539,7 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
             @test !isnothing(r2)
             @test length(ws.pending_commits) == 1
             @test isempty(ws.stage.snapshots)
-            @test length(ws.pending_commits[1].snapshots) == 2
+            @test length(ws.pending_commits[1].capture.snapshots) == 2
 
             let x = 3
                 @simos scope.capture("g3")
@@ -520,8 +551,8 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
             tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
             commits = collect(kernel.iterate_commits(tape))
             @test [c.label for c in commits] == ["bcg", "tail"]
-            @test length(commits[1].snapshots) == 2
-            @test length(commits[2].snapshots) == 1
+            @test length(kernel.commit_scope_snapshots(commits[1])) == 2
+            @test length(kernel.commit_scope_snapshots(commits[2])) == 1
         end
     end
 
@@ -539,7 +570,7 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
 
             db0 = @simos sqlite.open(; sync = :refresh)
             @test db0 isa SQLite.DB
-            sim = kernel._get_sim()
+            sim = kernel._get_simos()
             @test sim.sqlite_db === db0
             @test sim.sqlite_db_path == idx_path
             @test (@simos sqlite.current()) === db0
@@ -585,7 +616,7 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
 
     @testset "@simos sqlite.close surfaces close failures" begin
         with_test_context() do _
-            sim = kernel._get_sim()
+            sim = kernel._get_simos()
             sim.sqlite_db = _CloseFailureHandle()
             sim.sqlite_db_path = "metadata-v1.sqlite"
 
@@ -598,7 +629,7 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
     @testset "@simos cache.key" begin
         with_test_context() do _
             @simos session.init("simos-ctx-" * string(uuid4()))
-            ws = kernel._get_sim().worksession
+            ws = kernel._get_simos().worksession
 
             x = 10
             y = "test"

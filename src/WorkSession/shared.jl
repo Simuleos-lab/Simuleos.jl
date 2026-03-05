@@ -8,8 +8,8 @@ function _shared_key(key)::String
     return k
 end
 
-function _shared_registry()::Dict{String, _Kernel.ScopeSnapshot}
-    sim = _Kernel._get_sim()
+function _shared_registry()::Dict{String, _Kernel.SnapSharedV1}
+    sim = _Kernel._get_simos()
     return sim.shared_scopes
 end
 
@@ -43,8 +43,8 @@ function _shared_capture_build_scope(
         src_file::String,
         src_line::Int;
         names::Union{Nothing, Vector{Symbol}} = nothing,
-    )::_Kernel.ScopeSnapshot
-    scope = _Kernel.ScopeSnapshot()
+    )::_Kernel.SnapSharedV1
+    scope = _Kernel.SnapSharedV1(key)
 
     if isnothing(names)
         for (name, val) in locals
@@ -64,8 +64,6 @@ function _shared_capture_build_scope(
         end
     end
 
-    pushfirst!(scope.labels, key)
-    scope.metadata[:shared_key] = key
     scope.metadata[:src_file] = src_file
     scope.metadata[:src_line] = src_line
     scope.metadata[:threadid] = Threads.threadid()
@@ -79,8 +77,8 @@ function shared_capture(
         src_file::String,
         src_line::Int;
         names::Union{Nothing, Vector{Symbol}} = nothing,
-    )::_Kernel.ScopeSnapshot
-    sim = _Kernel._get_sim()
+    )::_Kernel.SnapSharedV1
+    sim = _Kernel._get_simos()
     ws = sim.worksession
     isnothing(ws) && error("No active session. Call `@simos session.init(...)` first.")
 
@@ -91,7 +89,7 @@ function shared_capture(
     return scope
 end
 
-function shared_get(key::AbstractString)::_Kernel.ScopeSnapshot
+function shared_get(key::AbstractString)::_Kernel.SnapSharedV1
     reg = _shared_registry()
     key_s = _shared_key(key)
     haskey(reg, key_s) || error("Shared scope `$(key_s)` not found.")
@@ -125,15 +123,13 @@ function shared_clear!()::Int
     return n
 end
 
-function shared_merge!(dest_key::AbstractString, src_key::AbstractString)::_Kernel.ScopeSnapshot
+function shared_merge!(dest_key::AbstractString, src_key::AbstractString)::_Kernel.SnapSharedV1
     reg = _shared_registry()
     dest_s = _shared_key(dest_key)
     src_scope = shared_get(src_key)
 
     dest_scope = get!(reg, dest_s) do
-        scope = _Kernel.ScopeSnapshot(dest_s)
-        scope.metadata[:shared_key] = dest_s
-        scope
+        _Kernel.SnapSharedV1(dest_s)
     end
 
     for (name, var) in src_scope.variables

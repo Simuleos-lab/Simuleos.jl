@@ -2,7 +2,7 @@
 # 004 — Keyed cache + remember workflows
 # ============================================================
 
-import Simuleos: remember!, @simos
+import Simuleos: cache_remember!, @simos
 
 const SANDBOX_DIR = joinpath(@__DIR__, "_sandbox", basename(@__FILE__))
 println("sandbox = ", SANDBOX_DIR)
@@ -24,15 +24,15 @@ h = @simos cache.key("solver-inputs", model, eps, solver, seed = seed, mode = "f
 println("ctx_hash(solver-inputs) = ", h)
 
 named_calls = Ref(0)
-value1, status1 = remember!("solve"; ctx = "solver-inputs", tags = ["workflow", "cache"]) do
+value1, status1 = cache_remember!("solve"; ctx = "solver-inputs", tags = ["workflow", "cache"]) do
     named_calls[] += 1
     Dict("solver" => solver, "objective" => 0.91, "seed" => seed)
 end
-value2, status2 = remember!("solve"; ctx = "solver-inputs", tags = ["workflow", "cache"]) do
+value2, status2 = cache_remember!("solve"; ctx = "solver-inputs", tags = ["workflow", "cache"]) do
     named_calls[] += 1
     Dict("solver" => "ignored", "objective" => 9.99, "seed" => -1)
 end
-println("remember!(ctx=label): ", status1, " then ", status2, " calls=", named_calls[])
+println("cache_remember!(ctx=label): ", status1, " then ", status2, " calls=", named_calls[])
 println("cached value = ", value2)
 
 metric_calls = Ref(0)

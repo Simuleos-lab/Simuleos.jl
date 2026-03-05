@@ -12,6 +12,7 @@ function _settings_explain_candidates(stack::SettingsStack, key::String)
             priority = i,
             value = layer.data[key],
             origin = copy(layer.origin),
+            key_source = get(layer.key_origin, key, nothing),
         ))
     end
     return candidates
@@ -39,6 +40,7 @@ function _settings_registry_explain_candidates(
                     alias = alias,
                     value = layer.data[alias],
                     origin = copy(layer.origin),
+                    key_source = get(layer.key_origin, alias, nothing),
                 ))
             end
         end
@@ -148,6 +150,7 @@ function settings_explain(simos::SimOs, key::String; layer::Symbol = :effective)
         priority = _settings_require_layer_index(stack, layer_obj.name),
         value = layer_obj.data[key_norm],
         origin = copy(layer_obj.origin),
+        key_source = get(layer_obj.key_origin, key_norm, nothing),
     )] : NamedTuple[]
     return (
         key = key_norm,

@@ -1,10 +1,10 @@
 using Test
 using Simuleos
 
-const ScopeSnapshot = Simuleos.Kernel.ScopeSnapshot
+const SnapScopeType = Simuleos.Kernel.SnapScopeV1
 
 @testset "Scoperias filter_rules" begin
-    base_scope = ScopeSnapshot(
+    base_scope = SnapScopeType(
         ["dev"],
         Dict{Symbol, Any}(
             :alpha => 1,
@@ -28,7 +28,7 @@ const ScopeSnapshot = Simuleos.Kernel.ScopeSnapshot
     filtered_dev = Simuleos.Kernel.filter_rules(base_scope, scoped_rules)
     @test Simuleos.Kernel.hasvar(filtered_dev, :beta)
 
-    prod_scope = ScopeSnapshot(
+    prod_scope = SnapScopeType(
         ["prod"],
         Dict{Symbol, Any}(
             :alpha => 1,
@@ -44,7 +44,7 @@ const ScopeSnapshot = Simuleos.Kernel.ScopeSnapshot
     filtered_exclude = Simuleos.Kernel.filter_rules(base_scope, exclude_rule)
     @test !Simuleos.Kernel.hasvar(filtered_exclude, :gamma)
 
-    runtime_scope = ScopeSnapshot(
+    runtime_scope = SnapScopeType(
         ["dev"],
         Dict{Symbol, Any}(
             :x => 1,
@@ -68,7 +68,7 @@ const ScopeSnapshot = Simuleos.Kernel.ScopeSnapshot
 end
 
 @testset "Scoperias show" begin
-    scope = ScopeSnapshot(
+    scope = SnapScopeType(
         ["s1", "s2"],
         Dict{Symbol, Any}(
             :x => 42,
@@ -88,7 +88,7 @@ end
     compact = sprint(show, scope)
     pretty = sprint(io -> show(io, MIME"text/plain"(), scope))
 
-    @test occursin("ScopeSnapshot(labels=", compact)
+    @test occursin("SnapScopeV1(labels=", compact)
     @test occursin("variables (5):", pretty)
     @test occursin("metadata:", pretty)
     @test occursin("blob:", pretty)

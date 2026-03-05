@@ -55,7 +55,7 @@ end
         blob_ref = Simuleos.Kernel.blob_write(storage, blob_key, Dict("a" => 1))
 
         Simuleos.Kernel.append!(tape, Dict(
-            "type" => "commit",
+            "class_id" => "rec.capture_commit", "class_version" => 1,
             "commit_label" => "c1",
             "metadata" => Dict("timestamp" => "2026-02-24T13:00:01"),
             "scopes" => Any[
@@ -162,7 +162,7 @@ end
         # Append one commit and refresh incrementally.
         Simuleos.Kernel.blob_write(storage, blob_key, Dict("a" => 2); overwrite = true)
         Simuleos.Kernel.append!(tape, Dict(
-            "type" => "commit",
+            "class_id" => "rec.capture_commit", "class_version" => 1,
             "commit_label" => "c2",
             "metadata" => Dict("timestamp" => "2026-02-24T13:00:02"),
             "scopes" => Any[
@@ -216,7 +216,7 @@ end
         mkpath(tape_path)
         tape_rewritten = Simuleos.Kernel.TapeIO(tape_path)
         Simuleos.Kernel.append!(tape_rewritten, Dict(
-            "type" => "commit",
+            "class_id" => "rec.capture_commit", "class_version" => 1,
             "commit_label" => "rewritten",
             "metadata" => Dict("timestamp" => "2026-02-24T13:00:03"),
             "scopes" => Any[
@@ -292,7 +292,7 @@ end
         ))
 
         Simuleos.Kernel.append!(tape, Dict(
-            "type" => "commit",
+            "class_id" => "rec.capture_commit", "class_version" => 1,
             "commit_label" => "uh1.fix.point.fba.v1.main",
             "metadata" => Dict("timestamp" => "2026-02-24T12:00:01"),
             "scopes" => Any[
@@ -316,7 +316,7 @@ end
         ))
 
         Simuleos.Kernel.append!(tape, Dict(
-            "type" => "commit",
+            "class_id" => "rec.capture_commit", "class_version" => 1,
             "commit_label" => "uh1.fix.point.fba.v1.main",
             "metadata" => Dict("timestamp" => "2026-02-24T12:00:02"),
             "scopes" => Any[
@@ -490,7 +490,7 @@ end
                 FROM v_tape_records
                 WHERE subsystem_id = 'scope'
                   AND logical_owner_id = ?
-                  AND record_type = 'commit'
+                  AND record_type = 'rec.capture_commit'
             """, (string(session_id),))
             @test _sqlite_rowcol(vtrs_commit, :n) == 2
 

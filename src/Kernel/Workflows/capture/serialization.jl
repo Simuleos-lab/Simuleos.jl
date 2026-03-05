@@ -1,64 +1,24 @@
 # ============================================================
-# capture/serialization.jl — Serialize PartialSnapshot subtypes
-#
-# Bridge between in-memory snapshot structs and Dict
-# representations suitable for JSON/tape storage.
+# capture/serialization.jl — Serialize DataClasses to records
 # ============================================================
 
 """
-    serialize_capture(c::PartialSnapshot) -> Dict{String, Any}
+    serialize_capture(c::SimuleosDataClass) -> Dict{String, Any}
 
-Convert a PartialSnapshot to a Dict for JSON serialization.
+Convert one semantic runtime DataClass to a class-stamped raw record.
 """
-function serialize_capture(c::SettingsSnapshot)::Dict{String, Any}
-    return Dict{String, Any}(
-        "type" => "settings_capture",
-        "accessed" => copy(c.accessed),
-        "timestamp" => c.timestamp,
-    )
+function serialize_capture(c::SimuleosDataClass)::Dict{String, Any}
+    error("No serializer registered for DataClass `$(typeof(c))`.")
 end
 
-function serialize_capture(c::SourceSnapshot)::Dict{String, Any}
-    return Dict{String, Any}(
-        "type" => "source_capture",
-        "git_commit" => c.git_commit,
-        "git_branch" => c.git_branch,
-        "git_dirty" => c.git_dirty,
-        "git_describe" => c.git_describe,
-    )
-end
-
-function serialize_capture(c::EnvironmentSnapshot)::Dict{String, Any}
-    return Dict{String, Any}(
-        "type" => "environment_capture",
-        "julia_version" => c.julia_version,
-        "hostname" => c.hostname,
-        "os" => c.os,
-        "word_size" => c.word_size,
-        "threads" => c.threads,
-        "timestamp" => c.timestamp,
-    )
-end
-
-function serialize_capture(c::ExecutionSnapshot)::Dict{String, Any}
-    return Dict{String, Any}(
-        "type" => "execution_capture",
-        "src_file" => c.src_file,
-        "src_line" => c.src_line,
-        "threadid" => c.threadid,
-        "timestamp" => c.timestamp,
-    )
-end
-
-function serialize_capture(c::ScopeSnapshot)::Dict{String, Any}
-    d = Dict{String, Any}(
-        "type" => "scope_capture",
-        "labels" => copy(c.labels),
-        "variables" => Dict{String, Any}(string(k) => string(v) for (k, v) in c.variables),
-    )
-    if !isempty(c.metadata)
-        d["metadata"] = Dict{String, Any}(string(k) => v for (k, v) in c.metadata)
-    end
-    return d
-end
-
+serialize_capture(c::SrcSettingsAccessV1)::Dict{String, Any} = encode_src_settings_access_record(c)
+serialize_capture(c::SrcCodebaseV1)::Dict{String, Any} = encode_src_codebase_record(c)
+serialize_capture(c::SrcRuntimeHostV1)::Dict{String, Any} = encode_src_runtime_host_record(c)
+serialize_capture(c::SrcExecutionSiteV1)::Dict{String, Any} = encode_src_execution_site_record(c)
+serialize_capture(c::SrcNamespaceBindingsV1)::Dict{String, Any} = encode_src_namespace_bindings_record(c)
+serialize_capture(c::SrcSessionStateV1)::Dict{String, Any} = encode_src_session_state_record(c)
+serialize_capture(c::SnapScopeV1)::Dict{String, Any} = encode_snap_scope_record(c)
+serialize_capture(c::SnapSharedV1)::Dict{String, Any} = encode_snap_shared_record(c)
+serialize_capture(c::SnapContextV1)::Dict{String, Any} = encode_snap_context_record(c)
+serialize_capture(c::RecCaptureCommitV1)::Dict{String, Any} = encode_rec_capture_commit_record(c)
+serialize_capture(c::RecRefV1)::Dict{String, Any} = encode_rec_ref_record(c)

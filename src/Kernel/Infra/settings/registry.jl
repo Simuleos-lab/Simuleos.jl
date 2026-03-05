@@ -8,6 +8,30 @@ function _settings_registry_token(key::String)::String
     return s
 end
 
+# Derive the Julia-identifier-compatible alias for a canonical key: "a.b.c" -> "a_b_c".
+function _settings_julia_alias(canonical::String)::String
+    return replace(canonical, "." => "_")
+end
+
+# Derive the fully-dotted alias for a canonical key: "a.b.c_d" -> "a.b.c.d".
+# This is the form produced by `_runtime_settings_from_pairs` which replaces all "_" with ".".
+function _settings_dotted_alias(canonical::String)::String
+    return replace(canonical, "_" => ".")
+end
+
+# Return the full alias list, prepending auto-generated aliases (Julia-id and fully-dotted)
+# when they differ from the canonical key.
+function _settings_aliases_with_julia_id(canonical::String, explicit::Vector{String})::Vector{String}
+    auto = String[]
+    for alias in (_settings_julia_alias(canonical), _settings_dotted_alias(canonical))
+        alias == canonical && continue
+        alias in explicit && continue
+        alias in auto && continue
+        push!(auto, alias)
+    end
+    return vcat(auto, explicit)
+end
+
 function _settings_registry_find(stack::SettingsStack, key::String)::Union{Nothing, SettingsRegistryEntry}
     token = _settings_registry_token(key)
     if haskey(stack.registry, token)
@@ -37,7 +61,7 @@ end
 function _settings_registry_selector_layers(stack::SettingsStack, selector::Symbol)::Vector{SettingsLayer}
     if selector == :runtime
         out = SettingsLayer[]
-        for name in (:session, :script, :bootstrap)
+        for name in (:session, :script, :runtime)
             layer = _settings_stack_layer(stack, name)
             isnothing(layer) || push!(out, layer)
         end
@@ -91,8 +115,23 @@ function _settings_stack_get_resolved(stack::SettingsStack, key::String, default
     end
 
     if isnothing(entry.resolve_priority)
-        # Registry hit, but no custom policy: map to canonical and delegate to default system.
-        return _settings_stack_get(stack, entry.canonical, default)
+        # Registry hit, but no custom policy: search canonical + all aliases in default stack order.
+        # Must interleave alias checks per-layer so a higher-priority layer with an alias
+        # wins over a lower-priority layer with the canonical key.
+        _settings_stack_ensure_cache_epoch!(stack)
+        all_keys = vcat([entry.canonical], entry.aliases)
+        for i in length(stack.layers):-1:1
+            layer = stack.layers[i]
+            for k in all_keys
+                if haskey(layer.data, k)
+                    value = layer.data[k]
+                    # Cache under canonical key for consistency with the effective cache contract.
+                    stack.effective[entry.canonical] = value
+                    return value
+                end
+            end
+        end
+        return default
     end
 
     value, found, _, _ = _settings_registry_resolve(stack, entry)
@@ -146,7 +185,7 @@ function _settings_registry_entry_from_spec(
     end
     resolve_priority = _settings_registry_normalize_priority(priority_raw)
 
-    return SettingsRegistryEntry(canonical_s, aliases, resolve_priority)
+    return SettingsRegistryEntry(canonical_s, _settings_aliases_with_julia_id(canonical_s, aliases), resolve_priority)
 end
 
 function _settings_registry_reindex_aliases!(stack::SettingsStack)::SettingsStack
@@ -187,6 +226,22 @@ function settings_registry_unregister!(simos::SimOs, key_or_alias::String)::Bool
     _settings_registry_reindex_aliases!(stack)
     _settings_stack_rebuild!(stack)
     return true
+end
+
+function _settings_registry_register_entry!(stack::SettingsStack, canonical::String, aliases::Vector{String})
+    stack.registry[canonical] = SettingsRegistryEntry(canonical, _settings_aliases_with_julia_id(canonical, aliases), nothing)
+end
+
+function _settings_builtin_registry!(stack::SettingsStack)
+    _settings_registry_register_entry!(stack, SETTING_KEY_HOME_PATH,
+        [SETTING_ALIAS_HOME_PATH_ENV])
+    _settings_registry_register_entry!(stack, SETTING_KEY_PROJECT_ROOT,
+        [SETTING_ALIAS_PROJECT_ROOT_ENV])
+    _settings_registry_register_entry!(stack, SETTING_KEY_SESSION_INIT_GIT_DIRTY_POLICY,
+        String[])
+    _settings_registry_register_entry!(stack, SETTING_KEY_BATCH_COMMIT_MAX_PENDING,
+        String[])
+    _settings_registry_reindex_aliases!(stack)
 end
 
 function settings_registry_list(simos::SimOs)

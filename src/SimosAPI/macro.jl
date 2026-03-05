@@ -14,7 +14,7 @@ const _SimosAPI = SimosAPI
 Process-wide reentrant lock serializing all `@simos` operations.
 Acts as a GIL: every `@simos` call acquires this lock before
 executing, ensuring thread-safe access to `SIMOS[]` and all
-`WorkSession` / `CaptureTree` mutable state.
+`WorkSession` mutable state.
 """
 const SIMOS_GLOBAL_LOCK = ReentrantLock()
 

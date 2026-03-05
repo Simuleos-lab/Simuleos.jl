@@ -111,7 +111,7 @@ end
 
 function _explicit_project_root(simos::SimOs)::Union{Nothing, String}
     for candidate in (
-            get(simos.bootstrap, "project.root", nothing),
+            get(simos.runtime_settings, SETTING_KEY_PROJECT_ROOT, nothing),
             env_project_root()
         )
         if candidate isa String && !isempty(strip(candidate))
@@ -160,7 +160,7 @@ function _session_labels(raw::Dict{String, Any})::Vector{String}
 end
 
 function scan_project_sessions(callback::Function, proj::SimuleosProject)::Nothing
-    sdir = sessions_dir(proj.simuleos_dir)
+    sdir = sessions_dir(proj)
     isdir(sdir) || return nothing
 
     for entry in readdir(sdir)

@@ -4,8 +4,8 @@ using UUIDs
 
 # Convenience aliases for Kernel ScopeTapes + TapeIO + BlobStorage APIs
 const TapeIO = Simuleos.Kernel.TapeIO
-const CaptureTree = Simuleos.Kernel.CaptureTree
-const ScopeSnapshot = Simuleos.Kernel.ScopeSnapshot
+const CaptureTree = Simuleos.Kernel.RecCaptureCommitV1
+const SnapScopeType = Simuleos.Kernel.SnapScopeV1
 const InlineScopeVariable = Simuleos.Kernel.InlineScopeVariable
 const BlobScopeVariable = Simuleos.Kernel.BlobScopeVariable
 const VoidScopeVariable = Simuleos.Kernel.VoidScopeVariable
@@ -148,7 +148,7 @@ const exists = Simuleos.Kernel.exists
 
         # Append two commit records (JSONL = one JSON object per line)
         Simuleos.Kernel.append!(tape, Dict(
-            "type" => "commit",
+            "class_id" => "rec.capture_commit", "class_version" => 1,
             "metadata" => Dict("git_branch" => "main", "timestamp" => "2024-01-15T10:30:00"),
             "scopes" => Any[
                 Dict(
@@ -164,7 +164,7 @@ const exists = Simuleos.Kernel.exists
         ))
 
         Simuleos.Kernel.append!(tape, Dict(
-            "type" => "commit",
+            "class_id" => "rec.capture_commit", "class_version" => 1,
             "metadata" => Dict("git_branch" => "main", "timestamp" => "2024-01-15T10:31:00"),
             "scopes" => Any[
                 Dict(
@@ -183,7 +183,7 @@ const exists = Simuleos.Kernel.exists
             @test rows[1]["type"] == "tape_metadata"
             @test rows[1]["tape_name"] == "main"
 
-            commits = filter(row -> get(row, "type", "") == "commit", rows)
+            commits = filter(row -> get(row, "class_id", "") == "rec.capture_commit", rows)
             @test length(commits) == 2
             @test commits[1]["commit_label"] == "first_commit"
             @test commits[1]["metadata"]["git_branch"] == "main"
@@ -194,7 +194,7 @@ const exists = Simuleos.Kernel.exists
             rows = collect(each_tape_records_filtered(
                 tape;
                 line_filter = (line, ctx) -> occursin("\"first_commit\"", line),
-                json_filter = (row, ctx) -> get(row, "type", "") == "commit" &&
+                json_filter = (row, ctx) -> get(row, "class_id", "") == "rec.capture_commit" &&
                     get(row, "commit_label", "") == "first_commit",
             ))
             @test length(rows) == 1
@@ -203,11 +203,11 @@ const exists = Simuleos.Kernel.exists
             seen_ctx = Tuple{String, Int}[]
             stopped_rows = collect(each_tape_records_filtered(
                 tape;
-                line_filter = (line, ctx) -> occursin("\"type\":\"commit\"", line),
+                line_filter = (line, ctx) -> occursin("\"class_id\":\"rec.capture_commit\"", line),
                 json_filter = (row, ctx) -> begin
                     push!(seen_ctx, (ctx.file, ctx.line_no))
                     tape_stop!(ctx)
-                    return get(row, "type", "") == "commit"
+                    return get(row, "class_id", "") == "rec.capture_commit"
                 end,
             ))
             @test length(stopped_rows) == 1
@@ -218,7 +218,7 @@ const exists = Simuleos.Kernel.exists
             malformed_skip_path = joinpath(simuleos_dir, "filtered-malformed-skip.jsonl")
             open(malformed_skip_path, "w") do io
                 println(io, "{broken")
-                println(io, "{\"type\":\"commit\",\"commit_label\":\"hit\",\"metadata\":{},\"scopes\":[]}")
+                println(io, "{\"class_id\":\"rec.capture_commit\",\"class_version\":1,\"commit_label\":\"hit\",\"metadata\":{},\"scopes\":[]}")
             end
             malformed_skip_tape = TapeIO(malformed_skip_path)
             skipped_rows = collect(each_tape_records_filtered(
@@ -232,7 +232,7 @@ const exists = Simuleos.Kernel.exists
             json_calls = Ref(0)
             first_row = findfirst_tape_record(
                 tape;
-                line_filter = (line, ctx) -> occursin("\"type\":\"commit\"", line),
+                line_filter = (line, ctx) -> occursin("\"class_id\":\"rec.capture_commit\"", line),
                 json_filter = (row, ctx) -> begin
                     json_calls[] += 1
                     return true
@@ -255,8 +255,8 @@ const exists = Simuleos.Kernel.exists
 
             last_commit = findlast_tape_record(
                 tape;
-                line_filter = (line, ctx) -> occursin("\"type\":\"commit\"", line),
-                json_filter = (row, ctx) -> get(row, "type", "") == "commit",
+                line_filter = (line, ctx) -> occursin("\"class_id\":\"rec.capture_commit\"", line),
+                json_filter = (row, ctx) -> get(row, "class_id", "") == "rec.capture_commit",
             )
             @test !isnothing(last_commit)
             @test get(last_commit, "commit_label", "") == ""
@@ -265,10 +265,10 @@ const exists = Simuleos.Kernel.exists
             reverse_seen_ctx = Tuple{String, Int}[]
             accepted_reverse = scan_tape_records_filtered_reverse(
                 tape;
-                line_filter = (line, ctx) -> occursin("\"type\":\"commit\"", line),
+                line_filter = (line, ctx) -> occursin("\"class_id\":\"rec.capture_commit\"", line),
                 json_filter = (row, ctx) -> begin
                     push!(reverse_seen_ctx, (ctx.file, ctx.line_no))
-                    return get(row, "type", "") == "commit"
+                    return get(row, "class_id", "") == "rec.capture_commit"
                 end,
                 on_record = (row, ctx) -> push!(reverse_rows, row),
             )
@@ -280,10 +280,10 @@ const exists = Simuleos.Kernel.exists
             reverse_stop_rows = Dict{String, Any}[]
             accepted_reverse_stop = scan_tape_records_filtered_reverse(
                 tape;
-                line_filter = (line, ctx) -> occursin("\"type\":\"commit\"", line),
+                line_filter = (line, ctx) -> occursin("\"class_id\":\"rec.capture_commit\"", line),
                 json_filter = (row, ctx) -> begin
                     tape_stop!(ctx)
-                    return get(row, "type", "") == "commit"
+                    return get(row, "class_id", "") == "rec.capture_commit"
                 end,
                 on_record = (row, ctx) -> push!(reverse_stop_rows, row),
             )
@@ -294,8 +294,8 @@ const exists = Simuleos.Kernel.exists
             callback_labels = String[]
             accepted = each_tape_records(
                 tape;
-                line_filter = (line, ctx) -> occursin("\"type\":\"commit\"", line),
-                json_filter = (row, ctx) -> get(row, "type", "") == "commit",
+                line_filter = (line, ctx) -> occursin("\"class_id\":\"rec.capture_commit\"", line),
+                json_filter = (row, ctx) -> get(row, "class_id", "") == "rec.capture_commit",
                 on_record = (row, ctx) -> push!(callback_labels, get(row, "commit_label", "")),
             )
             @test accepted == 2
@@ -303,8 +303,8 @@ const exists = Simuleos.Kernel.exists
 
             fetched_reverse = fetch_tape_records(
                 tape;
-                line_filter = (line, ctx) -> occursin("\"type\":\"commit\"", line),
-                json_filter = (row, ctx) -> get(row, "type", "") == "commit",
+                line_filter = (line, ctx) -> occursin("\"class_id\":\"rec.capture_commit\"", line),
+                json_filter = (row, ctx) -> get(row, "class_id", "") == "rec.capture_commit",
                 reverse = true,
                 limit = 1,
             )
@@ -313,8 +313,8 @@ const exists = Simuleos.Kernel.exists
 
             found_forward = find_tape_records(
                 tape;
-                line_filter = (line, ctx) -> occursin("\"type\":\"commit\"", line),
-                json_filter = (row, ctx) -> get(row, "type", "") == "commit",
+                line_filter = (line, ctx) -> occursin("\"class_id\":\"rec.capture_commit\"", line),
+                json_filter = (row, ctx) -> get(row, "class_id", "") == "rec.capture_commit",
                 limit = 1,
             )
             @test length(found_forward) == 1
@@ -322,16 +322,16 @@ const exists = Simuleos.Kernel.exists
 
             latest_row = latest_tape_record(
                 tape;
-                line_filter = (line, ctx) -> occursin("\"type\":\"commit\"", line),
-                json_filter = (row, ctx) -> get(row, "type", "") == "commit",
+                line_filter = (line, ctx) -> occursin("\"class_id\":\"rec.capture_commit\"", line),
+                json_filter = (row, ctx) -> get(row, "class_id", "") == "rec.capture_commit",
             )
             @test !isnothing(latest_row)
             @test get(latest_row, "commit_label", "") == ""
 
             table_rows = table_tape_records(
                 tape;
-                line_filter = (line, ctx) -> occursin("\"type\":\"commit\"", line),
-                json_filter = (row, ctx) -> get(row, "type", "") == "commit",
+                line_filter = (line, ctx) -> occursin("\"class_id\":\"rec.capture_commit\"", line),
+                json_filter = (row, ctx) -> get(row, "class_id", "") == "rec.capture_commit",
                 reverse = true,
                 row_builder = (row, ctx) -> Dict(
                     :commit_label => get(row, "commit_label", ""),
@@ -347,7 +347,7 @@ const exists = Simuleos.Kernel.exists
             hashed_tape = TapeIO(hashed_tape_path)
             test_hash = "abcdef1234567890abcdef1234567890abcdef12"
             Simuleos.Kernel.append!(hashed_tape, Dict(
-                "type" => "commit",
+                "class_id" => "rec.capture_commit", "class_version" => 1,
                 "metadata" => Dict("timestamp" => "2026-02-22T12:00:00"),
                 "scopes" => Any[
                     Dict(
@@ -362,7 +362,8 @@ const exists = Simuleos.Kernel.exists
 
             commits = collect(iterate_commits(hashed_tape))
             @test length(commits) == 1
-            s = commits[1].snapshots[1]
+            scopes = Simuleos.Kernel.commit_scope_snapshots(commits[1])
+            s = scopes[1]
             var_h = s.variables[:h]
             @test var_h isa HashedScopeVariable
             @test var_h.type_short == "Vector{Int64}"
@@ -384,9 +385,10 @@ const exists = Simuleos.Kernel.exists
             @test c2.label == ""
             @test c2.metadata["timestamp"] == "2024-01-15T10:31:00"
 
-            @test length(c1.snapshots) == 1
-            s = c1.snapshots[1]
-            @test s isa ScopeSnapshot
+            c1_scopes = Simuleos.Kernel.commit_scope_snapshots(c1)
+            @test length(c1_scopes) == 1
+            s = c1_scopes[1]
+            @test s isa SnapScopeType
             @test s.labels == ["scope1", "iteration", "step1"]
             @test s.metadata[:step] == 1
 
@@ -402,7 +404,7 @@ const exists = Simuleos.Kernel.exists
             @test var_y.level == :local
             @test var_y.blob_ref.hash == blob_hash
 
-            s2 = c2.snapshots[1]
+            s2 = Simuleos.Kernel.commit_scope_snapshots(c2)[1]
             @test s2.variables[:k] isa VoidScopeVariable
         end
 
@@ -483,7 +485,8 @@ const exists = Simuleos.Kernel.exists
         @testset "TapeIO Key Normalization" begin
             normalized_tape = TapeIO(joinpath(simuleos_dir, "normalized.tape.jsonl"))
             Simuleos.Kernel.append!(normalized_tape, Dict{Symbol, Any}(
-                :type => "commit",
+                :class_id => "rec.capture_commit",
+                :class_version => 1,
                 :metadata => Dict(:alpha => 1),
                 :scopes => Any[]
             ))
@@ -498,7 +501,7 @@ const exists = Simuleos.Kernel.exists
             fragmented_tape = TapeIO(frag_dir)
 
             Simuleos.Kernel.append!(fragmented_tape, Dict(
-                "type" => "commit",
+                "class_id" => "rec.capture_commit", "class_version" => 1,
                 "commit_label" => "f1",
                 "metadata" => Dict("timestamp" => "2026-02-18T12:00:02"),
                 "scopes" => Any[]
@@ -509,7 +512,7 @@ const exists = Simuleos.Kernel.exists
             frag2_path = joinpath(frag_dir, "frag2.jsonl")
             open(frag2_path, "w") do io
                 println(io, Simuleos.Kernel._to_json_string(Dict(
-                    "type" => "commit",
+                    "class_id" => "rec.capture_commit", "class_version" => 1,
                     "commit_label" => "f2",
                     "metadata" => Dict("timestamp" => "2026-02-18T12:00:03"),
                     "scopes" => Any[]
@@ -519,7 +522,7 @@ const exists = Simuleos.Kernel.exists
             rows = collect(fragmented_tape)
             @test length(rows) == 3
             @test rows[1]["type"] == "tape_metadata"
-            commits = filter(row -> get(row, "type", "") == "commit", rows)
+            commits = filter(row -> get(row, "class_id", "") == "rec.capture_commit", rows)
             @test length(commits) == 2
             @test commits[1]["commit_label"] == "f1"
             @test commits[2]["commit_label"] == "f2"
@@ -529,7 +532,7 @@ const exists = Simuleos.Kernel.exists
             path = joinpath(simuleos_dir, "single-file-tape.jsonl")
             file_tape = TapeIO(path)
             Simuleos.Kernel.append!(file_tape, Dict(
-                "type" => "commit",
+                "class_id" => "rec.capture_commit", "class_version" => 1,
                 "commit_label" => "c1",
                 "metadata" => Dict("timestamp" => "2026-02-18T12:00:04"),
                 "scopes" => Any[]
@@ -539,7 +542,7 @@ const exists = Simuleos.Kernel.exists
             @test length(rows) == 2
             @test rows[1]["type"] == "tape_metadata"
             @test rows[1]["tape_name"] == "single-file-tape"
-            @test rows[2]["type"] == "commit"
+            @test rows[2]["class_id"] == "rec.capture_commit"
         end
 
         @testset "TapeIO Empty/Malformed Cases" begin

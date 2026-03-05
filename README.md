@@ -46,7 +46,7 @@ julia --project=. examples/workflows/006-shared-scope-handoff.jl
 - Organize scopes into sessions and commit-labeled history.
 - Read traces back via `each_commits`, `each_scopes`, `latest_scope`, `value`, `scope_table`.
 - Recover/resume runs by binding variables from recorded scopes.
-- Reuse expensive computations with keyed cache (`remember!`, `@simos cache.*`).
+- Reuse expensive computations with keyed cache (`cache_remember!`, `@simos cache.*`).
 - Exchange in-memory typed handoff scopes via `@simos shared.*`.
 - Control capture content with reusable capture filters.
 - Inspect project state from the CLI (`cli/bin/simos`).
@@ -94,9 +94,11 @@ Notes:
 - Use `@simos system.init(...)` before any session work.
   For editor workflows that may run from the wrong working directory, pass
   `project_basename_hint = "your_project_folder"` to fail fast on project mismatches.
-  You can set `bootstrap["project.root"]` as a string path or as a package module
-  (resolved internally via `pkgdir(module)`).
+  You can set `project_root = "/path/to/project"` (or `project_root = SomePkgModule`)
+  to pin the project root from init kwargs.
 - Use `@simos session.init(...)` to begin a session timeline.
+  Dirty-repo policy is controlled by setting `session.init.git_dirty_policy`:
+  `error` (default) or `commit_all` (auto-checkpoint commit at session init).
 - `stage.*` collects variables/metadata to be captured.
 - `scope.capture(...)` turns staged content into a recorded scope.
 - `session.commit(...)`, `session.queue(...)`, and `session.close(...)` control commit grouping/finalization.
@@ -149,11 +151,11 @@ Reference:
 
 - `examples/workflows/003-recover-and-resume.jl`
 
-## Keyed Cache and `remember!`
+## Keyed Cache and `cache_remember!`
 
 Main cache features:
 
-- `remember!(name; ctx=..., tags=...) do ... end` for named cached values.
+- `cache_remember!(name; ctx=..., tags=...) do ... end` for named cached values.
 - `@simos cache.key(...)` for stable context hashes derived from inputs.
 - `@simos cache.remember(hash, var; extra_key_parts...) do ... end` for assignment-style memoization.
 
@@ -205,7 +207,7 @@ Current top-level exported symbols (see `src/Simuleos.jl`):
 
 - Lifecycle: `sim_init!`, `sim_reset!`
 - Reader/query: `project`, `each_commits`, `each_scopes`, `latest_scope`, `value`, `scope_table`
-- Cache helper: `remember!`
+- Cache helper: `cache_remember!`
 - Capture filter management: `simignore!`, `capture_filter_register!`, `capture_filter_bind!`, `capture_filters_snapshot!`, `capture_filters_reset!`
 - Macro/API: `@simos`, `SIMOS_GLOBAL_LOCK`, `SIMOS_GLOBAL_LOCK_ENABLED`
 

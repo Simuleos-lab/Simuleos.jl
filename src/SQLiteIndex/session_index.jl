@@ -3,7 +3,7 @@
 # ------------------------------------------------------------
 
 function _index_project_sessions!(db::SQLite.DB, project_driver::Kernel.SimuleosProject; refresh_mode::String)
-    sdir = Kernel.sessions_dir(project_driver.simuleos_dir)
+    sdir = Kernel.sessions_dir(project_driver)
     isdir(sdir) || return nothing
 
     for entry in sort!(readdir(sdir))
@@ -33,7 +33,7 @@ end
 
 function _refresh_project_sessions!(db::SQLite.DB, project_driver::Kernel.SimuleosProject)
     seen_session_ids = String[]
-    sdir = Kernel.sessions_dir(project_driver.simuleos_dir)
+    sdir = Kernel.sessions_dir(project_driver)
     isdir(sdir) || (_prune_missing_sessions!(db, seen_session_ids); return nothing)
 
     for entry in sort!(readdir(sdir))
@@ -83,12 +83,13 @@ function _refresh_session!(
 end
 
 function _session_index_document(raw::Dict{String, Any}, sjson::String)
-    session_id = string(get(raw, Kernel.SESSION_FILE_ID_KEY, ""))
+    payload = Kernel.decode_src_session_state_record(raw)
+    session_id = payload.session_id
     isempty(session_id) && error("Invalid session.json at `$(sjson)`: missing session_id.")
 
-    labels = Kernel._session_labels(raw)
+    labels = copy(payload.labels)
     primary_label = isempty(labels) ? nothing : labels[1]
-    meta = Kernel._session_meta(raw)
+    meta = copy(payload.meta)
 
     return (
         session_id = session_id,
@@ -207,7 +208,7 @@ function _index_scope!(
         commit_uid::String,
         commit_ord::Int,
         scope_ord::Int,
-        scope::Kernel.ScopeSnapshot,
+        scope::Kernel.SnapScopeV1,
     )
     scope_uid = _scope_uid(session_id, commit_ord, scope_ord)
 

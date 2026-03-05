@@ -32,10 +32,8 @@ function test_init!()
 
     cd(project_path)
     kernel.sim_init!(
-        bootstrap = Dict{String, Any}(
-            "project.root" => project_path,
-            "home.path" => home_path
-        )
+        project_root = project_path,
+        home_path = home_path,
     )
 
     return nothing
@@ -76,10 +74,8 @@ function with_test_context(f::Function)
     kernel.sim_reset!()
     cd(temp_project_path)
     kernel.sim_init!(
-        bootstrap = Dict{String, Any}(
-            "project.root" => temp_project_path,
-            "home.path" => temp_home_path
-        )
+        project_root = temp_project_path,
+        home_path = temp_home_path,
     )
 
     ctx = Dict{Symbol, String}(
@@ -94,10 +90,8 @@ function with_test_context(f::Function)
         kernel.sim_reset!()
         cd(main_project_path)
         kernel.sim_init!(
-            bootstrap = Dict{String, Any}(
-                "project.root" => main_project_path,
-                "home.path" => main_home_path
-            )
+            project_root = main_project_path,
+            home_path = main_home_path,
         )
         rm(temp_root_path; recursive=true, force=true)
         cd(caller_cwd)

@@ -94,23 +94,111 @@ struct HashedScopeVariable <: ScopeVariable
 end
 
 # --------------------------------------------------
-# Scope Snapshot
+# Namespace/Scope DataClasses
 # --------------------------------------------------
 
-"""
-    ScopeSnapshot <: PartialSnapshot
+function _dataclass_scope_variables(
+        variables::AbstractDict,
+        default_level::Symbol,
+    )::Dict{Symbol, ScopeVariable}
+    out = Dict{Symbol, ScopeVariable}()
+    for (name, val) in variables
+        key = Symbol(name)
+        if val isa ScopeVariable
+            out[key] = val
+        else
+            out[key] = InlineScopeVariable(default_level, type_short(val), val)
+        end
+    end
+    return out
+end
 
-A snapshot of variables captured at a specific point in execution.
-Contains labels for identification, variable bindings, and metadata.
-"""
-mutable struct ScopeSnapshot <: PartialSnapshot
+function _dataclass_symbol_any(data::AbstractDict)::Dict{Symbol, Any}
+    out = Dict{Symbol, Any}()
+    for (k, v) in pairs(data)
+        out[Symbol(k)] = v
+    end
+    return out
+end
+
+struct SrcNamespaceBindingsV1 <: SimuleosDataClass
     labels::Vector{String}
     variables::Dict{Symbol, ScopeVariable}
     metadata::Dict{Symbol, Any}
 end
 
-# Default constructor
-ScopeSnapshot() = ScopeSnapshot(String[], Dict{Symbol, ScopeVariable}(), Dict{Symbol, Any}())
+function SrcNamespaceBindingsV1(
+        labels::AbstractVector,
+        variables::AbstractDict,
+        metadata::AbstractDict,
+    )
+    return SrcNamespaceBindingsV1(
+        _dataclass_string_vec(labels),
+        _dataclass_scope_variables(variables, :local),
+        _dataclass_symbol_any(metadata),
+    )
+end
+
+SrcNamespaceBindingsV1() = SrcNamespaceBindingsV1(
+    String[],
+    Dict{Symbol, ScopeVariable}(),
+    Dict{Symbol, Any}(),
+)
+
+struct SnapScopeV1 <: SimuleosDataClass
+    labels::Vector{String}
+    variables::Dict{Symbol, ScopeVariable}
+    metadata::Dict{Symbol, Any}
+end
+
+function SnapScopeV1(
+        labels::AbstractVector,
+        variables::AbstractDict,
+        metadata::AbstractDict,
+    )
+    return SnapScopeV1(
+        _dataclass_string_vec(labels),
+        _dataclass_scope_variables(variables, :local),
+        _dataclass_symbol_any(metadata),
+    )
+end
+
+SnapScopeV1() = SnapScopeV1(String[], Dict{Symbol, ScopeVariable}(), Dict{Symbol, Any}())
+
+struct SnapSharedV1 <: SimuleosDataClass
+    labels::Vector{String}
+    variables::Dict{Symbol, ScopeVariable}
+    metadata::Dict{Symbol, Any}
+    shared_key::String
+end
+
+function SnapSharedV1(
+        labels::AbstractVector,
+        variables::AbstractDict,
+        metadata::AbstractDict,
+        shared_key::AbstractString,
+    )
+    return SnapSharedV1(
+        _dataclass_string_vec(labels),
+        _dataclass_scope_variables(variables, :shared),
+        _dataclass_symbol_any(metadata),
+        String(shared_key),
+    )
+end
+
+SnapSharedV1(shared_key::AbstractString) = SnapSharedV1(
+    String[String(shared_key)],
+    Dict{Symbol, ScopeVariable}(),
+    Dict{Symbol, Any}(),
+    String(shared_key),
+)
+
+SnapSharedV1() = SnapSharedV1(
+    String[],
+    Dict{Symbol, ScopeVariable}(),
+    Dict{Symbol, Any}(),
+    "",
+)
 
 # --------------------------------------------------
 # CaptureTree & CapturePolicy
@@ -119,17 +207,43 @@ ScopeSnapshot() = ScopeSnapshot(String[], Dict{Symbol, ScopeVariable}(), Dict{Sy
 """
     CaptureTree
 
-A recursive, labeled container for snapshots.
-Used both as stage (accumulator between commits) and as committed tree node.
+A recursive, labeled container for captured snapshots.
 """
 mutable struct CaptureTree
     label::String
-    snapshots::Vector{PartialSnapshot}
+    snapshots::Vector{SimuleosDataClass}
     children::Vector{CaptureTree}
     metadata::Dict{String, Any}
 end
 
-CaptureTree(label::String="") = CaptureTree(label, PartialSnapshot[], CaptureTree[], Dict{String, Any}())
+CaptureTree(label::String="") = CaptureTree(label, SimuleosDataClass[], CaptureTree[], Dict{String, Any}())
+
+"""
+    RecCaptureCommitV1 <: SimuleosDataClass
+
+Runtime representation of a `rec.capture_commit` record.
+
+Wraps a `CaptureTree` (the captured content) with record-level metadata
+(label, commit metadata). The `capture` field's `CaptureTree` should be
+treated as immutable once inside a committed record.
+"""
+struct RecCaptureCommitV1 <: SimuleosDataClass
+    label::String
+    capture::CaptureTree
+    metadata::Dict{String, Any}
+end
+
+function RecCaptureCommitV1(;
+        label::AbstractString = "",
+        capture::CaptureTree = CaptureTree(),
+        metadata::AbstractDict = Dict{String, Any}(),
+    )
+    return RecCaptureCommitV1(
+        String(label),
+        capture,
+        _dataclass_string_dict(metadata),
+    )
+end
 
 """
     CapturePolicy
@@ -233,7 +347,7 @@ mutable struct WorkSession
     session_id::Base.UUID
     labels::Vector{String}
     stage::CaptureTree
-    pending_commits::Vector{CaptureTree}
+    pending_commits::Vector{RecCaptureCommitV1}
     capture_policy::CapturePolicy
     is_finalized::Bool
     metadata::Dict{String, Any}
@@ -248,8 +362,8 @@ mutable struct WorkSession
     settings_access_log::Union{Nothing, Dict{String, Any}}
     settings_access_tracking::Bool
     # Capture subsystem: source and environment snapshots (runtime-only).
-    source_capture::Union{Nothing, SourceSnapshot}
-    environment_capture::Union{Nothing, EnvironmentSnapshot}
+    source_capture::Union{Nothing, SrcCodebaseV1}
+    environment_capture::Union{Nothing, SrcRuntimeHostV1}
 end
 
 # --------------------------------------------------
@@ -268,6 +382,7 @@ mutable struct SettingsLayer
     persistent::Bool
     origin::Dict{String, Any}
     data::Dict{String, Any}
+    key_origin::Dict{String, String}   # per-key source tag for observability
 end
 
 """
@@ -309,13 +424,14 @@ The root state object. Holds references to project, home,
 settings, and the active work session.
 """
 mutable struct SimOs
-    bootstrap::Dict{String, Any}
+    lifecycle::Symbol  # :bootstrap (settings-only pre-init) or :ready (full runtime)
+    runtime_settings::Dict{String, Any}
     sandbox::Union{Nothing, SimuleosSandbox}
     project::Union{Nothing, SimuleosProject}
     home::Union{Nothing, SimuleosHome}
     worksession::Union{Nothing, WorkSession}
     settings_stack::Union{Nothing, SettingsStack}  # Structured layered settings SSOT
-    shared_scopes::Dict{String, ScopeSnapshot}  # In-memory named shared scopes
+    shared_scopes::Dict{String, SnapSharedV1}  # In-memory named shared scopes
     sqlite_db::Any  # Cached SQLite metadata-index connection (owned by @simos sqlite.*)
     sqlite_db_path::Union{Nothing, String}  # Canonical path for the cached SQLite DB
 end
@@ -324,5 +440,5 @@ end
 # Global singleton
 # --------------------------------------------------
 
-"""Global SimOs instance. `nothing` when uninitialized."""
+"""Global SimOs instance. Usually `:bootstrap` pre-init, `:ready` after `sim_init!()`."""
 const SIMOS = Ref{Union{Nothing, SimOs}}(nothing)

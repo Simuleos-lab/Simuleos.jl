@@ -51,25 +51,25 @@ end
 function _remember_ctx_extra_named_only(ctx_extra)
     isnothing(ctx_extra) && return nothing
     ctx_extra isa NamedTuple && return ctx_extra
-    error("remember! `ctx_extra` must be a NamedTuple of named key parts (e.g. `(metric=\"fva\", fold=1)`).")
+    error("cache_remember! `ctx_extra` must be a NamedTuple of named key parts (e.g. `(metric=\"fva\", fold=1)`).")
 end
 
 function _resolve_cache_ctx_hash(ws::_Kernel.WorkSession; ctx = nothing, ctx_hash = nothing, ctx_extra = nothing)::String
     has_ctx = !isnothing(ctx)
     has_ctx_hash = !isnothing(ctx_hash)
     has_ctx == has_ctx_hash &&
-        error("remember! expects exactly one of `ctx` or `ctx_hash`.")
+        error("cache_remember! expects exactly one of `ctx` or `ctx_hash`.")
 
     local base_ctx_hash
     if has_ctx
         label = strip(String(ctx))
-        isempty(label) && error("remember! `ctx` label must be a non-empty string.")
+        isempty(label) && error("cache_remember! `ctx` label must be a non-empty string.")
         haskey(ws.context_hash_reg, label) ||
             error("Unknown context hash label `$(label)`. Compute it first with `@simos cache.key(...)`.")
         base_ctx_hash = ws.context_hash_reg[label]
     else
         h = strip(String(ctx_hash))
-        isempty(h) && error("remember! `ctx_hash` must be a non-empty string.")
+        isempty(h) && error("cache_remember! `ctx_hash` must be a non-empty string.")
         base_ctx_hash = h
     end
 
@@ -102,7 +102,7 @@ function _remember_store_result!(namespace, ctx_hash, value)
 end
 
 """
-    remember!(namespace; ctx=..., ctx_hash=..., ctx_extra=nothing, tags=String[]) do
+    cache_remember!(namespace; ctx=..., ctx_hash=..., ctx_extra=nothing, tags=String[]) do
         ...
     end
 
@@ -113,7 +113,7 @@ disambiguation data into the resolved context hash without changing the original
 named hash registry entry. When provided, `ctx_extra` must be a `NamedTuple`.
 Returns `(value, :hit|:miss|:race_lost)`.
 """
-function remember!(f::Function, namespace;
+function cache_remember!(f::Function, namespace;
         ctx = nothing,
         ctx_hash = nothing,
         ctx_extra = nothing,
@@ -124,4 +124,4 @@ function remember!(f::Function, namespace;
     return _Kernel.cache_remember!(f, proj, namespace, resolved_ctx_hash; tags=tags)
 end
 
-remember!(f::Function, namespace::Symbol; kw...) = remember!(f, String(namespace); kw...)
+cache_remember!(f::Function, namespace::Symbol; kw...) = cache_remember!(f, String(namespace); kw...)

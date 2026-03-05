@@ -46,6 +46,7 @@ blob_tape_shard_path(storage::BlobStorage, ref::BlobRef)::String =
 
 """Path to the sessions directory."""
 sessions_dir(simuleos_dir::String) = joinpath(simuleos_dir, SESSIONS_DIR)
+sessions_dir(project::SimuleosProject) = sessions_dir(project.simuleos_dir)
 
 """Path to a specific session directory."""
 _session_dir(simuleos_dir::String, session_id) =
@@ -73,6 +74,14 @@ tape_path(proj::SimuleosProject, session_id) = tape_path(proj.simuleos_dir, sess
 tape_path(proj::SimuleosProject, session_id, tape_name::AbstractString) =
     tape_path(proj.simuleos_dir, session_id, tape_name)
 
+"""Construct a tape handle for a project/session pair."""
+session_tape(simuleos_dir::String, session_id) = TapeIO(tape_path(simuleos_dir, session_id))
+session_tape(simuleos_dir::String, session_id, tape_name::AbstractString) =
+    TapeIO(tape_path(simuleos_dir, session_id, tape_name))
+session_tape(proj::SimuleosProject, session_id) = session_tape(proj.simuleos_dir, session_id)
+session_tape(proj::SimuleosProject, session_id, tape_name::AbstractString) =
+    session_tape(proj.simuleos_dir, session_id, tape_name)
+
 _simuleos_dir(root::String) = joinpath(root, SIMULEOS_DIR_NAME)
 simuleos_dir(project::SimuleosProject)::String = project.simuleos_dir
 
@@ -87,7 +96,7 @@ Returns the `.simuleos` directory path, or `nothing` if not found.
 function find_simuleos_dir(start_path::String)
     path = abspath(start_path)
     while true
-        candidate = joinpath(path, SIMULEOS_DIR_NAME)
+        candidate = _simuleos_dir(path)
         if isfile(project_json_path(candidate))
             return candidate
         end

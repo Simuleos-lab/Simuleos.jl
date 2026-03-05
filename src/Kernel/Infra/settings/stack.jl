@@ -3,9 +3,46 @@
 # ============================================================
 
 """
-    SettingsLayer(; name, kind, data=Dict(), is_mutable=false, persistent=false, origin=Dict())
+    _settings_layer_source_tag(layer::SettingsLayer) -> String
+
+Derive the default source tag for bulk-loaded keys from the layer's origin metadata.
+Prefers `origin["path"]` (file-backed), then `origin["source"]`, then the layer name.
+"""
+function _settings_layer_source_tag(layer::SettingsLayer)::String
+    path = get(layer.origin, "path", nothing)
+    if !isnothing(path)
+        s = String(path)
+        isempty(s) || return s
+    end
+    source = get(layer.origin, "source", nothing)
+    if !isnothing(source)
+        s = String(source)
+        isempty(s) || return s
+    end
+    return string(layer.name)
+end
+
+"""
+    _settings_fill_key_origin!(layer::SettingsLayer) -> SettingsLayer
+
+Populate `key_origin` for every key in `layer.data` using the layer's source tag.
+Existing entries in `key_origin` are preserved (only missing keys are filled).
+"""
+function _settings_fill_key_origin!(layer::SettingsLayer)::SettingsLayer
+    isempty(layer.data) && return layer
+    tag = _settings_layer_source_tag(layer)
+    for k in keys(layer.data)
+        haskey(layer.key_origin, k) && continue
+        layer.key_origin[k] = tag
+    end
+    return layer
+end
+
+"""
+    SettingsLayer(; name, kind, data=Dict(), is_mutable=false, persistent=false, origin=Dict(), key_origin=nothing)
 
 Convenience constructor that normalizes metadata/data dictionaries to string keys.
+When `key_origin` is `nothing` (default), auto-fills per-key origins from the layer's origin metadata.
 """
 function SettingsLayer(;
         name::Symbol,
@@ -14,17 +51,22 @@ function SettingsLayer(;
         is_mutable::Bool = false,
         persistent::Bool = false,
         origin = Dict{String, Any}(),
+        key_origin = nothing,
     )
     data isa AbstractDict || error("SettingsLayer `data` must be a Dict-like object.")
     origin isa AbstractDict || error("SettingsLayer `origin` must be a Dict-like object.")
-    return SettingsLayer(
+    ko = isnothing(key_origin) ? Dict{String, String}() : Dict{String, String}(key_origin)
+    layer = SettingsLayer(
         name,
         kind,
         is_mutable,
         persistent,
         _string_keys(origin),
         _string_keys(data),
+        ko,
     )
+    isnothing(key_origin) && _settings_fill_key_origin!(layer)
+    return layer
 end
 
 """
@@ -233,6 +275,16 @@ end
 function _settings_builtin_layers(simos::SimOs)::Vector{SettingsLayer}
     layers = SettingsLayer[]
 
+    # Layer 0: Defaults (lowest priority — process-wide fallback values)
+    push!(layers, SettingsLayer(
+        name = :defaults,
+        kind = :defaults,
+        origin = Dict{String, Any}(
+            "source" => SETTINGS_SOURCE_TAG_DEFAULTS,
+        ),
+        data = _settings_flatten_dict(SIMULEOS_SETTINGS_DEFAULTS),
+    ))
+
     # Layer 1: Home
     if !isnothing(simos.home)
         push!(layers, SettingsLayer(
@@ -264,20 +316,20 @@ function _settings_builtin_layers(simos::SimOs)::Vector{SettingsLayer}
         name = :env,
         kind = :env,
         origin = Dict{String, Any}(
-            "prefix" => ENV_PREFIX,
+            "source" => SETTINGS_SOURCE_TAG_ENV,
         ),
         data = env_settings(),
     ))
 
-    # Layer 4: Bootstrap
+    # Layer 4: Runtime
     push!(layers, SettingsLayer(
-        name = :bootstrap,
-        kind = :bootstrap,
+        name = :runtime,
+        kind = :runtime,
         is_mutable = true,
         origin = Dict{String, Any}(
-            "source" => "sim_init.bootstrap",
+            "source" => SETTINGS_SOURCE_TAG_RUNTIME,
         ),
-        data = _string_keys(simos.bootstrap),
+        data = _string_keys(simos.runtime_settings),
     ))
 
     # Layer 5: Script overlay (runtime mutable)
@@ -286,7 +338,7 @@ function _settings_builtin_layers(simos::SimOs)::Vector{SettingsLayer}
         kind = :script,
         is_mutable = true,
         origin = Dict{String, Any}(
-            "source" => "runtime.script.overlay",
+            "source" => SETTINGS_SOURCE_TAG_SCRIPT,
         ),
         data = Dict{String, Any}(),
     ))
@@ -297,7 +349,7 @@ function _settings_builtin_layers(simos::SimOs)::Vector{SettingsLayer}
         kind = :session,
         is_mutable = true,
         origin = Dict{String, Any}(
-            "source" => "runtime.session.overlay",
+            "source" => SETTINGS_SOURCE_TAG_SESSION,
         ),
         data = Dict{String, Any}(),
     ))
@@ -309,11 +361,12 @@ end
     build_settings_stack(simos::SimOs) -> SettingsStack
 
 Build the phase-1 settings stack from the current built-in sources.
-Priority (low -> high): home, project, env, bootstrap, script, session.
+Priority (low -> high): defaults, home, project, env, runtime, script, session.
 Optional layers (:cli, :json_file) are inserted at runtime between existing layers.
 """
 function build_settings_stack(simos::SimOs)::SettingsStack
     stack = SettingsStack(; layers = _settings_builtin_layers(simos))
+    _settings_builtin_registry!(stack)
     _settings_stack_rebuild!(stack)
     return stack
 end
@@ -329,17 +382,6 @@ function load_settings_stack!(simos::SimOs)::SettingsStack
     return stack
 end
 
-"""
-    get_setting(simos::SimOs, key::String, default=nothing)
-
-Get a setting value by dotted key.
-"""
-function get_setting(simos::SimOs, key::String, default=nothing)
-    value = _settings_stack_get_resolved(_settings_stack_required(simos), key, default)
-    _settings_access_log!(simos, key, value)
-    return value
-end
-
 function _settings_access_log!(simos::SimOs, key::String, value)::Nothing
     ws = simos.worksession
     isnothing(ws) && return nothing
@@ -350,13 +392,24 @@ function _settings_access_log!(simos::SimOs, key::String, value)::Nothing
     return nothing
 end
 
-function _require_setting(key::String, value)
-    value === __MISSING__ && error("Missing setting: $key")
+"""
+    settings(simos::SimOs, key::String) -> value
+    settings(simos::SimOs, key::String, default) -> value
+
+Get a setting value by dotted key.
+The single-key form errors if the key is missing.
+"""
+function settings(simos::SimOs, key::String, default)
+    value = _settings_stack_get_resolved(_settings_stack_required(simos), key, default)
+    _settings_access_log!(simos, key, value)
     return value
 end
 
-settings(simos::SimOs, key::String) = _require_setting(key, get_setting(simos, key, __MISSING__))
-settings(simos::SimOs, key::String, default) = get_setting(simos, key, default)
+function settings(simos::SimOs, key::String)
+    value = settings(simos, key, __MISSING__)
+    value === __MISSING__ && error("Missing setting: $key")
+    return value
+end
 
 function _settings_stack_required(simos::SimOs)::SettingsStack
     if isnothing(simos.settings_stack)

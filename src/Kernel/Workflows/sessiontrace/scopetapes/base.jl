@@ -11,37 +11,22 @@ decode_scope_variable_record(name::String, data::AbstractDict) =
     decode_snap_scope_variable_record(name, data)
 
 """
-    decode_scope_snapshot_record(data::AbstractDict) -> ScopeSnapshot
+    decode_scope_snapshot_record(data::AbstractDict) -> SnapScopeV1
 
-Parse a raw scope dict into a ScopeSnapshot.
+Parse a raw scope dict into a SnapScopeV1.
 """
-decode_scope_snapshot_record(data::AbstractDict)::ScopeSnapshot = decode_snap_scope_record(data)
+decode_scope_snapshot_record(data::AbstractDict)::SnapScopeV1 = decode_snap_scope_record(data)
 
 """
-    decode_scope_commit_record(data::AbstractDict) -> CaptureTree
+    decode_scope_commit_record(data::AbstractDict) -> RecCaptureCommitV1
 
-Parse a raw commit dict into a CaptureTree.
+Parse a raw commit dict into a RecCaptureCommitV1.
 """
-function decode_scope_commit_record(data::AbstractDict)
-    label = string(get(data, "commit_label", ""))
-    metadata = Dict{String, Any}()
-    if haskey(data, "metadata") && data["metadata"] isa AbstractDict
-        metadata = _string_keys(data["metadata"])
-    end
-
-    snapshots = PartialSnapshot[]
-    if haskey(data, "scopes")
-        for scope_data in data["scopes"]
-            push!(snapshots, decode_scope_snapshot_record(scope_data))
-        end
-    end
-
-    return CaptureTree(label, snapshots, CaptureTree[], metadata)
-end
+decode_scope_commit_record(data::AbstractDict)::RecCaptureCommitV1 = decode_rec_capture_commit_record(data)
 """
-    iterate_commits(tape::TapeIO) -> Vector{CaptureTree}
+    iterate_commits(tape::TapeIO) -> Vector{RecCaptureCommitV1}
 
-Read commit records from a tape as fully materialized `CaptureTree` values.
+Read commit records from a tape as fully materialized `RecCaptureCommitV1` values.
 This keeps the read surface simple (no custom iterator wrappers).
 """
-iterate_commits(tape::TapeIO)::Vector{CaptureTree} = fetch_scope_commits(tape)
+iterate_commits(tape::TapeIO)::Vector{RecCaptureCommitV1} = fetch_scope_commits(tape)

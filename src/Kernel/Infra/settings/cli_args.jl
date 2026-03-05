@@ -85,11 +85,11 @@ function parse_cli_args(args::Vector{String})::Dict{String, Any}
 end
 
 """
-    settings_source_add_args!(simos::SimOs, args::Vector{String}; after::Symbol=:env)
+    settings_source_add_args!(simos::SimOs, args::Vector{String}; after::Symbol=:session)
 
 Parse CLI args and add them as a `:cli` settings layer.
 """
-function settings_source_add_args!(simos::SimOs, args::Vector{String}; after::Symbol = :env)
+function settings_source_add_args!(simos::SimOs, args::Vector{String}; after::Symbol = :session)
     data = parse_cli_args(args)
     stack = _settings_stack_required(simos)
 
@@ -97,6 +97,9 @@ function settings_source_add_args!(simos::SimOs, args::Vector{String}; after::Sy
     if !isnothing(existing_idx)
         layer = stack.layers[existing_idx]
         merge!(layer.data, data)
+        for k in keys(data)
+            layer.key_origin[k] = SETTINGS_SOURCE_TAG_CLI
+        end
         _settings_stack_rebuild!(stack)
         return layer
     end
@@ -107,7 +110,7 @@ function settings_source_add_args!(simos::SimOs, args::Vector{String}; after::Sy
         is_mutable = false,
         persistent = false,
         origin = Dict{String, Any}(
-            "source" => "cli_args",
+            "source" => SETTINGS_SOURCE_TAG_CLI,
             "arg_count" => length(args),
         ),
         data = data,

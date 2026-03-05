@@ -10,10 +10,10 @@ using UUIDs
 using Dates
 
 # -- Foundation primitives and shared state types --
-include("Foundation/snapshot_types.jl")
+include("Foundation/dataclass_types.jl")
 include("Foundation/types.jl")
-include("Foundation/state.jl")
 include("Foundation/utils.jl")
+include("Foundation/state.jl")
 
 # -- Infra (record-agnostic drivers + environment plumbing) --
 include("Infra/project/fs.jl")
@@ -33,11 +33,17 @@ classsystem_bootstrap!()
 # -- Semantic class implementation lanes (placeholder scaffolds) --
 include("Classes/decode_dispatch.jl")
 include("Classes/encode_dispatch.jl")
-include("Classes/src/placeholder.jl")
+include("Classes/src/codebase.jl")
+include("Classes/src/runtime_host.jl")
+include("Classes/src/execution_site.jl")
+include("Classes/src/settings_access.jl")
+include("Classes/src/session_state.jl")
+include("Classes/src/namespace_bindings.jl")
 include("Classes/snap/scope.jl")
 include("Classes/snap/context.jl")
-include("Classes/snap/shared_placeholder.jl")
-include("Classes/rec/placeholder.jl")
+include("Classes/snap/shared.jl")
+include("Classes/rec/capture_commit.jl")
+include("Classes/rec/ref.jl")
 
 # -- Workflow: sessiontrace (formerly scope/scopetape flow) --
 include("Workflows/sessiontrace/scoperias/base.jl")

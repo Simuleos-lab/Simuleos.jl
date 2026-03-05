@@ -26,8 +26,8 @@ function _record_class_identity(
         default_version::Integer,
         payload_name::AbstractString = "record",
     )::Tuple{String, Int}
-    class_id = get(data, "class_id", get(data, :class_id, nothing))
-    class_version = get(data, "class_version", get(data, :class_version, nothing))
+    class_id = _record_class_id_value(data; default = nothing)
+    class_version = _record_class_version_raw(data; default = nothing)
 
     if isnothing(class_id) && isnothing(class_version)
         return (String(default_id), Int(default_version))
@@ -43,7 +43,7 @@ function _record_class_tag(
         default_id::AbstractString,
         default_version::Integer,
         payload_name::AbstractString = "record",
-    )::SimuleosClass
+    )::SimuleosClassTag
     class_id, class_version = _record_class_identity(
         data;
         default_id = default_id,

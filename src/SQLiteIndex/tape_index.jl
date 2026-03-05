@@ -2,9 +2,16 @@
 # Tape scanning and indexing helpers
 # ------------------------------------------------------------
 
-_record_type(raw::AbstractDict)::String = string(get(raw, "type", "commit"))
-_record_writer(raw::AbstractDict) = _string_or_nothing(get(raw, "writer", get(raw, :writer, nothing)))
-_record_timetag(raw::AbstractDict) = _string_or_nothing(get(raw, "timetag", get(raw, :timetag, nothing)))
+function _record_type(raw::AbstractDict)::String
+    class_id = _string_or_nothing(Kernel._record_class_id_value(raw; default = nothing))
+    !isnothing(class_id) && return class_id
+    type_id = _string_or_nothing(Kernel._record_field(raw, "type", nothing))
+    return isnothing(type_id) ? "" : type_id
+end
+
+_record_is_scope_commit(raw::AbstractDict)::Bool = _record_type(raw) == Kernel._CAPTURE_COMMIT_CLASS_ID
+_record_writer(raw::AbstractDict) = _string_or_nothing(Kernel._record_field(raw, "writer", nothing))
+_record_timetag(raw::AbstractDict) = _string_or_nothing(Kernel._record_field(raw, "timetag", nothing))
 _record_hash(raw::AbstractDict)::String = bytes2hex(SHA.sha1(Kernel.JSON3.write(raw)))
 
 _commit_uid(session_id::String, commit_ord::Int)::String = string(session_id, ":c", commit_ord)
@@ -41,7 +48,7 @@ function _scan_scope_tape!(
         start_commit_ord::Int,
         start_tape_record_ord::Int,
     )
-    tape = Kernel.TapeIO(Kernel.tape_path(project_driver.simuleos_dir, session_id))
+    tape = Kernel.session_tape(project_driver, session_id)
     tape_info = _scope_tape_info(project_driver, session_id, tape)
     _upsert_tape!(db, tape_info)
 
@@ -86,7 +93,7 @@ function _scan_scope_tape!(
                 )
             end
 
-            _record_type(raw) == "commit" || return nothing
+            _record_is_scope_commit(raw) || return nothing
             commit_ord += 1
 
             commit = Kernel.decode_scope_commit_record(raw)
@@ -147,7 +154,7 @@ function _insert_commit_and_scopes!(
         db::SQLite.DB,
         session_id::String,
         commit_ord::Int,
-        commit::Kernel.CaptureTree,
+        commit::Kernel.RecCaptureCommitV1,
         tape_record_ord::Int,
         tape_file::String,
         tape_line_no::Int,
@@ -164,13 +171,13 @@ function _insert_commit_and_scopes!(
         session_id,
         commit_ord,
         commit.label,
-        _string_or_nothing(get(commit.metadata, "timestamp", nothing)),
+        _string_or_nothing(get(commit.metadata, Kernel.SESSION_META_TIMESTAMP_KEY, nothing)),
         tape_record_ord,
         tape_file,
         tape_line_no,
     ))
 
-    for (scope_ord, scope) in enumerate(Kernel.ScopeSnapshot[s for s in commit.snapshots if s isa Kernel.ScopeSnapshot])
+    for (scope_ord, scope) in enumerate(Kernel.commit_scope_snapshots(commit))
         _index_scope!(db, session_id, commit_uid, commit_ord, scope_ord, scope)
     end
     return nothing
@@ -180,7 +187,7 @@ function _verify_indexed_commit_prefix!(
         db::SQLite.DB,
         session_id::String,
         commit_ord::Int,
-        commit::Kernel.CaptureTree,
+        commit::Kernel.RecCaptureCommitV1,
         tape_record_ord::Int,
         tape_file::String,
         tape_line_no::Int,
@@ -358,7 +365,7 @@ function _update_scope_tape_index_state!(
     )
     tape_uid = hasproperty(stats, :tape_uid) ?
         String(getproperty(stats, :tape_uid)) :
-        _scope_tape_uid(project_driver, Kernel.TapeIO(Kernel.tape_path(project_driver.simuleos_dir, session_id)))
+        _scope_tape_uid(project_driver, Kernel.session_tape(project_driver, session_id))
 
     _sqlite_exec(db, """
         INSERT INTO tape_index_state (

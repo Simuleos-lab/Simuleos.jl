@@ -92,8 +92,8 @@ const K = Simuleos.Kernel
         @testset "metadata-only registry and dispatch separation" begin
             @test !any(t -> t <: Function, fieldtypes(K.SimuleosClassSpec))
 
-            decode_demo(::K.SimuleosClass{Symbol("snap.scope"), 1}, raw) = ("scope", raw)
-            decode_demo(::K.SimuleosClass, raw) = ("generic", raw)
+            decode_demo(::K.SimuleosClassTag{Symbol("snap.scope"), 1}, raw) = ("scope", raw)
+            decode_demo(::K.SimuleosClassTag, raw) = ("generic", raw)
 
             tag = K.class_tag("snap.scope@v1")
             @test decode_demo(tag, Dict("x" => 1))[1] == "scope"
@@ -104,17 +104,18 @@ const K = Simuleos.Kernel
             K._class_registry_reset!()
             mktempdir() do tmp
                 tape = K.TapeIO(joinpath(tmp, "scope-class-gate.jsonl"))
-                scope = K.ScopeSnapshot(
+                scope = K.SnapScopeV1(
                     ["scope-gate"],
                     Dict{Symbol, K.ScopeVariable}(:x => K.InlineScopeVariable(:local, "Int64", 1)),
                     Dict{Symbol, Any}(),
                 )
-                commit = K.CaptureTree(
+                capture = K.CaptureTree(
                     "gate-commit",
-                    K.PartialSnapshot[scope],
+                    K.SimuleosDataClass[scope],
                     K.CaptureTree[],
                     Dict{String, Any}(),
                 )
+                commit = K.RecCaptureCommitV1(; label="gate-commit", capture=capture)
 
                 @test_throws ErrorException K.append!(tape, commit)
 
@@ -123,7 +124,7 @@ const K = Simuleos.Kernel
 
                 rows = collect(tape)
                 commit_row = rows[end]
-                @test commit_row["type"] == "commit"
+                @test commit_row["class_id"] == "rec.capture_commit"
                 @test commit_row["scopes"][1]["class_id"] == "snap.scope"
                 @test commit_row["scopes"][1]["class_version"] == 1
             end
@@ -135,7 +136,7 @@ const K = Simuleos.Kernel
             mktempdir() do tmp
                 tape = K.TapeIO(joinpath(tmp, "scope-class-read.jsonl"))
                 K.append!(tape, Dict(
-                    "type" => "commit",
+                    "class_id" => "rec.capture_commit", "class_version" => 1,
                     "metadata" => Dict("timestamp" => "2026-02-28T12:00:00"),
                     "scopes" => Any[
                         Dict(
@@ -161,7 +162,7 @@ const K = Simuleos.Kernel
             mktempdir() do tmp
                 tape = K.TapeIO(joinpath(tmp, "scope-class-read-invalid.jsonl"))
                 K.append!(tape, Dict(
-                    "type" => "commit",
+                    "class_id" => "rec.capture_commit", "class_version" => 1,
                     "metadata" => Dict{String, Any}(),
                     "scopes" => Any[
                         Dict(
@@ -175,6 +176,168 @@ const K = Simuleos.Kernel
                 ))
 
                 @test_throws ErrorException K.fetch_scope_snapshots(tape)
+            end
+        end
+
+        @testset "shared scope class dispatch by class tag" begin
+            K.classsystem_bootstrap!()
+
+            raw = Dict{String, Any}(
+                "class_id" => "snap.shared",
+                "class_version" => 1,
+                "shared_key" => "typed",
+                "labels" => Any["typed"],
+                "variables" => Dict(
+                    "x" => Dict("src_type" => "Float64", "src" => "shared", "value" => 1.5),
+                ),
+                "metadata" => Dict("src_file" => "script.jl", "src_line" => 10),
+            )
+
+            shared = K.decode_snap_shared_record(raw)
+            @test shared isa K.SnapSharedV1
+            @test shared.shared_key == "typed"
+            @test shared.labels == ["typed"]
+            @test shared.variables[:x] isa K.InlineScopeVariable
+            @test shared.metadata[:src_line] == 10
+
+            encoded = K.encode_snap_shared_record(shared)
+            @test encoded["class_id"] == "snap.shared"
+            @test encoded["class_version"] == 1
+            @test encoded["shared_key"] == "typed"
+            @test encoded["variables"]["x"]["src"] == "shared"
+        end
+
+        @testset "builtin class runtime coverage uses typed DataClasses" begin
+            K.classsystem_bootstrap!()
+
+            scope_raw = Dict{String, Any}(
+                "class_id" => "snap.scope",
+                "class_version" => 1,
+                "labels" => Any["scope-a"],
+                "variables" => Dict(
+                    "x" => Dict("src_type" => "Int64", "src" => "local", "value" => 3),
+                ),
+                "metadata" => Dict("step" => 1),
+            )
+
+            settings_raw = Dict{String, Any}(
+                "class_id" => "src.settings_access",
+                "class_version" => 1,
+                "accessed" => Dict("run.alpha" => 0.5),
+                "timestamp" => "2026-03-04T12:00:00",
+            )
+
+            source_raw = Dict{String, Any}(
+                "class_id" => "src.codebase",
+                "class_version" => 1,
+                "git_commit" => "abc",
+                "git_branch" => "main",
+                "git_dirty" => false,
+                "git_describe" => "v0.1.0",
+            )
+
+            env_raw = Dict{String, Any}(
+                "class_id" => "src.runtime_host",
+                "class_version" => 1,
+                "julia_version" => "1.11.0",
+                "hostname" => "node",
+                "os" => "Linux",
+                "word_size" => 64,
+                "threads" => 4,
+                "timestamp" => "2026-03-04T12:00:00",
+            )
+
+            exec_raw = Dict{String, Any}(
+                "class_id" => "src.execution_site",
+                "class_version" => 1,
+                "src_file" => "script.jl",
+                "src_line" => 9,
+                "threadid" => 1,
+                "timestamp" => "2026-03-04T12:00:01",
+            )
+
+            namespace_raw = Dict{String, Any}(
+                "class_id" => "src.namespace_bindings",
+                "class_version" => 1,
+                "labels" => Any["scope-a"],
+                "variables" => Dict(
+                    "x" => Dict("src_type" => "Int64", "src" => "local", "value" => 3),
+                ),
+                "metadata" => Dict("step" => 1),
+            )
+
+            session_state_raw = Dict{String, Any}(
+                "class_id" => "src.session_state",
+                "class_version" => 1,
+                "session_id" => string(Base.UUID("00000000-0000-0000-0000-000000000001")),
+                "labels" => Any["label-a"],
+                "meta" => Dict("timestamp" => "2026-03-04T12:00:02"),
+            )
+
+            context_raw = Dict{String, Any}(
+                "class_id" => "snap.context",
+                "class_version" => 1,
+                "settings" => settings_raw,
+                "source" => source_raw,
+                "environment" => env_raw,
+                "execution" => exec_raw,
+                "session_id" => session_state_raw["session_id"],
+                "labels" => Any["label-a"],
+            )
+
+            shared_raw = Dict{String, Any}(
+                "class_id" => "snap.shared",
+                "class_version" => 1,
+                "shared_key" => "shared-a",
+                "labels" => Any["shared-a"],
+                "variables" => Dict(
+                    "x" => Dict("src_type" => "Int64", "src" => "shared", "value" => 3),
+                ),
+                "metadata" => Dict("src_line" => 12),
+            )
+
+            capture_commit_raw = Dict{String, Any}(
+                "class_id" => "rec.capture_commit",
+                "class_version" => 1,
+                "metadata" => Dict("timestamp" => "2026-03-04T12:00:03"),
+                "scopes" => Any[scope_raw],
+                "commit_label" => "commit-a",
+            )
+
+            rec_ref_raw = Dict{String, Any}(
+                "class_id" => "rec.ref",
+                "class_version" => 1,
+                "record_hash" => "0123456789abcdef0123456789abcdef01234567",
+                "record_short" => "0123456789ab",
+                "writer" => "Simuleos",
+                "timetag" => "2026-03-04T12:00:04",
+                "payload" => context_raw,
+            )
+
+            coverage = [
+                (raw = source_raw, decode = K.decode_src_codebase_record, encode = K.encode_src_codebase_record, T = K.SrcCodebaseV1),
+                (raw = env_raw, decode = K.decode_src_runtime_host_record, encode = K.encode_src_runtime_host_record, T = K.SrcRuntimeHostV1),
+                (raw = exec_raw, decode = K.decode_src_execution_site_record, encode = K.encode_src_execution_site_record, T = K.SrcExecutionSiteV1),
+                (raw = namespace_raw, decode = K.decode_src_namespace_bindings_record, encode = K.encode_src_namespace_bindings_record, T = K.SrcNamespaceBindingsV1),
+                (raw = settings_raw, decode = K.decode_src_settings_access_record, encode = K.encode_src_settings_access_record, T = K.SrcSettingsAccessV1),
+                (raw = session_state_raw, decode = K.decode_src_session_state_record, encode = K.encode_src_session_state_record, T = K.SrcSessionStateV1),
+                (raw = scope_raw, decode = K.decode_snap_scope_record, encode = K.encode_snap_scope_record, T = K.SnapScopeV1),
+                (raw = context_raw, decode = K.decode_snap_context_record, encode = K.encode_snap_context_record, T = K.SnapContextV1),
+                (raw = shared_raw, decode = K.decode_snap_shared_record, encode = K.encode_snap_shared_record, T = K.SnapSharedV1),
+                (raw = capture_commit_raw, decode = K.decode_rec_capture_commit_record, encode = K.encode_rec_capture_commit_record, T = K.RecCaptureCommitV1),
+                (raw = rec_ref_raw, decode = K.decode_rec_ref_record, encode = K.encode_rec_ref_record, T = K.RecRefV1),
+            ]
+
+            for item in coverage
+                decoded = item.decode(item.raw)
+                @test decoded isa item.T
+                @test decoded isa K.SimuleosDataClass
+                @test !(decoded isa AbstractDict)
+
+                encoded = item.encode(decoded)
+                @test encoded isa Dict{String, Any}
+                @test encoded["class_id"] == item.raw["class_id"]
+                @test encoded["class_version"] == item.raw["class_version"]
             end
         end
     finally

@@ -3,7 +3,7 @@
     WS = Simuleos.WorkSession
 
     with_test_context() do ctx
-        sim = Kernel._get_sim()
+        sim = Kernel._get_simos()
         proj = Kernel.sim_project(sim)
 
         # Set some settings values
@@ -20,17 +20,17 @@
             @test ws.settings_access_tracking == true
         end
 
-        @testset "get_setting populates access log" begin
-            val = Kernel.get_setting(sim, "run.alpha")
+        @testset "settings populates access log" begin
+            val = Kernel.settings(sim, "run.alpha")
             @test val == 0.5
             @test haskey(ws.settings_access_log, "run.alpha")
             @test ws.settings_access_log["run.alpha"] == 0.5
 
-            Kernel.get_setting(sim, "run.beta")
+            Kernel.settings(sim, "run.beta")
             @test haskey(ws.settings_access_log, "run.beta")
 
             # Missing key also logged (with nothing value)
-            Kernel.get_setting(sim, "nonexistent.key")
+            Kernel.settings(sim, "nonexistent.key", nothing)
             @test haskey(ws.settings_access_log, "nonexistent.key")
             @test ws.settings_access_log["nonexistent.key"] === nothing
         end
@@ -50,12 +50,12 @@
         @testset "tracking toggle" begin
             # Turn off tracking
             ws.settings_access_tracking = false
-            Kernel.get_setting(sim, "run.gamma")
+            Kernel.settings(sim, "run.gamma")
             @test !haskey(ws.settings_access_log, "run.gamma")
 
             # Turn back on
             ws.settings_access_tracking = true
-            Kernel.get_setting(sim, "run.gamma")
+            Kernel.settings(sim, "run.gamma")
             @test haskey(ws.settings_access_log, "run.gamma")
         end
 
