@@ -16,3 +16,4 @@
 - `007-index-governance.md` — Rules for what belongs in the index and how it is curated.
 - `008-anti-patterns-to-avoid.md` — Project-wide implementation anti-patterns that should trigger review.
 - `009-usage-pattern-mining-findings.md` — Pressure points and opportunities mined from real-world simulation repositories.
+- `010-julia-development-patterns.md` — General Julia implementation patterns for readability and maintainability.
