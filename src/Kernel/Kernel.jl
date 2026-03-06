@@ -16,6 +16,9 @@ include("Foundation/types.jl")
 include("Foundation/utils.jl")
 include("Foundation/state.jl")
 
+# -- Infra: JMESPath query engine --
+include("Infra/jmespath/jmespath.jl")
+
 # -- Infra (record-agnostic drivers + environment plumbing) --
 include("Infra/project/fs.jl")
 include("Infra/settings/env.jl")

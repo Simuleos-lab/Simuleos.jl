@@ -27,6 +27,7 @@ try
     include("scope_reader_tests.jl")
     include("sqlite_index_tests.jl")
     include("simos_macro_tests.jl")
+    include("jmespath_tests.jl")
 finally
     test_cleanup!()
 end
