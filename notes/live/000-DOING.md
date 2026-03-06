@@ -1,4 +1,18 @@
 ## DOING
+- 4. Implement a real JMESPath.jl — full spec, register as a package, use it in Simuleos. More work, but it becomes a standalone contribution.
+- And register on General.
+
+## DOING
+> `scope.bind`
+- Scope here is also an historical remanent
+- `bind` should work with anything that have variables into them
+-- but lets discuss this later, lets focus on `hydrate`
+
+> # Or combine: hydrate + bind in one step
+- this sound nice, but lets discuss it later
+- ignore
+
+## DOING
 - I want to create files with a context tag
 - a hash (8 digits) with point to a context record on simuleos
 - from there, we can rebuilt the context associated/registered with this items
