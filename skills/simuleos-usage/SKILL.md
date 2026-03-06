@@ -94,7 +94,7 @@ When `@simos scope.capture(label)` runs, every visible variable is routed throug
 
 **Routing priority** (first match wins):
 
-1. **`@simos stage.store(var)`** → **Blob** — binary-serialized to content-addressed file; scope stores a `BlobRef`
+1. **`@simos stage.blob(var)`** → **Blob** — binary-serialized to content-addressed file; scope stores a `BlobRef`
 2. **`@simos stage.inline(var)`** → **Inline** — JSON-serialized directly in the tape record
 3. **`@simos stage.hash(var)`** → **Hash** — only a SHA-1 fingerprint stored
 4. **Lite scalar types** (`Bool`, `Int`, `Float64`, `String`, `Nothing`, `Missing`, `Symbol`) → **Inline** — auto-inlined, no staging needed
@@ -104,8 +104,8 @@ When `@simos scope.capture(label)` runs, every visible variable is routed throug
 
 - **Scalars are free.** Auto-inlined at rule 4 with no staging needed.
 - **Complex types are voided by default.** `DataFrame`, `Dict{String,Vector}`, custom structs, etc. are silently dropped unless explicitly staged. This keeps captures fast and lean.
-- **Staging is sticky per session.** Once you call `@simos stage.store(df)`, that name stays in the blob set for all subsequent captures.
-- **Choosing `stage.store` vs `stage.inline` is consequential.** These decisions affect tape size, read performance, and queryability. Document or communicate the choice — ideally consult the user/researcher. Use `stage.inline` for moderate data that benefits from being JSON-queryable; `stage.store` for large binary data.
+- **Staging is sticky per session.** Once you call `@simos stage.blob(df)`, that name stays in the blob set for all subsequent captures.
+- **Choosing `stage.blob` vs `stage.inline` is consequential.** These decisions affect tape size, read performance, and queryability. Document or communicate the choice — ideally consult the user/researcher. Use `stage.inline` for moderate data that benefits from being JSON-queryable; `stage.blob` for large binary data.
 
 ---
 
@@ -131,16 +131,16 @@ The `@simos` macro is the **only** user-facing interface. Think of it as a runti
 ### Scope recording workflow
 
 ```
-system.init → session.init → [stage.* → scope.capture → session.commit]... → session.finalize → system.reset
+system.init → session.init → [stage.* → scope.capture → session.commit]... → session.close → system.reset
 ```
 
 1. `@simos system.init(...)` — start the engine.
 2. `@simos session.init(label)` — open a session timeline.
-3. `@simos stage.inline(vars...)` / `stage.store(...)` / `stage.hash(...)` — configure capture routing.
+3. `@simos stage.inline(vars...)` / `stage.blob(...)` / `stage.hash(...)` — configure capture routing.
 4. `@simos stage.meta(key = value, ...)` — annotate with metadata.
 5. `@simos scope.capture(label)` — extract sources, produce a `snap.scope`.
 6. `@simos session.commit(label)` / `session.batch_commit(...)` — group staged scopes into `rec.capture_commit`, persist to tape.
-7. `@simos session.finalize(label)` — flush remaining staged/queued commits.
+7. `@simos session.close(label)` — flush remaining staged/queued commits.
 8. `@simos system.reset()` — clean up.
 
 ### Scope reading workflow
@@ -186,8 +186,6 @@ Call `@simos settings.source.add_args(ARGS)` explicitly only if you need to re-p
 
 <!-- APPEND-FRIENDLY: each entry is one `- **Title.**` bullet. Add new entries at the end. -->
 
-- **Record and read round-trip.** Record state, finalize, read it back. `stage.inline(vars...) → scope.capture(label) → session.finalize(label)`, then `latest_scope(proj; session=..., commit_label=...) → value(scope.variables[:x], proj)`. See `examples/workflows/001-record-read-roundtrip.jl`.
-
 - **Recovery and resume.** Pick up where a previous run left off: `seed = latest_scope(proj; session=..., commit_label=...)` then `@simos scope.bind(seed, proj, x, y, z)` to hydrate variables. Continue recording into a new session. See `examples/workflows/003-recover-and-resume.jl`.
 
 - **Keyed cache.** Skip expensive recomputation: `hash = @simos cache.key(input_data, config)` then `@simos cache.remember(hash, result) do ... end`. Cache-key collisions are treated as semantic equivalence — include all materially relevant inputs. See `examples/workflows/004-keyed-cache-remember.jl`.
@@ -212,7 +210,7 @@ Call `@simos settings.source.add_args(ARGS)` explicitly only if you need to re-p
 
 - **Use metadata liberally.** `stage.meta(step = i, phase = "main")` — annotate anything you'll want to filter by later. Metadata is cheap.
 
-- **Trust the default capture behavior.** Lite scalar types are auto-inlined without staging. For complex types, choose `stage.inline` or `stage.store` deliberately — these are consequential decisions that affect tape size and queryability.
+- **Trust the default capture behavior.** Lite scalar types are auto-inlined without staging. For complex types, choose `stage.inline` or `stage.blob` deliberately — these are consequential decisions that affect tape size and queryability.
 
 - **Always sandbox during development.** `@simos system.init(; reinit = true, sandbox = (root = ..., clean_on_init = true, cleanup_on_reset = false))` keeps real project data untouched.
 
