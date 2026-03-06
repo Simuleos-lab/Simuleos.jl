@@ -23,7 +23,7 @@ function _simos_shared_capture(mod, src, args)
                 _globals[name] = getfield($mod, name)
             end
 
-            $(_SimWS).shared_capture(
+            $(_WS).shared_capture(
                 string($key_expr),
                 _locals,
                 _globals,
@@ -40,7 +40,7 @@ function _simos_shared_bind(mod, src, args)
     length(args) >= 2 || error("@simos shared.bind expects a shared key and at least one variable name.")
     key_expr = args[1]
     bind_args = args[2:end]
-    scope_expr = :($(_SimWS).shared_get(string($key_expr)))
+    scope_expr = :($(_WS).shared_get(string($key_expr)))
     return _simos_bind_from_scope(mod, scope_expr, :(nothing), bind_args, "@simos shared.bind")
 end
 
@@ -51,7 +51,7 @@ function _simos_shared_merge(mod, src, args)
     dest_expr = args[1]
     src_expr = args[2]
     return quote
-        $(_SimWS).shared_merge!(string($dest_expr), string($src_expr))
+        $(_WS).shared_merge!(string($dest_expr), string($src_expr))
     end
 end
 
@@ -60,7 +60,7 @@ function _simos_shared_keys(mod, src, args)
     _ = src
     isempty(args) || error("@simos shared.keys expects no positional arguments.")
     return quote
-        $(_SimWS).shared_keys()
+        $(_WS).shared_keys()
     end
 end
 
@@ -70,7 +70,7 @@ function _simos_shared_has(mod, src, args)
     length(args) == 1 || error("@simos shared.has expects exactly one key.")
     key_expr = args[1]
     return quote
-        $(_SimWS).shared_has(string($key_expr))
+        $(_WS).shared_has(string($key_expr))
     end
 end
 
@@ -80,7 +80,7 @@ function _simos_shared_drop(mod, src, args)
     length(args) == 1 || error("@simos shared.drop expects exactly one key.")
     key_expr = args[1]
     return quote
-        $(_SimWS).shared_drop!(string($key_expr))
+        $(_WS).shared_drop!(string($key_expr))
     end
 end
 
@@ -89,6 +89,6 @@ function _simos_shared_clear(mod, src, args)
     _ = src
     isempty(args) || error("@simos shared.clear expects no positional arguments.")
     return quote
-        $(_SimWS).shared_clear!()
+        $(_WS).shared_clear!()
     end
 end

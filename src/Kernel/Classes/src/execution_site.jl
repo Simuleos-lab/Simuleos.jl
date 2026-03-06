@@ -29,7 +29,7 @@ function _decode_src_execution_site_record_by_class(
         cls::SimuleosClassTag,
         data::AbstractDict,
     )::SrcExecutionSiteV1
-    error("No src.execution_site decoder registered for class `$(class_spec_string(cls))`.")
+    _no_class_decoder_error("src.execution_site", cls, data)
 end
 
 function _decode_src_execution_site_record_by_class(

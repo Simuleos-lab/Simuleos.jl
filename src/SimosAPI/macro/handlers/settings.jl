@@ -3,7 +3,7 @@ function _simos_settings_get(mod, src, args, kwargs::Vector{Expr}=Expr[])
     _ = src
     return _simos_settings_runtime_handler(
         "settings.get",
-        :($(_SimosAPI)._simos_settings_get_runtime),
+        :($(_API)._simos_settings_get_runtime),
         args,
         kwargs;
         expected_arity = 1,
@@ -18,7 +18,7 @@ function _simos_settings_has(mod, src, args, kwargs::Vector{Expr}=Expr[])
     _ = src
     return _simos_settings_runtime_handler(
         "settings.has",
-        :($(_SimosAPI)._simos_settings_has_runtime),
+        :($(_API)._simos_settings_has_runtime),
         args,
         kwargs;
         expected_arity = 1,
@@ -33,7 +33,7 @@ function _simos_settings_require(mod, src, args, kwargs::Vector{Expr}=Expr[])
     _ = src
     return _simos_settings_runtime_handler(
         "settings.require",
-        :($(_SimosAPI)._simos_settings_require_runtime),
+        :($(_API)._simos_settings_require_runtime),
         args,
         kwargs;
         expected_arity = 1,
@@ -48,7 +48,7 @@ function _simos_settings_explain(mod, src, args, kwargs::Vector{Expr}=Expr[])
     _ = src
     return _simos_settings_runtime_handler(
         "settings.explain",
-        :($(_SimosAPI)._simos_settings_explain_runtime),
+        :($(_API)._simos_settings_explain_runtime),
         args,
         kwargs;
         expected_arity = 1,
@@ -59,7 +59,7 @@ function _simos_settings_explain(mod, src, args, kwargs::Vector{Expr}=Expr[])
 end
 
 function _simos_settings_layers(mod, src)
-    return _simos_noargs_runtime_call(mod, src, :($(_SimosAPI)._simos_settings_layers_runtime))
+    return _simos_noargs_runtime_call(mod, src, :($(_API)._simos_settings_layers_runtime))
 end
 
 function _simos_settings_snapshot(mod, src, kwargs::Vector{Expr}=Expr[])
@@ -67,7 +67,7 @@ function _simos_settings_snapshot(mod, src, kwargs::Vector{Expr}=Expr[])
     _ = src
     return _simos_settings_runtime_handler(
         "settings.snapshot",
-        :($(_SimosAPI)._simos_settings_snapshot_runtime),
+        :($(_API)._simos_settings_snapshot_runtime),
         Any[],
         kwargs;
         allowed_kwargs = (:layer, :prefix, :nested),
@@ -80,7 +80,7 @@ function _simos_settings_set(mod, src, args, kwargs::Vector{Expr}=Expr[])
     _ = src
     return _simos_settings_runtime_handler(
         "settings.set",
-        :($(_SimosAPI)._simos_settings_set_runtime),
+        :($(_API)._simos_settings_set_runtime),
         args,
         kwargs;
         expected_arity = 2,
@@ -95,7 +95,7 @@ function _simos_settings_unset(mod, src, args, kwargs::Vector{Expr}=Expr[])
     _ = src
     return _simos_settings_runtime_handler(
         "settings.unset",
-        :($(_SimosAPI)._simos_settings_unset_runtime),
+        :($(_API)._simos_settings_unset_runtime),
         args,
         kwargs;
         expected_arity = 1,
@@ -110,7 +110,7 @@ function _simos_settings_merge(mod, src, args, kwargs::Vector{Expr}=Expr[])
     _ = src
     return _simos_settings_runtime_handler(
         "settings.merge",
-        :($(_SimosAPI)._simos_settings_merge_runtime),
+        :($(_API)._simos_settings_merge_runtime),
         args,
         kwargs;
         expected_arity = 1,
@@ -124,7 +124,7 @@ function _simos_settings_clear(mod, src, kwargs::Vector{Expr}=Expr[])
     _ = src
     return _simos_settings_runtime_handler(
         "settings.clear",
-        :($(_SimosAPI)._simos_settings_clear_runtime),
+        :($(_API)._simos_settings_clear_runtime),
         Any[],
         kwargs;
         allowed_kwargs = (:layer, :prefix),
@@ -137,7 +137,7 @@ function _simos_settings_source_add_json(mod, src, args, kwargs::Vector{Expr}=Ex
     _ = src
     return _simos_settings_runtime_handler(
         "settings.source.add_json",
-        :($(_SimosAPI)._simos_settings_source_add_json_runtime),
+        :($(_API)._simos_settings_source_add_json_runtime),
         args,
         kwargs;
         expected_arity = 1,
@@ -152,7 +152,7 @@ function _simos_settings_source_add_args(mod, src, args, kwargs::Vector{Expr}=Ex
     _ = src
     return _simos_settings_runtime_handler(
         "settings.source.add_args",
-        :($(_SimosAPI)._simos_settings_source_add_args_runtime),
+        :($(_API)._simos_settings_source_add_args_runtime),
         args,
         kwargs;
         expected_arity = 1,
@@ -168,12 +168,12 @@ function _simos_settings_source_reload_external(mod, src, args, kwargs::Vector{E
     length(args) <= 1 || error("@simos settings.source.reload expects no arguments or one source name.")
     if isempty(args)
         return quote
-            $(_SimosAPI)._simos_settings_source_reload_external_runtime()
+            $(_API)._simos_settings_source_reload_external_runtime()
         end
     end
     name_expr = args[1]
     return quote
-        $(_SimosAPI)._simos_settings_source_reload_external_runtime($(name_expr))
+        $(_API)._simos_settings_source_reload_external_runtime($(name_expr))
     end
 end
 
@@ -183,12 +183,12 @@ function _simos_settings_source_remove(mod, src, args)
     length(args) == 1 || error("@simos settings.source.remove expects exactly one source name.")
     name_expr = args[1]
     return quote
-        $(_SimosAPI)._simos_settings_source_remove_runtime($(name_expr))
+        $(_API)._simos_settings_source_remove_runtime($(name_expr))
     end
 end
 
 function _simos_settings_source_list(mod, src)
-    return _simos_noargs_runtime_call(mod, src, :($(_SimosAPI)._simos_settings_source_list_runtime))
+    return _simos_noargs_runtime_call(mod, src, :($(_API)._simos_settings_source_list_runtime))
 end
 
 function _simos_settings_registry_register(mod, src, args, kwargs::Vector{Expr}=Expr[])
@@ -198,11 +198,11 @@ function _simos_settings_registry_register(mod, src, args, kwargs::Vector{Expr}=
     _simos_validate_kwargs("settings.registry.register", kwargs, (:replace,))
 
     call_args = Any[
-        :($(_SimKrn)._get_simos_unsafe()),
+        :($(_Krn)._get_simos_unsafe()),
         :(string($(args[1]))),
         args[2],
     ]
-    return _simos_emit_runtime_call(:($(_SimKrn).settings_registry_register!), call_args, kwargs)
+    return _simos_emit_runtime_call(:($(_Krn).settings_registry_register!), call_args, kwargs)
 end
 
 function _simos_settings_registry_unregister(mod, src, args)
@@ -211,7 +211,7 @@ function _simos_settings_registry_unregister(mod, src, args)
     length(args) == 1 || error("@simos settings.registry.unregister expects exactly one key or alias.")
     key_expr = args[1]
     return quote
-        $(_SimKrn).settings_registry_unregister!($(_SimKrn)._get_simos_unsafe(), string($(key_expr)))
+        $(_Krn).settings_registry_unregister!($(_Krn)._get_simos_unsafe(), string($(key_expr)))
     end
 end
 
@@ -219,6 +219,6 @@ function _simos_settings_registry_list(mod, src)
     _ = mod
     _ = src
     return quote
-        $(_SimKrn).settings_registry_list($(_SimKrn)._get_simos_unsafe())
+        $(_Krn).settings_registry_list($(_Krn)._get_simos_unsafe())
     end
 end

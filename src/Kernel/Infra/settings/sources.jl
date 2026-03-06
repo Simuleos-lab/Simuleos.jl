@@ -217,7 +217,7 @@ function settings_source_add_json!(
     elseif name isa Symbol
         name
     else
-        Symbol(string(name))
+        _to_symbol_key(name)
     end
     _settings_protected_layer_name(layer_name) &&
         error("Cannot register JSON source using protected layer name `$(layer_name)`.")

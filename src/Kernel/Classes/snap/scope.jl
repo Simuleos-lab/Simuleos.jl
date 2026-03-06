@@ -62,10 +62,10 @@ function encode_scope_variable_record(var::HashedScopeVariable)::Dict{String, An
     )
 end
 
-function _encode_scope_variables_record(vars::Dict{Symbol, ScopeVariable})::Dict{String, Any}
+function _encode_scope_vars_record(vars::Dict{Symbol, ScopeVariable})::Dict{String, Any}
     out = Dict{String, Any}()
     for name in sort!(collect(keys(vars)); by = string)
-        out[string(name)] = encode_scope_variable_record(vars[name])
+        out[_to_string_key(name)] = encode_scope_variable_record(vars[name])
     end
     return out
 end
@@ -74,7 +74,7 @@ function _decode_snap_scope_record_by_class(
         cls::SimuleosClassTag,
         data::AbstractDict,
     )::SnapScopeV1
-    error("No snap.scope decoder registered for class `$(class_spec_string(cls))`.")
+    _no_class_decoder_error("snap.scope", cls, data)
 end
 
 function _decode_snap_scope_record_by_class(
@@ -106,10 +106,10 @@ function encode_snap_scope_record(scope::SnapScopeV1)::Dict{String, Any}
     _require_scope_class_registration!()
     out = _stamp_class_record(Dict{String, Any}(
         "labels" => copy(scope.labels),
-        "variables" => _encode_scope_variables_record(scope.variables),
+        "variables" => _encode_scope_vars_record(scope.variables),
     ), _SCOPE_CLASS_ID, _SCOPE_CLASS_VERSION)
     if !isempty(scope.metadata)
-        out["metadata"] = Dict{String, Any}(string(k) => v for (k, v) in scope.metadata)
+        out["metadata"] = Dict{String, Any}(_to_string_key(k) => v for (k, v) in scope.metadata)
     end
     return out
 end

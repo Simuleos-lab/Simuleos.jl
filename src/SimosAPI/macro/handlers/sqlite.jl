@@ -1,5 +1,5 @@
 function _simos_sqlite_path(mod, src)
-    return _simos_noargs_runtime_call(mod, src, :($(_SimosAPI)._simos_sqlite_path_runtime))
+    return _simos_noargs_runtime_call(mod, src, :($(_API)._simos_sqlite_path_runtime))
 end
 
 function _simos_sqlite_open(mod, src, kwargs::Vector{Expr}=Expr[])
@@ -16,16 +16,16 @@ function _simos_sqlite_open(mod, src, kwargs::Vector{Expr}=Expr[])
     end
     if isempty(kwargs)
         return quote
-            $(_SimosAPI)._simos_sqlite_open_runtime!()
+            $(_API)._simos_sqlite_open_runtime!()
         end
     end
     return quote
-        $(_SimosAPI)._simos_sqlite_open_runtime!(; $(kwargs...))
+        $(_API)._simos_sqlite_open_runtime!(; $(kwargs...))
     end
 end
 
 function _simos_sqlite_current(mod, src)
-    return _simos_noargs_runtime_call(mod, src, :($(_SimosAPI)._simos_sqlite_current_runtime))
+    return _simos_noargs_runtime_call(mod, src, :($(_API)._simos_sqlite_current_runtime))
 end
 
 function _simos_sqlite_execute(mod, src, args)
@@ -35,23 +35,23 @@ function _simos_sqlite_execute(mod, src, args)
     sql_expr = args[1]
     if length(args) == 1
         return quote
-            $(_SimosAPI)._simos_sqlite_execute_runtime($(sql_expr))
+            $(_API)._simos_sqlite_execute_runtime($(sql_expr))
         end
     end
     params_expr = args[2]
     return quote
-        $(_SimosAPI)._simos_sqlite_execute_runtime($(sql_expr), $(params_expr))
+        $(_API)._simos_sqlite_execute_runtime($(sql_expr), $(params_expr))
     end
 end
 
 function _simos_sqlite_refresh(mod, src)
-    return _simos_noargs_runtime_call(mod, src, :($(_SimosAPI)._simos_sqlite_refresh_runtime!))
+    return _simos_noargs_runtime_call(mod, src, :($(_API)._simos_sqlite_refresh_runtime!))
 end
 
 function _simos_sqlite_rebuild(mod, src)
-    return _simos_noargs_runtime_call(mod, src, :($(_SimosAPI)._simos_sqlite_rebuild_runtime!))
+    return _simos_noargs_runtime_call(mod, src, :($(_API)._simos_sqlite_rebuild_runtime!))
 end
 
 function _simos_sqlite_close(mod, src)
-    return _simos_noargs_runtime_call(mod, src, :($(_SimosAPI)._simos_sqlite_close_runtime!))
+    return _simos_noargs_runtime_call(mod, src, :($(_API)._simos_sqlite_close_runtime!))
 end

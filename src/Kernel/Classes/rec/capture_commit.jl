@@ -29,7 +29,7 @@ function _decode_rec_capture_commit_record_by_class(
         cls::SimuleosClassTag,
         data::AbstractDict,
     )::RecCaptureCommitV1
-    error("No rec.capture_commit decoder registered for class `$(class_spec_string(cls))`.")
+    _no_class_decoder_error("rec.capture_commit", cls, data)
 end
 
 function _decode_rec_capture_commit_record_by_class(

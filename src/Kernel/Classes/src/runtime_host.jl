@@ -31,7 +31,7 @@ function _decode_src_runtime_host_record_by_class(
         cls::SimuleosClassTag,
         data::AbstractDict,
     )::SrcRuntimeHostV1
-    error("No src.runtime_host decoder registered for class `$(class_spec_string(cls))`.")
+    _no_class_decoder_error("src.runtime_host", cls, data)
 end
 
 function _decode_src_runtime_host_record_by_class(

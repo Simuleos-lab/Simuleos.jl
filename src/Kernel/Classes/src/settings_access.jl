@@ -27,7 +27,7 @@ function _decode_src_settings_access_record_by_class(
         cls::SimuleosClassTag,
         data::AbstractDict,
     )::SrcSettingsAccessV1
-    error("No src.settings_access decoder registered for class `$(class_spec_string(cls))`.")
+    _no_class_decoder_error("src.settings_access", cls, data)
 end
 
 function _decode_src_settings_access_record_by_class(

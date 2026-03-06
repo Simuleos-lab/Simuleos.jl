@@ -81,15 +81,15 @@ function _remember_extra_parts_expr(spec::Expr)
 end
 
 function _require_active_worksession_and_project()
-    sim = _Kernel._get_simos()
+    sim = _Krn._get_simos()
     ws = sim.worksession
     isnothing(ws) && error("No active session. Call `@simos session.init(...)` first.")
-    proj = _Kernel.sim_project(sim)
+    proj = _Krn.sim_project(sim)
     return ws, proj
 end
 
 function _ctx_hash_record!(label::AbstractString, entries::AbstractVector{<:Tuple})::String
-    sim = _Kernel._get_simos()
+    sim = _Krn._get_simos()
     ws = sim.worksession
     isnothing(ws) && error("No active session. Call `@simos session.init(...)` first.")
     key_label = strip(String(label))
@@ -106,9 +106,9 @@ function _normalize_batch_commit_limit(value)::Int
     return n
 end
 
-function _batch_commit_limit(ws::_Kernel.WorkSession, max_pending_commits)::Int
+function _batch_commit_limit(ws::_Krn.WorkSession, max_pending_commits)::Int
     raw = isnothing(max_pending_commits) ?
-        session_setting(ws, _Kernel.SETTING_KEY_BATCH_COMMIT_MAX_PENDING) :
+        session_setting(ws, _Krn.SETTING_KEY_BATCH_COMMIT_MAX_PENDING) :
         max_pending_commits
     return _normalize_batch_commit_limit(raw)
 end
@@ -120,7 +120,7 @@ function _normalize_commit_every(value)::Int
     return n
 end
 
-function _batch_commit_gate_allows_queue!(ws::_Kernel.WorkSession, label::String, cmt_every)::Bool
+function _batch_commit_gate_allows_queue!(ws::_Krn.WorkSession, label::String, cmt_every)::Bool
     isnothing(cmt_every) && return true
 
     every = _normalize_commit_every(cmt_every)
@@ -134,37 +134,37 @@ function _batch_commit_gate_allows_queue!(ws::_Kernel.WorkSession, label::String
     return false
 end
 
-function _apply_commit_capture_filters!(ws::_Kernel.WorkSession, commit::_Kernel.RecCaptureCommitV1)::_Kernel.RecCaptureCommitV1
+function _apply_commit_capture_filters!(ws::_Krn.WorkSession, commit::_Krn.RecCaptureCommitV1)::_Krn.RecCaptureCommitV1
     tree = commit.capture
     for i in eachindex(tree.snapshots)
         s = tree.snapshots[i]
-        if s isa _Kernel.SnapScopeV1
+        if s isa _Krn.SnapScopeV1
             tree.snapshots[i] = _WS.apply_capture_filters(s, ws)
         end
     end
     return commit
 end
 
-function _take_stage_commit_filtered!(ws::_Kernel.WorkSession, gh; label::String = "")::_Kernel.RecCaptureCommitV1
+function _take_stage_commit_filtered!(ws::_Krn.WorkSession, gh; label::String = "")::_Krn.RecCaptureCommitV1
     meta = _session_commit_metadata(gh)
-    commit = _Kernel.take_stage_commit!(ws.stage, ws.capture_policy; label=label, metadata=meta)
+    commit = _Krn.take_stage_commit!(ws.stage, ws.capture_policy; label=label, metadata=meta)
     return _apply_commit_capture_filters!(ws, commit)
 end
 
-function _queue_stage_commit!(ws::_Kernel.WorkSession, gh; label::String = "")::_Kernel.RecCaptureCommitV1
+function _queue_stage_commit!(ws::_Krn.WorkSession, gh; label::String = "")::_Krn.RecCaptureCommitV1
     commit = _take_stage_commit_filtered!(ws, gh; label=label)
     push!(ws.pending_commits, commit)
     ws.is_finalized = false
     return commit
 end
 
-function _flush_pending_commits!(proj::_Kernel.SimuleosProject, ws::_Kernel.WorkSession;
-        commit_writer = _Kernel.commit_to_tape!
+function _flush_pending_commits!(proj::_Krn.SimuleosProject, ws::_Krn.WorkSession;
+        commit_writer = _Krn.commit_to_tape!
     )::Int
     n = length(ws.pending_commits)
     n == 0 && return 0
 
-    tape = _Kernel.session_tape(proj, ws.session_id)
+    tape = _Krn.session_tape(proj, ws.session_id)
     flushed = 0
     try
         for i in 1:n
@@ -188,29 +188,29 @@ function scope_capture(
         src_line::Int
     )
     # Hot path: this runs on every capture call; allocation/perf optimizations are always welcome.
-    sim = _Kernel._get_simos()
+    sim = _Krn._get_simos()
     ws = sim.worksession
     isnothing(ws) && error("No active session. Call `@simos session.init(...)` first.")
-    proj = _Kernel.sim_project(sim)
+    proj = _Krn.sim_project(sim)
 
-    scope = _Kernel.SnapScopeV1()
+    scope = _Krn.SnapScopeV1()
     policy = ws.capture_policy
     for (name, val) in locals
-        _Kernel.is_capture_excluded(val) && continue
-        scope.variables[name] = _Kernel._make_scope_variable(
+        _Krn.is_capture_excluded(val) && continue
+        scope.variables[name] = _Krn._make_scope_variable(
             :local, val, policy.inline_vars, policy.blob_vars, policy.hash_vars, name, proj.blobstorage
         )
     end
     for (name, val) in globals
-        _Kernel.is_capture_excluded(val) && continue
+        _Krn.is_capture_excluded(val) && continue
         haskey(scope.variables, name) && continue
-        scope.variables[name] = _Kernel._make_scope_variable(
+        scope.variables[name] = _Krn._make_scope_variable(
             :global, val, policy.inline_vars, policy.blob_vars, policy.hash_vars, name, proj.blobstorage
         )
     end
 
     !isempty(label) && pushfirst!(scope.labels, label)
-    exec = _Kernel.capture_execution(src_file, src_line)
+    exec = _Krn.capture_execution(src_file, src_line)
     scope.metadata[:src_file] = exec.src_file
     scope.metadata[:src_line] = exec.src_line
     scope.metadata[:threadid] = exec.threadid
@@ -231,9 +231,9 @@ function session_commit(label::String="")
 
     # Preserve logical commit order when mixing queued and immediate commit paths.
     _flush_pending_commits!(proj, ws)
-    tape = _Kernel.session_tape(proj, ws.session_id)
+    tape = _Krn.session_tape(proj, ws.session_id)
     commit = _take_stage_commit_filtered!(ws, proj.git_handler; label=label)
-    _Kernel.commit_to_tape!(tape, commit)
+    _Krn.commit_to_tape!(tape, commit)
     ws.is_finalized = false
     return commit
 end

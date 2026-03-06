@@ -19,8 +19,8 @@ end
 function encode_src_namespace_bindings_record(scope::SrcNamespaceBindingsV1)::Dict{String, Any}
     return encode_src_namespace_bindings_record(Dict{String, Any}(
         "labels" => copy(scope.labels),
-        "variables" => _encode_scope_variables_record(scope.variables),
-        "metadata" => Dict{String, Any}(string(k) => v for (k, v) in scope.metadata),
+        "variables" => _encode_scope_vars_record(scope.variables),
+        "metadata" => Dict{String, Any}(_to_string_key(k) => v for (k, v) in scope.metadata),
     ))
 end
 
@@ -38,8 +38,9 @@ function _decode_namespace_binding_variables(data::AbstractDict)::Dict{Symbol, S
     vars_raw = get(data, "variables", Dict{String, Any}())
     if vars_raw isa AbstractDict
         for (name, payload) in vars_raw
-            name_s = string(name)
-            vars[Symbol(name_s)] = decode_snap_scope_variable_record(name_s, payload)
+            name_sym = _to_symbol_key(name)
+            name_s = _to_string_key(name_sym)
+            vars[name_sym] = decode_snap_scope_variable_record(name_s, payload)
         end
     end
     return vars
@@ -50,7 +51,7 @@ function _decode_namespace_binding_metadata(data::AbstractDict)::Dict{Symbol, An
     meta_raw = get(data, "metadata", Dict{String, Any}())
     if meta_raw isa AbstractDict
         for (k, v) in meta_raw
-            metadata[Symbol(string(k))] = v
+            metadata[_to_symbol_key(k)] = v
         end
     end
     return metadata
@@ -60,7 +61,7 @@ function _decode_src_namespace_bindings_record_by_class(
         cls::SimuleosClassTag,
         data::AbstractDict,
     )::SrcNamespaceBindingsV1
-    error("No src.namespace_bindings decoder registered for class `$(class_spec_string(cls))`.")
+    _no_class_decoder_error("src.namespace_bindings", cls, data)
 end
 
 function _decode_src_namespace_bindings_record_by_class(

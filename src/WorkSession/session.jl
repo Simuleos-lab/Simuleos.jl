@@ -3,7 +3,7 @@
 # ============================================================
 
 """
-    resolve_session(simos::_Kernel.SimOs, proj::_Kernel.SimuleosProject;
+    resolve_session(simos::_Krn.SimOs, proj::_Krn.SimuleosProject;
                     session_id=nothing, labels=String[]) -> WorkSession
 
 Resolve or create a WorkSession.
@@ -11,116 +11,116 @@ Resolve or create a WorkSession.
 - Otherwise, create a new WorkSession with the given labels.
 This is a pure lookup — no side effects on simos or filesystem.
 """
-function resolve_session(simos::_Kernel.SimOs, proj::_Kernel.SimuleosProject;
+function resolve_session(simos::_Krn.SimOs, proj::_Krn.SimuleosProject;
         session_id = nothing,
         labels::Vector{String} = String[]
     )
     sid = isnothing(session_id) ? UUIDs.uuid4() : session_id
 
     # Try to load existing session
-    session_json = _Kernel.session_json_path(proj, sid)
+    session_json = _Krn.session_json_path(proj, sid)
     if isfile(session_json)
         return _read_persisted_session(proj, sid)
     end
 
     # New session (not persisted yet)
-    return _Kernel.WorkSession(; session_id = sid, labels = labels)
+    return _Krn.WorkSession(; session_id = sid, labels = labels)
 end
 
 """
-    resolve_session(proj::_Kernel.SimuleosProject, label::String) -> WorkSession
+    resolve_session(proj::_Krn.SimuleosProject, label::String) -> WorkSession
 
 Resolve a session by label. Scans all session files in the project and
 picks the newest one matching the label. Creates a new session if none found.
 """
-function resolve_session(proj::_Kernel.SimuleosProject, label::String)
-    stripped = _Kernel._normalize_session_label(label)
+function resolve_session(proj::_Krn.SimuleosProject, label::String)
+    stripped = _Krn._normalize_session_label(label)
 
-    sid = _Kernel.find_session_id(proj, stripped)
-    isnothing(sid) && return _Kernel.WorkSession(; labels = [stripped])
+    sid = _Krn.find_session_id(proj, stripped)
+    isnothing(sid) && return _Krn.WorkSession(; labels = [stripped])
 
     return _read_persisted_session(proj, sid)
 end
 
 """
-    scan_session_files(callback, proj::_Kernel.SimuleosProject)
+    scan_session_files(callback, proj::_Krn.SimuleosProject)
 
 Scan all session.json files in a project. Calls `callback(raw_dict)` for each.
 """
-function scan_session_files(callback, proj::_Kernel.SimuleosProject)
-    return _Kernel.scan_project_sessions(callback, proj)
+function scan_session_files(callback, proj::_Krn.SimuleosProject)
+    return _Krn.scan_project_sessions(callback, proj)
 end
 
 """
-    parse_session(proj::_Kernel.SimuleosProject, raw::Dict) -> WorkSession
+    parse_session(proj::_Krn.SimuleosProject, raw::Dict) -> WorkSession
 
 Parse a raw session dict into a WorkSession.
 """
-function parse_session(proj::_Kernel.SimuleosProject, raw::AbstractDict)
+function parse_session(proj::_Krn.SimuleosProject, raw::AbstractDict)
     _ = proj
-    payload = _Kernel.decode_src_session_state_record(raw)
+    payload = _Krn.decode_src_session_state_record(raw)
     isempty(payload.session_id) && error("Invalid session file: missing `session_id`.")
-    return _Kernel.WorkSession(;
+    return _Krn.WorkSession(;
         session_id = UUIDs.UUID(payload.session_id),
         labels = copy(payload.labels),
         metadata = copy(payload.meta),
     )
 end
 
-function _read_persisted_session(proj::_Kernel.SimuleosProject, session_id):: _Kernel.WorkSession
-    session_json = _Kernel.session_json_path(proj, session_id)
-    return parse_session(proj, _Kernel._read_json_file(session_json))
+function _read_persisted_session(proj::_Krn.SimuleosProject, session_id):: _Krn.WorkSession
+    session_json = _Krn.session_json_path(proj, session_id)
+    return parse_session(proj, _Krn._read_json_file(session_json))
 end
 
 """
-    _persist_session!(proj, ws::_Kernel.WorkSession)
+    _persist_session!(proj, ws::_Krn.WorkSession)
 
 Write session.json to disk.
 """
-function _persist_session!(proj::_Kernel.SimuleosProject, ws::_Kernel.WorkSession)
-    sjson = _Kernel.session_json_path(proj, ws.session_id)
+function _persist_session!(proj::_Krn.SimuleosProject, ws::_Krn.WorkSession)
+    sjson = _Krn.session_json_path(proj, ws.session_id)
     # `context_hash_reg` is intentionally runtime-only and is not persisted in session.json.
-    _Kernel._write_json_file(sjson, _Kernel.encode_src_session_state_record(ws))
+    _Krn._write_json_file(sjson, _Krn.encode_src_session_state_record(ws))
     # Ensure tapes dir exists
-    _Kernel.ensure_dir(_Kernel._tapes_dir(proj.simuleos_dir, ws.session_id))
+    _Krn.ensure_dir(_Krn._tapes_dir(proj.simuleos_dir, ws.session_id))
 end
 
 """
-    isdirty(simos, ws::_Kernel.WorkSession) -> Bool
+    isdirty(simos, ws::_Krn.WorkSession) -> Bool
 
 Check if the work session has un-committed captures.
 """
-function isdirty(simos, ws::_Kernel.WorkSession)
+function isdirty(simos, ws::_Krn.WorkSession)
     _ = simos
     return !isempty(ws.stage.snapshots) || !isempty(ws.pending_commits)
 end
 
-function _primary_session_label(ws::_Kernel.WorkSession)::Union{Nothing, String}
+function _primary_session_label(ws::_Krn.WorkSession)::Union{Nothing, String}
     isempty(ws.labels) && return nothing
     return ws.labels[1]
 end
 
-function _session_init_callsite(ws::_Kernel.WorkSession)::Union{Nothing, String}
-    file = get(ws.metadata, _Kernel.SESSION_META_INIT_FILE_KEY, "")
+function _session_init_callsite(ws::_Krn.WorkSession)::Union{Nothing, String}
+    file = get(ws.metadata, _Krn.SESSION_META_INIT_FILE_KEY, "")
     file isa AbstractString || return nothing
     file_str = String(file)
     isempty(file_str) && return nothing
 
-    line = get(ws.metadata, _Kernel.SESSION_META_INIT_LINE_KEY, nothing)
+    line = get(ws.metadata, _Krn.SESSION_META_INIT_LINE_KEY, nothing)
     if line isa Integer && Int(line) > 0
         return string(file_str, ":", Int(line))
     end
     return file_str
 end
 
-function _warn_if_switching_unfinalized_session!(current_ws::_Kernel.WorkSession, next_labels::Vector{String})
+function _warn_if_switching_unfinalized_session!(current_ws::_Krn.WorkSession, next_labels::Vector{String})
     current_ws.is_finalized && return nothing
     isempty(next_labels) && return nothing
 
     prev_label = _primary_session_label(current_ws)
     isnothing(prev_label) && return nothing
 
-    next_label = _Kernel._normalize_session_label(next_labels[1])
+    next_label = _Krn._normalize_session_label(next_labels[1])
     prev_label == next_label && return nothing
 
     prev_init = _session_init_callsite(current_ws)
@@ -133,15 +133,15 @@ function _warn_if_switching_unfinalized_session!(current_ws::_Kernel.WorkSession
     return nothing
 end
 
-function _session_init_git_dirty_policy(simos::_Kernel.SimOs)::String
-    raw = _Kernel.settings(simos, _Kernel.SETTING_KEY_SESSION_INIT_GIT_DIRTY_POLICY)
+function _session_init_git_dirty_policy(simos::_Krn.SimOs)::String
+    raw = _Krn.settings(simos, _Krn.SETTING_KEY_SESSION_INIT_GIT_DIRTY_POLICY)
     raw isa AbstractString ||
-        error("Setting `$(_Kernel.SETTING_KEY_SESSION_INIT_GIT_DIRTY_POLICY)` must be a String.")
+        error("Setting `$(_Krn.SETTING_KEY_SESSION_INIT_GIT_DIRTY_POLICY)` must be a String.")
 
     policy = lowercase(strip(String(raw)))
     policy in ("error", "commit_all") ||
         error(
-            "Setting `$(_Kernel.SETTING_KEY_SESSION_INIT_GIT_DIRTY_POLICY)` must be one of " *
+            "Setting `$(_Krn.SETTING_KEY_SESSION_INIT_GIT_DIRTY_POLICY)` must be one of " *
             "`error` or `commit_all`, got `$(raw)`."
         )
     return policy
@@ -156,34 +156,34 @@ function _session_init_checkpoint_message(labels::Vector{String}, script_path::S
 end
 
 function _session_init_apply_git_dirty_policy!(
-        simos::_Kernel.SimOs,
-        proj::_Kernel.SimuleosProject;
+        simos::_Krn.SimOs,
+        proj::_Krn.SimuleosProject;
         labels::Vector{String},
         script_path::String,
     )::Nothing
     gh = proj.git_handler
     isnothing(gh) && return nothing
-    _Kernel.git_dirty(gh) || return nothing
+    _Krn.git_dirty(gh) || return nothing
 
     policy = _session_init_git_dirty_policy(simos)
     policy == "error" && return nothing
 
     msg = _session_init_checkpoint_message(labels, script_path)
-    _Kernel.git_commit_all!(gh, msg)
+    _Krn.git_commit_all!(gh, msg)
 
-    _Kernel.git_dirty(gh) &&
+    _Krn.git_dirty(gh) &&
         error("Cannot start session: git repository is still dirty after session-init checkpoint commit.")
 
     return nothing
 end
 
 """
-    session_init!(simos::_Kernel.SimOs, proj::_Kernel.SimuleosProject;
+    session_init!(simos::_Krn.SimOs, proj::_Krn.SimuleosProject;
                   session_id=nothing, labels=String[], script_path="") -> WorkSession
 
 Initialize a work session: resolve, capture metadata, persist, and bind to simos.
 """
-function session_init!(simos::_Kernel.SimOs, proj::_Kernel.SimuleosProject;
+function session_init!(simos::_Krn.SimOs, proj::_Krn.SimuleosProject;
         session_id = nothing,
         labels::Vector{String} = String[],
         script_path::String = "",
@@ -198,15 +198,15 @@ function session_init!(simos::_Kernel.SimOs, proj::_Kernel.SimuleosProject;
         ws.metadata = _capture_session_metadata(; script_path)
         _set_session_init_callsite!(ws.metadata; init_file, init_line)
     end
-    get(ws.metadata, _Kernel.SESSION_META_GIT_DIRTY_KEY, false) === true &&
+    get(ws.metadata, _Krn.SESSION_META_GIT_DIRTY_KEY, false) === true &&
         error("Cannot start session: git repository has uncommitted changes.")
 
     _persist_session!(proj, ws)
 
     _reset_session_settings!(ws)
     ws.settings_access_log = Dict{String, Any}()
-    ws.source_capture = _Kernel.capture_source(proj.git_handler)
-    ws.environment_capture = _Kernel.capture_environment()
+    ws.source_capture = _Krn.capture_source(proj.git_handler)
+    ws.environment_capture = _Krn.capture_environment()
     simos.worksession = ws
     return ws
 end
@@ -221,8 +221,8 @@ function session_init!(labels::Vector{String}, script_path::String;
         init_file::String = "",
         init_line::Int = 0,
     )
-    simos = _Kernel._get_simos()
-    proj = _Kernel.sim_project(simos)
+    simos = _Krn._get_simos()
+    proj = _Krn.sim_project(simos)
 
     # Guard against reinit with dirty session
     if !isnothing(simos.worksession) && isdirty(simos, simos.worksession)
@@ -254,10 +254,10 @@ function _macro_ensure_engine_initialized!(;
         reinit::Bool = false,
         sandbox_cleanup::Symbol = :auto,
     )
-    sim = _Kernel._get_simos_or_nothing()
+    sim = _Krn._get_simos_or_nothing()
 
     if reinit && !isnothing(sim)
-        _Kernel.sim_reset!(; sandbox_cleanup = sandbox_cleanup)
+        _Krn.sim_reset!(; sandbox_cleanup = sandbox_cleanup)
         sim = nothing
     end
 
@@ -265,9 +265,9 @@ function _macro_ensure_engine_initialized!(;
 
     if isnothing(sim)
         if isempty(runtime_settings)
-            _Kernel.sim_init!(; sandbox = sandbox)
+            _Krn.sim_init!(; sandbox = sandbox)
         else
-            _Kernel.sim_init!(; sandbox = sandbox, runtime_settings...)
+            _Krn.sim_init!(; sandbox = sandbox, runtime_settings...)
         end
         return nothing
     end
@@ -279,7 +279,7 @@ function _macro_ensure_engine_initialized!(;
     return nothing
 end
 
-function _macro_validate_project_basename_hint!(sim::_Kernel.SimOs;
+function _macro_validate_project_basename_hint!(sim::_Krn.SimOs;
         project_basename_hint = nothing,
     )
     isnothing(project_basename_hint) && return nothing
@@ -329,7 +329,7 @@ function engine_init_from_macro!(script_path::String, src_line::Int;
         reinit,
         sandbox_cleanup,
     )
-    sim = _Kernel._get_simos()
+    sim = _Krn._get_simos()
     _macro_validate_project_basename_hint!(sim; project_basename_hint)
     return sim
 end

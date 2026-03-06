@@ -29,7 +29,7 @@ function _decode_src_codebase_record_by_class(
         cls::SimuleosClassTag,
         data::AbstractDict,
     )::SrcCodebaseV1
-    error("No src.codebase decoder registered for class `$(class_spec_string(cls))`.")
+    _no_class_decoder_error("src.codebase", cls, data)
 end
 
 function _decode_src_codebase_record_by_class(

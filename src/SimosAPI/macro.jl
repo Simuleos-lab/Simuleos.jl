@@ -2,12 +2,6 @@
 # SimosAPI/macro.jl — Unified @simos dispatch macro
 # ============================================================
 
-const _SimWS = WorkSession
-const _SimKrn = Kernel
-const _SimSQLI = SQLiteIndex
-const _SQLite = SQLite
-const _SimosAPI = SimosAPI
-
 """
     SIMOS_GLOBAL_LOCK
 

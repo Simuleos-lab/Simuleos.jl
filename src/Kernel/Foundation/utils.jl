@@ -8,7 +8,7 @@ function type_short(T::Type, n::Int=50)
     length(s) <= n ? s : s[1:n-3] * "..."
 end
 type_short(x, n::Int=50) = type_short(typeof(x), n)
-_type_short(x)::String = type_short(x, 25)
+
 
 """Baseline runtime-only values that should not be captured inline."""
 is_capture_excluded(value)::Bool = value isa Module || value isa Function
@@ -103,7 +103,7 @@ Recursively convert all keys in a nested Dict to String.
 function _string_keys(d::AbstractDict)
     out = Dict{String, Any}()
     for (k, v) in d
-        out[string(k)] = v isa AbstractDict ? _string_keys(v) : v
+        out[_to_string_key(k)] = v isa AbstractDict ? _string_keys(v) : v
     end
     return out
 end

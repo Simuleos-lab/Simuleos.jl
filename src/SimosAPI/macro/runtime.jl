@@ -16,25 +16,25 @@ function _simos_sqlite_sync_mode(sync)::Symbol
 end
 
 function _simos_sqlite_require_sim_project()
-    sim = _SimKrn._get_simos()
-    proj = _SimKrn.sim_project(sim)
+    sim = _Krn._get_simos()
+    proj = _Krn.sim_project(sim)
     return sim, proj
 end
 
 function _simos_sqlite_expected_path(sim, proj)::String
     _ = sim
-    return _SimSQLI.sqlite_index_path(proj)
+    return _SQLi.sqlite_index_path(proj)
 end
 
 function _simos_sqlite_close_cached_if_any!(sim)::Bool
-    return _SimKrn._simos_close_cached_sqlite_db!(sim)
+    return _Krn._simos_close_cached_sqlite_db!(sim)
 end
 
 function _simos_sqlite_sync_index!(sim, proj, mode::Symbol)::String
     if mode === :refresh
-        return _SimSQLI.sqlite_index_refresh!(proj)
+        return _SQLi.sqlite_index_refresh!(proj)
     elseif mode === :rebuild
-        return _SimSQLI.sqlite_index_rebuild!(proj)
+        return _SQLi.sqlite_index_rebuild!(proj)
     elseif mode === :none
         return _simos_sqlite_expected_path(sim, proj)
     end
@@ -42,7 +42,7 @@ function _simos_sqlite_sync_index!(sim, proj, mode::Symbol)::String
 end
 
 function _simos_sqlite_bind_open_db!(sim, proj)
-    db = _SimSQLI.sqlite_index_open(proj)
+    db = _SQLi.sqlite_index_open(proj)
     sim.sqlite_db = db
     sim.sqlite_db_path = _simos_sqlite_expected_path(sim, proj)
     return db
@@ -111,7 +111,7 @@ function _simos_sqlite_rebuild_runtime!()
 end
 
 function _simos_sqlite_close_runtime!()
-    sim = _SimKrn._get_simos()
+    sim = _Krn._get_simos()
     return _simos_sqlite_close_cached_if_any!(sim)
 end
 
@@ -137,24 +137,24 @@ function _simos_settings_layer_symbol(layer)::Symbol
 end
 
 function _simos_settings_get_runtime(key_in; default=nothing, layer=:effective)
-    sim = _SimKrn._get_simos_unsafe()
+    sim = _Krn._get_simos_unsafe()
     key = string(key_in)
     layer_sym = _simos_settings_layer_symbol(layer)
     if layer_sym === :effective
-        return _SimKrn.settings(sim, key, default)
+        return _Krn.settings(sim, key, default)
     end
-    ex = _SimKrn.settings_explain(sim, key; layer = layer_sym)
+    ex = _Krn.settings_explain(sim, key; layer = layer_sym)
     return ex.found ? ex.value : default
 end
 
 function _simos_settings_explain_runtime(key_in; layer=:effective)
-    sim = _SimKrn._get_simos_unsafe()
-    return _SimKrn.settings_explain(sim, string(key_in); layer = _simos_settings_layer_symbol(layer))
+    sim = _Krn._get_simos_unsafe()
+    return _Krn.settings_explain(sim, string(key_in); layer = _simos_settings_layer_symbol(layer))
 end
 
 function _simos_settings_layers_runtime()
-    sim = _SimKrn._get_simos_unsafe()
-    return _SimKrn.settings_source_list(sim)
+    sim = _Krn._get_simos_unsafe()
+    return _Krn.settings_source_list(sim)
 end
 
 function _simos_settings_has_runtime(key_in; layer=:effective)::Bool
@@ -163,26 +163,26 @@ function _simos_settings_has_runtime(key_in; layer=:effective)::Bool
 end
 
 function _simos_settings_require_runtime(key_in; layer=:effective)
-    sim = _SimKrn._get_simos_unsafe()
+    sim = _Krn._get_simos_unsafe()
     key = string(key_in)
     layer_sym = _simos_settings_layer_symbol(layer)
     if layer_sym === :effective
-        return _SimKrn.settings(sim, key)
+        return _Krn.settings(sim, key)
     end
-    ex = _SimKrn.settings_explain(sim, key; layer = layer_sym)
+    ex = _Krn.settings_explain(sim, key; layer = layer_sym)
     ex.found && return ex.value
     error("Missing setting: $(key) (layer=$(layer_sym))")
 end
 
 function _simos_settings_snapshot_runtime(; layer=:effective, prefix="", nested::Bool=false)
-    sim = _SimKrn._get_simos_unsafe()
-    stack = _SimKrn._settings_stack_required(sim)
+    sim = _Krn._get_simos_unsafe()
+    stack = _Krn._settings_stack_required(sim)
     layer_sym = _simos_settings_layer_symbol(layer)
 
     flat = if layer_sym === :effective
-        _SimKrn._settings_stack_snapshot(stack)
+        _Krn._settings_stack_snapshot(stack)
     else
-        layer_obj = _SimKrn._settings_stack_layer(stack, layer_sym)
+        layer_obj = _Krn._settings_stack_layer(stack, layer_sym)
         isnothing(layer_obj) && error("Unknown settings layer: $(layer_sym)")
         copy(layer_obj.data)
     end
@@ -197,29 +197,29 @@ function _simos_settings_snapshot_runtime(; layer=:effective, prefix="", nested:
         flat = filtered
     end
 
-    return nested ? _SimKrn._settings_unflatten_dict(flat) : flat
+    return nested ? _Krn._settings_unflatten_dict(flat) : flat
 end
 
 function _simos_settings_set_runtime(key_in, value; layer=:script)
-    sim = _SimKrn._get_simos_unsafe()
-    _SimKrn.settings_layer_set!(sim, _simos_settings_layer_symbol(layer), string(key_in), value)
+    sim = _Krn._get_simos_unsafe()
+    _Krn.settings_layer_set!(sim, _simos_settings_layer_symbol(layer), string(key_in), value)
     return nothing
 end
 
 function _simos_settings_unset_runtime(key_in; layer=:script)
-    sim = _SimKrn._get_simos_unsafe()
-    return _SimKrn.settings_layer_unset!(sim, _simos_settings_layer_symbol(layer), string(key_in))
+    sim = _Krn._get_simos_unsafe()
+    return _Krn.settings_layer_unset!(sim, _simos_settings_layer_symbol(layer), string(key_in))
 end
 
 function _simos_settings_merge_runtime(data; layer=:script, clear::Bool=false)
-    sim = _SimKrn._get_simos_unsafe()
+    sim = _Krn._get_simos_unsafe()
     data isa AbstractDict || error("@simos settings.merge expects an AbstractDict payload.")
-    return _SimKrn.settings_layer_merge!(sim, _simos_settings_layer_symbol(layer), data; clear = clear)
+    return _Krn.settings_layer_merge!(sim, _simos_settings_layer_symbol(layer), data; clear = clear)
 end
 
 function _simos_settings_clear_runtime(; layer=:script, prefix=nothing)
-    sim = _SimKrn._get_simos_unsafe()
-    return _SimKrn.settings_layer_clear!(sim, _simos_settings_layer_symbol(layer); prefix = prefix)
+    sim = _Krn._get_simos_unsafe()
+    return _Krn.settings_layer_clear!(sim, _simos_settings_layer_symbol(layer); prefix = prefix)
 end
 
 function _simos_settings_source_name_symbol(name)::Symbol
@@ -235,11 +235,11 @@ function _simos_settings_source_name_symbol(name)::Symbol
 end
 
 function _simos_settings_source_add_args_runtime(args; after=:session)
-    sim = _SimKrn._get_simos_unsafe()
+    sim = _Krn._get_simos_unsafe()
     args isa AbstractVector || error("@simos settings.source.add_args expects a Vector{String} argument.")
     args_str = String[string(a) for a in args]
     after_sym = _simos_settings_layer_symbol(after)
-    return _SimKrn.settings_source_add_args!(sim, args_str; after=after_sym)
+    return _Krn.settings_source_add_args!(sim, args_str; after=after_sym)
 end
 
 function _simos_settings_source_list_runtime()
@@ -253,10 +253,10 @@ function _simos_settings_source_add_json_runtime(
         optional::Bool=false,
         replace::Bool=false,
     )
-    sim = _SimKrn._get_simos()
+    sim = _Krn._get_simos()
     name_norm = isnothing(name) ? nothing : _simos_settings_source_name_symbol(name)
     after_norm = _simos_settings_layer_symbol(after)
-    return _SimKrn.settings_source_add_json!(
+    return _Krn.settings_source_add_json!(
         sim,
         string(path_in);
         name = name_norm,
@@ -267,46 +267,46 @@ function _simos_settings_source_add_json_runtime(
 end
 
 function _simos_settings_source_remove_runtime(name_in)
-    sim = _SimKrn._get_simos()
-    _SimKrn.settings_source_remove!(sim, _simos_settings_source_name_symbol(name_in))
+    sim = _Krn._get_simos()
+    _Krn.settings_source_remove!(sim, _simos_settings_source_name_symbol(name_in))
     return nothing
 end
 
 function _simos_settings_source_reload_external_runtime()
-    sim = _SimKrn._get_simos()
-    return _SimKrn.settings_reload_externals!(sim)
+    sim = _Krn._get_simos()
+    return _Krn.settings_reload_externals!(sim)
 end
 
 function _simos_settings_source_reload_external_runtime(name_in)
-    sim = _SimKrn._get_simos()
-    return _SimKrn.settings_source_reload_external!(sim, _simos_settings_source_name_symbol(name_in))
+    sim = _Krn._get_simos()
+    return _Krn.settings_source_reload_external!(sim, _simos_settings_source_name_symbol(name_in))
 end
 
 function _simos_context_capture_runtime!()
-    sim = _SimKrn._get_simos()
+    sim = _Krn._get_simos()
     ws = sim.worksession
     isnothing(ws) && error("No active session. Call `@simos session.init(...)` first.")
-    proj = _SimKrn.sim_project(sim)
-    return _SimWS.context_capture!(ws, proj)
+    proj = _Krn.sim_project(sim)
+    return _WS.context_capture!(ws, proj)
 end
 
 function _simos_context_resolve_runtime(ref_input)
-    sim = _SimKrn._get_simos()
+    sim = _Krn._get_simos()
     ws = sim.worksession
     isnothing(ws) && error("No active session. Call `@simos session.init(...)` first.")
-    proj = _SimKrn.sim_project(sim)
-    ref_str = if ref_input isa _SimKrn.RecordRef
+    proj = _Krn.sim_project(sim)
+    ref_str = if ref_input isa _Krn.RecordRef
         ref_input.hash
     else
         string(ref_input)
     end
-    return _SimWS.context_resolve(proj, ws, ref_str)
+    return _WS.context_resolve(proj, ws, ref_str)
 end
 
 function _simos_context_capture(mod, src)
     _ = mod; _ = src
     return quote
-        $(_SimosAPI)._simos_context_capture_runtime!()
+        $(_API)._simos_context_capture_runtime!()
     end
 end
 
@@ -314,12 +314,12 @@ function _simos_context_resolve(mod, src, args)
     _ = mod; _ = src
     ref_expr = args[1]
     return quote
-        $(_SimosAPI)._simos_context_resolve_runtime($(ref_expr))
+        $(_API)._simos_context_resolve_runtime($(ref_expr))
     end
 end
 
 function _simos_settings_tracking_toggle_runtime!(on::Bool)::Bool
-    sim = _SimKrn._get_simos()
+    sim = _Krn._get_simos()
     ws = sim.worksession
     isnothing(ws) && error("No active session. Call `@simos session.init(...)` first.")
     ws.settings_access_tracking = on
@@ -332,13 +332,13 @@ end
 function _simos_settings_tracking_on(mod, src)
     _ = mod; _ = src
     return quote
-        $(_SimosAPI)._simos_settings_tracking_toggle_runtime!(true)
+        $(_API)._simos_settings_tracking_toggle_runtime!(true)
     end
 end
 
 function _simos_settings_tracking_off(mod, src)
     _ = mod; _ = src
     return quote
-        $(_SimosAPI)._simos_settings_tracking_toggle_runtime!(false)
+        $(_API)._simos_settings_tracking_toggle_runtime!(false)
     end
 end

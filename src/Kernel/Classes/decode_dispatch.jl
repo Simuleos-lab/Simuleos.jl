@@ -2,6 +2,22 @@
 # Classes/decode_dispatch.jl — Semantic decode dispatch lane
 # ============================================================
 
+function _no_class_decoder_error(
+        domain::AbstractString,
+        cls::SimuleosClassTag,
+        data::AbstractDict,
+    )::Union{}
+    data_keys = try
+        join(sort!(collect(String, keys(data))), ", ")
+    catch
+        "<unavailable>"
+    end
+    error(
+        "No `$(domain)` decoder registered for class `$(class_spec_string(cls))`. ",
+        "Data keys: [$(data_keys)]",
+    )
+end
+
 function _class_version_value(raw_version, payload_name::AbstractString)::Int
     if raw_version isa Integer
         return Int(raw_version)

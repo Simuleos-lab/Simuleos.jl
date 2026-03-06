@@ -140,6 +140,21 @@ let
             "solver" => Dict("tol" => 1e-6),
             "solver.tol" => 1e-4,
         ))
+
+        deep = Dict{String, Any}()
+        node = deep
+        for i in 1:33
+            child = Dict{String, Any}()
+            node["lvl$(i)"] = child
+            node = child
+        end
+        node["leaf"] = 99
+
+        @test_throws ErrorException kernel._settings_flatten_dict(deep)
+
+        deep_flat = kernel._settings_flatten_dict(deep; max_depth = 40)
+        deep_key = join(["lvl$(i)" for i in 1:33], ".") * ".leaf"
+        @test deep_flat[deep_key] == 99
     end
 
     @testset "settings effective cache is lazy, versioned, and negatively caches misses" begin

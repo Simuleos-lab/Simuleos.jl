@@ -101,9 +101,9 @@ end
 
 function _sandbox_options_dict(sandbox)
     if sandbox isa NamedTuple
-        return Dict{String, Any}(string(k) => v for (k, v) in pairs(sandbox))
+        return Dict{String, Any}(_to_string_key(k) => v for (k, v) in pairs(sandbox))
     elseif sandbox isa AbstractDict
-        return Dict{String, Any}(string(k) => v for (k, v) in sandbox)
+        return Dict{String, Any}(_to_string_key(k) => v for (k, v) in sandbox)
     end
     error("`sandbox` must be `nothing`, `true`, `false`, a NamedTuple, or a Dict.")
 end
@@ -186,7 +186,7 @@ end
 function _runtime_settings_from_pairs(kwargs)::Dict{String, Any}
     runtime_settings = Dict{String, Any}()
     for (k, v) in kwargs
-        key_raw = string(k)
+        key_raw = _to_string_key(k)
         key_raw == "bootstrap" &&
             error("sim_init! `bootstrap` was removed. Pass runtime settings as direct keyword args.")
         key = _settings_validate_key(replace(key_raw, "_" => "."))

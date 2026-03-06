@@ -15,7 +15,7 @@ function _simos_ctx_hash(mod, src, args)
     end
 
     return quote
-        $(_SimWS)._ctx_hash_record!(
+        $(_WS)._ctx_hash_record!(
             string($label),
             Tuple{String, Any}[$(entries...)]
         )
@@ -31,8 +31,8 @@ function _simos_remember(mod, src, args)
 
     parsed_args = Any[rest...]
     extra_parts_expr = nothing
-    if _SimWS._remember_is_extra_spec(parsed_args[1])
-        extra_parts_expr = _SimWS._remember_extra_parts_expr(parsed_args[1])
+    if _WS._remember_is_extra_spec(parsed_args[1])
+        extra_parts_expr = _WS._remember_extra_parts_expr(parsed_args[1])
         parsed_args = parsed_args[2:end]
         isempty(parsed_args) && error("@simos remember extra key tuple must be followed by a target.")
     end
@@ -56,25 +56,25 @@ function _simos_remember(mod, src, args)
         mode = :block
     end
 
-    vars = _SimWS._remember_target_vars(target_expr)
+    vars = _WS._remember_target_vars(target_expr)
     ns_expr = length(vars) == 1 ?
-        :($(_SimWS)._remember_namespace($(QuoteNode(vars[1])))) :
-        :($(_SimWS)._remember_namespace(Symbol[$([QuoteNode(v) for v in vars]...)]))
+        :($(_WS)._remember_namespace($(QuoteNode(vars[1])))) :
+        :($(_WS)._remember_namespace(Symbol[$([QuoteNode(v) for v in vars]...)]))
 
     hit_assign_expr = length(vars) == 1 ?
-        _SimWS._remember_assign_expr(vars[1], :_remember_cached_value) :
-        _SimWS._remember_assign_expr(vars, :_remember_cached_value)
-    miss_value_expr = length(vars) == 1 ? _SimWS._remember_value_expr(vars[1]) : _SimWS._remember_value_expr(vars)
-    defined_checks = _SimWS._remember_defined_checks(vars)
+        _WS._remember_assign_expr(vars[1], :_remember_cached_value) :
+        _WS._remember_assign_expr(vars, :_remember_cached_value)
+    miss_value_expr = length(vars) == 1 ? _WS._remember_value_expr(vars[1]) : _WS._remember_value_expr(vars)
+    defined_checks = _WS._remember_defined_checks(vars)
     composed_ctx_expr = isnothing(extra_parts_expr) ?
         :(string($ctx_hash_expr)) :
-        :($(_SimWS)._ctx_hash_compose(string($ctx_hash_expr), $extra_parts_expr))
+        :($(_WS)._ctx_hash_compose(string($ctx_hash_expr), $extra_parts_expr))
     store_input_expr = mode == :assign ? :_remember_miss_value : miss_value_expr
-    final_assign_expr = _SimWS._remember_assign_expr(length(vars) == 1 ? vars[1] : vars, :_remember_final_value)
+    final_assign_expr = _WS._remember_assign_expr(length(vars) == 1 ? vars[1] : vars, :_remember_final_value)
 
     miss_store_expr = Expr(:block,
         :(local _remember_final_value, _remember_miss_status),
-        :((_remember_final_value, _remember_miss_status) = $(_SimWS)._remember_store_result!(_remember_ns, _remember_ctx_hash, $store_input_expr)),
+        :((_remember_final_value, _remember_miss_status) = $(_WS)._remember_store_result!(_remember_ns, _remember_ctx_hash, $store_input_expr)),
         final_assign_expr,
         :(_remember_miss_status),
     )
@@ -92,7 +92,7 @@ function _simos_remember(mod, src, args)
     return quote
         local _remember_ctx_hash = $composed_ctx_expr
         local _remember_ns = $ns_expr
-        local _remember_hit, _remember_cached_value = $(_SimWS)._remember_tryload(_remember_ns, _remember_ctx_hash)
+        local _remember_hit, _remember_cached_value = $(_WS)._remember_tryload(_remember_ns, _remember_ctx_hash)
         if _remember_hit
             $hit_assign_expr
             $(QuoteNode(:hit))

@@ -8,8 +8,8 @@ function _shared_key(key)::String
     return k
 end
 
-function _shared_registry()::Dict{String, _Kernel.SnapSharedV1}
-    sim = _Kernel._get_simos()
+function _shared_registry()::Dict{String, _Krn.SnapSharedV1}
+    sim = _Krn._get_simos()
     return sim.shared_scopes
 end
 
@@ -31,7 +31,7 @@ function _shared_make_scope_variable(name::Symbol, value)
     inline_vars = Set{Symbol}([name])
     blob_vars = Set{Symbol}()
     hash_vars = Set{Symbol}()
-    return _Kernel._make_scope_variable(
+    return _Krn._make_scope_variable(
         :shared, value, inline_vars, blob_vars, hash_vars, name, nothing
     )
 end
@@ -43,23 +43,23 @@ function _shared_capture_build_scope(
         src_file::String,
         src_line::Int;
         names::Union{Nothing, Vector{Symbol}} = nothing,
-    )::_Kernel.SnapSharedV1
-    scope = _Kernel.SnapSharedV1(key)
+    )::_Krn.SnapSharedV1
+    scope = _Krn.SnapSharedV1(key)
 
     if isnothing(names)
         for (name, val) in locals
-            _Kernel.is_capture_excluded(val) && continue
+            _Krn.is_capture_excluded(val) && continue
             scope.variables[name] = _shared_make_scope_variable(name, val)
         end
         for (name, val) in globals
             haskey(scope.variables, name) && continue
-            _Kernel.is_capture_excluded(val) && continue
+            _Krn.is_capture_excluded(val) && continue
             scope.variables[name] = _shared_make_scope_variable(name, val)
         end
     else
         for name in names
             val = _shared_source_value(name, locals, globals)
-            _Kernel.is_capture_excluded(val) && continue
+            _Krn.is_capture_excluded(val) && continue
             scope.variables[name] = _shared_make_scope_variable(name, val)
         end
     end
@@ -77,8 +77,8 @@ function shared_capture(
         src_file::String,
         src_line::Int;
         names::Union{Nothing, Vector{Symbol}} = nothing,
-    )::_Kernel.SnapSharedV1
-    sim = _Kernel._get_simos()
+    )::_Krn.SnapSharedV1
+    sim = _Krn._get_simos()
     ws = sim.worksession
     isnothing(ws) && error("No active session. Call `@simos session.init(...)` first.")
 
@@ -89,7 +89,7 @@ function shared_capture(
     return scope
 end
 
-function shared_get(key::AbstractString)::_Kernel.SnapSharedV1
+function shared_get(key::AbstractString)::_Krn.SnapSharedV1
     reg = _shared_registry()
     key_s = _shared_key(key)
     haskey(reg, key_s) || error("Shared scope `$(key_s)` not found.")
@@ -123,13 +123,13 @@ function shared_clear!()::Int
     return n
 end
 
-function shared_merge!(dest_key::AbstractString, src_key::AbstractString)::_Kernel.SnapSharedV1
+function shared_merge!(dest_key::AbstractString, src_key::AbstractString)::_Krn.SnapSharedV1
     reg = _shared_registry()
     dest_s = _shared_key(dest_key)
     src_scope = shared_get(src_key)
 
     dest_scope = get!(reg, dest_s) do
-        _Kernel.SnapSharedV1(dest_s)
+        _Krn.SnapSharedV1(dest_s)
     end
 
     for (name, var) in src_scope.variables

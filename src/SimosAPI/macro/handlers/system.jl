@@ -20,7 +20,7 @@ function _simos_init(mod, src, args)
     kwargs_exprs = [Expr(:kw, k, v) for (k, v) in opts]
 
     return quote
-        $(_SimWS).engine_init_from_macro!($src_file, $src_line;
+        $(_WS).engine_init_from_macro!($src_file, $src_line;
             $(kwargs_exprs...),
         )
     end
@@ -47,6 +47,6 @@ function _simos_reset(mod, src, args)
     sandbox_cleanup_expr = get(opts, :sandbox_cleanup, QuoteNode(:auto))
 
     return quote
-        $(_SimKrn).sim_reset!(; sandbox_cleanup = $(sandbox_cleanup_expr))
+        $(_Krn).sim_reset!(; sandbox_cleanup = $(sandbox_cleanup_expr))
     end
 end

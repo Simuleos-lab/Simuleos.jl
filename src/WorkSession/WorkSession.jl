@@ -11,7 +11,7 @@ using Dates
 
 # Module-const references to avoid qualified paths in macros
 import ..Kernel
-const _Kernel = Kernel
+const _Krn = Kernel
 const _WS = WorkSession
 
 include("base.jl")

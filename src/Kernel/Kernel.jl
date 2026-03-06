@@ -10,6 +10,7 @@ using UUIDs
 using Dates
 
 # -- Foundation primitives and shared state types --
+include("Foundation/keys.jl")
 include("Foundation/dataclass_types.jl")
 include("Foundation/types.jl")
 include("Foundation/utils.jl")

@@ -44,7 +44,7 @@ function _decode_src_session_state_record_by_class(
         cls::SimuleosClassTag,
         data::AbstractDict,
     )::SrcSessionStateV1
-    error("No src.session_state decoder registered for class `$(class_spec_string(cls))`.")
+    _no_class_decoder_error("src.session_state", cls, data)
 end
 
 function _decode_src_session_state_record_by_class(

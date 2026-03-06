@@ -12,7 +12,7 @@ function _simos_capture(mod, src, args)
                 _globals[name] = getfield($mod, name)
             end
 
-            $(_SimWS).scope_capture(
+            $(_WS).scope_capture(
                 string($label_expr),
                 _locals,
                 _globals,
@@ -64,9 +64,9 @@ function _simos_bind_from_scope(mod, scope_expr, project_expr, bind_args, cmd::A
         local_assign_expr = _simos_bind_assign_expr(v, bound_value_expr, type_expr)
         push!(stmts, quote
             local $level_sym, $value_sym
-            $level_sym, $value_sym = $(_SimKrn).scope_expand_runtime!($scope_in, $project_in, $name)
+            $level_sym, $value_sym = $(_Krn).scope_expand_runtime!($scope_in, $project_in, $name)
             if $level_sym === :global
-                $(_SimKrn).scope_expand_setglobal!($caller_module, $name, $bound_value_expr)
+                $(_Krn).scope_expand_setglobal!($caller_module, $name, $bound_value_expr)
             elseif $level_sym === :local || $level_sym === :shared
                 $local_assign_expr
             else

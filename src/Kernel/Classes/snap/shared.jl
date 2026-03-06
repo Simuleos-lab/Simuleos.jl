@@ -22,7 +22,7 @@ function _decode_snap_shared_record_by_class(
         cls::SimuleosClassTag,
         data::AbstractDict,
     )::SnapSharedV1
-    error("No snap.shared decoder registered for class `$(class_spec_string(cls))`.")
+    _no_class_decoder_error("snap.shared", cls, data)
 end
 
 function _decode_snap_shared_record_by_class(
@@ -59,10 +59,10 @@ function encode_snap_shared_record(scope::SnapSharedV1)::Dict{String, Any}
     out = _stamp_class_record(Dict{String, Any}(
         "shared_key" => key,
         "labels" => copy(scope.labels),
-        "variables" => _encode_scope_variables_record(scope.variables),
+        "variables" => _encode_scope_vars_record(scope.variables),
     ), _SHARED_CLASS_ID, _SHARED_CLASS_VERSION)
     if !isempty(scope.metadata)
-        out["metadata"] = Dict{String, Any}(string(k) => v for (k, v) in scope.metadata)
+        out["metadata"] = Dict{String, Any}(_to_string_key(k) => v for (k, v) in scope.metadata)
     end
     return out
 end

@@ -42,6 +42,14 @@
 
     end
 
+    @testset "Key conversion helpers enforce key types" begin
+        @test Kernel._to_string_key(:alpha) == "alpha"
+        @test Kernel._to_symbol_key("beta") == :beta
+
+        @test_throws ErrorException Kernel._to_string_key(1)
+        @test_throws ErrorException Kernel._to_symbol_key(1)
+    end
+
     @testset "Pure collectors" begin
         # capture_source(nothing) returns zeroed capture
         src_nil = Kernel.capture_source(nothing)

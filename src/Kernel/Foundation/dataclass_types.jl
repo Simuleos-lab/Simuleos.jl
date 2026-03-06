@@ -8,7 +8,7 @@ abstract type SimuleosDataClass end
 function _dataclass_string_dict(data::AbstractDict)::Dict{String, Any}
     out = Dict{String, Any}()
     for (k, v) in pairs(data)
-        out[string(k)] = v
+        out[_to_string_key(k)] = v
     end
     return out
 end
@@ -16,7 +16,7 @@ end
 function _dataclass_symbol_dict(data::AbstractDict)::Dict{Symbol, Any}
     out = Dict{Symbol, Any}()
     for (k, v) in pairs(data)
-        out[Symbol(k)] = v
+        out[_to_symbol_key(k)] = v
     end
     return out
 end

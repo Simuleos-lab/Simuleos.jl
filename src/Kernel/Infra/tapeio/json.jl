@@ -54,7 +54,7 @@ function _write_json(io::IO, d::AbstractDict)
         else
             print(io, ",")
         end
-        JSON3.write(io, string(k))
+        JSON3.write(io, _to_string_key(k))
         print(io, ":")
         _write_json(io, v)
     end
@@ -70,7 +70,7 @@ Nested dicts are also sorted recursively.
 """
 function _write_json_sorted(io::IO, d::AbstractDict)
     print(io, "{")
-    sorted_keys = sort!(collect(keys(d)); by=string)
+    sorted_keys = sort!(collect(keys(d)); by = _to_string_key)
     first = true
     for k in sorted_keys
         if first
@@ -78,7 +78,7 @@ function _write_json_sorted(io::IO, d::AbstractDict)
         else
             print(io, ",")
         end
-        JSON3.write(io, string(k))
+        JSON3.write(io, _to_string_key(k))
         print(io, ":")
         v = d[k]
         if v isa AbstractDict

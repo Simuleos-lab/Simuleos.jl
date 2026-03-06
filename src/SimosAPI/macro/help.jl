@@ -25,7 +25,7 @@ macro simos(invocation...)
     local sgl_enabled
     sgl_enabled = nothing
     if isempty(invocation)
-        result_expr = :($(_SimKrn)._get_simos_or_nothing())
+        result_expr = :($(_Krn)._get_simos_or_nothing())
     elseif length(invocation) == 1 && invocation[1] === :help
         # @simos help — print full help overview
         help_str = _simos_help_text()
@@ -52,7 +52,7 @@ macro simos(invocation...)
     if sgl_enabled === true
         # sgl=true: always lock regardless of global flag
         locked_expr = quote
-            @lock $(_SimosAPI).SIMOS_GLOBAL_LOCK begin
+            @lock $(_API).SIMOS_GLOBAL_LOCK begin
                 $(result_expr)
             end
         end
@@ -62,8 +62,8 @@ macro simos(invocation...)
     else
         # no per-call override: defer to global flag
         locked_expr = quote
-            if $(_SimosAPI).SIMOS_GLOBAL_LOCK_ENABLED[]
-                @lock $(_SimosAPI).SIMOS_GLOBAL_LOCK begin
+            if $(_API).SIMOS_GLOBAL_LOCK_ENABLED[]
+                @lock $(_API).SIMOS_GLOBAL_LOCK begin
                     $(result_expr)
                 end
             else

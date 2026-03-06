@@ -58,7 +58,7 @@ function _decode_snap_context_record_by_class(
         cls::SimuleosClassTag,
         data::AbstractDict,
     )::SnapContextV1
-    error("No snap.context decoder registered for class `$(class_spec_string(cls))`.")
+    _no_class_decoder_error("snap.context", cls, data)
 end
 
 function _decode_snap_context_record_by_class(

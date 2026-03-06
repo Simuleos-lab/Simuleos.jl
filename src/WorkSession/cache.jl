@@ -3,7 +3,7 @@
 # ============================================================
 
 function _ctx_hash_digest(parts...)::String
-    return _Kernel.blob_ref(("ctx_hash_v1", parts...)).hash
+    return _Krn.blob_ref(("ctx_hash_v1", parts...)).hash
 end
 
 function _ctx_hash_extra_parts(extra_parts)::Vector{Any}
@@ -12,7 +12,7 @@ function _ctx_hash_extra_parts(extra_parts)::Vector{Any}
     if extra_parts isa NamedTuple
         parts = Any[]
         for (k, v) in pairs(extra_parts)
-            push!(parts, (String(k), v))
+            push!(parts, (_Krn._to_string_key(k), v))
         end
         return parts
     end
@@ -54,7 +54,7 @@ function _remember_ctx_extra_named_only(ctx_extra)
     error("cache_remember! `ctx_extra` must be a NamedTuple of named key parts (e.g. `(metric=\"fva\", fold=1)`).")
 end
 
-function _resolve_cache_ctx_hash(ws::_Kernel.WorkSession; ctx = nothing, ctx_hash = nothing, ctx_extra = nothing)::String
+function _resolve_cache_ctx_hash(ws::_Krn.WorkSession; ctx = nothing, ctx_hash = nothing, ctx_extra = nothing)::String
     has_ctx = !isnothing(ctx)
     has_ctx_hash = !isnothing(ctx_hash)
     has_ctx == has_ctx_hash &&
@@ -87,17 +87,17 @@ end
 
 function _remember_tryload(namespace, ctx_hash)
     _, proj = _require_active_worksession_and_project()
-    return _Kernel.cache_tryload(proj, namespace, ctx_hash)
+    return _Krn.cache_tryload(proj, namespace, ctx_hash)
 end
 
 function _remember_store_result!(namespace, ctx_hash, value)
     _, proj = _require_active_worksession_and_project()
-    store_result = _Kernel.cache_store!(proj, namespace, ctx_hash, value)
+    store_result = _Krn.cache_store!(proj, namespace, ctx_hash, value)
     if store_result.status === :stored
         return (value, :miss)
     end
 
-    canonical_value = _Kernel.blob_read(proj.blobstorage, store_result.ref)
+    canonical_value = _Krn.blob_read(proj.blobstorage, store_result.ref)
     return (canonical_value, :race_lost)
 end
 
@@ -121,7 +121,7 @@ function cache_remember!(f::Function, namespace;
     )
     ws, proj = _require_active_worksession_and_project()
     resolved_ctx_hash = _resolve_cache_ctx_hash(ws; ctx=ctx, ctx_hash=ctx_hash, ctx_extra=ctx_extra)
-    return _Kernel.cache_remember!(f, proj, namespace, resolved_ctx_hash; tags=tags)
+    return _Krn.cache_remember!(f, proj, namespace, resolved_ctx_hash; tags=tags)
 end
 
 cache_remember!(f::Function, namespace::Symbol; kw...) = cache_remember!(f, String(namespace); kw...)

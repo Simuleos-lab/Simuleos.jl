@@ -103,7 +103,7 @@ function _dataclass_scope_variables(
     )::Dict{Symbol, ScopeVariable}
     out = Dict{Symbol, ScopeVariable}()
     for (name, val) in variables
-        key = Symbol(name)
+        key = _to_symbol_key(name)
         if val isa ScopeVariable
             out[key] = val
         else
@@ -116,7 +116,7 @@ end
 function _dataclass_symbol_any(data::AbstractDict)::Dict{Symbol, Any}
     out = Dict{Symbol, Any}()
     for (k, v) in pairs(data)
-        out[Symbol(k)] = v
+        out[_to_symbol_key(k)] = v
     end
     return out
 end
@@ -344,23 +344,34 @@ An active recording session. Manages staged scopes, simignore rules,
 queued commits pending tape flush, and session metadata.
 """
 mutable struct WorkSession
+    # Session identity/lifecycle subsystem
     session_id::Base.UUID
     labels::Vector{String}
-    stage::CaptureTree
-    pending_commits::Vector{RecCaptureCommitV1}
-    capture_policy::CapturePolicy
     is_finalized::Bool
     metadata::Dict{String, Any}
-    # Runtime-only registry of named context hashes (not persisted to session.json).
-    context_hash_reg::Dict{String, String}
-    # Runtime-only counters for gated `session.queue(...; cmt_every=...)` calls.
-    queue_counters::Dict{String, Int}
+
+    # Stage subsystem
+    stage::CaptureTree
+    pending_commits::Vector{RecCaptureCommitV1}
+
+    # Capture configuration subsystem
+    capture_policy::CapturePolicy
     simignore_rules::Vector{Dict{Symbol, Any}}
     capture_filter_defs::Dict{String, Vector{Dict{Symbol, Any}}}
     capture_filter_bindings::Dict{String, Vector{String}}
+    # Runtime-only counters for gated `session.queue(...; cmt_every=...)` calls.
+    queue_counters::Dict{String, Int}
+
+    # Context subsystem (runtime-only)
+    # Runtime-only registry of named context hashes (not persisted to session.json).
+    context_hash_reg::Dict{String, String}
+
+    # Settings observability subsystem (runtime-only)
+    settings_access_tracking::Bool
     # Settings access tracking (runtime-only, not persisted).
     settings_access_log::Union{Nothing, Dict{String, Any}}
-    settings_access_tracking::Bool
+
+    # Runtime capture subsystem
     # Capture subsystem: source and environment snapshots (runtime-only).
     source_capture::Union{Nothing, SrcCodebaseV1}
     environment_capture::Union{Nothing, SrcRuntimeHostV1}
@@ -424,14 +435,21 @@ The root state object. Holds references to project, home,
 settings, and the active work session.
 """
 mutable struct SimOs
+    # Runtime lifecycle/config subsystem
     lifecycle::Symbol  # :bootstrap (settings-only pre-init) or :ready (full runtime)
     runtime_settings::Dict{String, Any}
-    sandbox::Union{Nothing, SimuleosSandbox}
+
+    # Workspace subsystem
     project::Union{Nothing, SimuleosProject}
     home::Union{Nothing, SimuleosHome}
-    worksession::Union{Nothing, WorkSession}
+    sandbox::Union{Nothing, SimuleosSandbox}
+
+    # Active state subsystem
     settings_stack::Union{Nothing, SettingsStack}  # Structured layered settings SSOT
+    worksession::Union{Nothing, WorkSession}
     shared_scopes::Dict{String, SnapSharedV1}  # In-memory named shared scopes
+
+    # Persistence/cache subsystem
     sqlite_db::Any  # Cached SQLite metadata-index connection (owned by @simos sqlite.*)
     sqlite_db_path::Union{Nothing, String}  # Canonical path for the cached SQLite DB
 end

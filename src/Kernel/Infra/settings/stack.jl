@@ -124,17 +124,22 @@ function _settings_validate_key(key::String)::String
     return s
 end
 
+const _SETTINGS_FLATTEN_MAX_DEPTH = 32
+
 function _settings_flatten_into!(
         out::Dict{String, Any},
         data::AbstractDict,
         prefix::String = "",
+        depth::Int = 0,
+        max_depth::Int = _SETTINGS_FLATTEN_MAX_DEPTH,
     )::Dict{String, Any}
+    depth > max_depth && error("Settings nesting depth exceeds maximum `$(max_depth)` while flattening.")
     for (k, v) in data
-        key_seg = _settings_validate_key(string(k))
+        key_seg = _settings_validate_key(_to_string_key(k))
         full_key = isempty(prefix) ? key_seg : string(prefix, ".", key_seg)
 
         if v isa AbstractDict
-            _settings_flatten_into!(out, _string_keys(v), full_key)
+            _settings_flatten_into!(out, _string_keys(v), full_key, depth + 1, max_depth)
             continue
         end
 
@@ -149,9 +154,13 @@ end
 
 Flatten a nested settings object into dotted-key form.
 """
-function _settings_flatten_dict(data::AbstractDict)::Dict{String, Any}
+function _settings_flatten_dict(
+        data::AbstractDict;
+        max_depth::Int = _SETTINGS_FLATTEN_MAX_DEPTH,
+    )::Dict{String, Any}
+    max_depth < 0 && error("`max_depth` must be >= 0 (got $(max_depth)).")
     out = Dict{String, Any}()
-    _settings_flatten_into!(out, _string_keys(data))
+    _settings_flatten_into!(out, _string_keys(data), "", 0, max_depth)
     return out
 end
 
@@ -164,7 +173,7 @@ Conflicting key paths raise an error.
 function _settings_unflatten_dict(data::AbstractDict)::Dict{String, Any}
     out = Dict{String, Any}()
     for (k, v) in data
-        key = _settings_validate_key(string(k))
+        key = _settings_validate_key(_to_string_key(k))
         parts = split(key, '.')
         any(isempty, parts) && error("Invalid dotted settings key: $(repr(key))")
 

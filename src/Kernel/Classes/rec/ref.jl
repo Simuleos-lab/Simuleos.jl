@@ -26,7 +26,7 @@ function _decode_rec_ref_record_by_class(
         cls::SimuleosClassTag,
         data::AbstractDict,
     )::RecRefV1
-    error("No rec.ref decoder registered for class `$(class_spec_string(cls))`.")
+    _no_class_decoder_error("rec.ref", cls, data)
 end
 
 function _decode_rec_ref_record_by_class(

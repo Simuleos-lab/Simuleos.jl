@@ -9,16 +9,16 @@ Build session metadata dict with standard fields.
 """
 function _session_metadata_base(; include_runtime::Bool = false, script_path::String = "")::Dict{String, Any}
     meta = Dict{String, Any}(
-        _Kernel.SESSION_META_TIMESTAMP_KEY => string(Dates.now()),
+        _Krn.SESSION_META_TIMESTAMP_KEY => string(Dates.now()),
     )
 
     if include_runtime
-        meta[_Kernel.SESSION_META_JULIA_VERSION_KEY] = string(VERSION)
-        meta[_Kernel.SESSION_META_HOSTNAME_KEY] = gethostname()
+        meta[_Krn.SESSION_META_JULIA_VERSION_KEY] = string(VERSION)
+        meta[_Krn.SESSION_META_HOSTNAME_KEY] = gethostname()
     end
 
     if !isempty(script_path)
-        meta[_Kernel.SESSION_META_SCRIPT_PATH_KEY] = script_path
+        meta[_Krn.SESSION_META_SCRIPT_PATH_KEY] = script_path
     end
 
     return meta
@@ -27,21 +27,21 @@ end
 function _append_git_metadata!(meta::Dict{String, Any}, gh)::Dict{String, Any}
     isnothing(gh) && return meta
 
-    h = _Kernel.git_hash(gh)
-    !isempty(String(h)) && (meta[_Kernel.SESSION_META_GIT_COMMIT_KEY] = h)
-    meta[_Kernel.SESSION_META_GIT_DIRTY_KEY] = _Kernel.git_dirty(gh)
+    h = _Krn.git_hash(gh)
+    !isempty(String(h)) && (meta[_Krn.SESSION_META_GIT_COMMIT_KEY] = h)
+    meta[_Krn.SESSION_META_GIT_DIRTY_KEY] = _Krn.git_dirty(gh)
     return meta
 end
 
 function _capture_session_metadata(; script_path::String = "", extra...)
     meta = _session_metadata_base(; include_runtime = true, script_path = script_path)
 
-    sim = _Kernel._get_simos_or_nothing()
+    sim = _Krn._get_simos_or_nothing()
     gh = (!isnothing(sim) && !isnothing(sim.project)) ? sim.project.git_handler : nothing
     _append_git_metadata!(meta, gh)
 
     for (k, v) in extra
-        meta[string(k)] = v
+        meta[_Krn._to_string_key(k)] = v
     end
 
     return meta
@@ -59,10 +59,10 @@ function _set_session_init_callsite!(
         init_line::Int = 0,
     )::Dict{String, Any}
     if !isempty(init_file)
-        meta[_Kernel.SESSION_META_INIT_FILE_KEY] = init_file
+        meta[_Krn.SESSION_META_INIT_FILE_KEY] = init_file
     end
     if init_line > 0
-        meta[_Kernel.SESSION_META_INIT_LINE_KEY] = init_line
+        meta[_Krn.SESSION_META_INIT_LINE_KEY] = init_line
     end
     return meta
 end
