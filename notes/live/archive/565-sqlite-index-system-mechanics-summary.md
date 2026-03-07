@@ -171,6 +171,7 @@ Properties:
 
 - deterministic rebuild from tapes
 - no blob payload deserialization by default
+#FEEDBACK of index build we can try deserialize blobs and store metadata... Or we should do that on blob storage (given we have the object on memory)... I mean, further automatic metadata extraction... Or do it on demand... I want to known more about this blob... The metadata can go to the blob tape... 
 
 ## Refresh (`sqlite_index_refresh!`)
 
@@ -190,6 +191,7 @@ High-level sequence:
 9. Touch manifest `updated_at`
 10. Commit
 11. If drift error was raised -> rebuild fallback
+#FEEDBACK wr must update on cold loops... Lets not do it automatically... Only user triggered... Or default disabled... 
 
 Fallback policy (current):
 
