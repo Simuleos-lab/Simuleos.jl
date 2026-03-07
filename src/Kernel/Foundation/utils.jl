@@ -38,6 +38,8 @@ const SETTING_KEY_SESSION_INIT_GIT_DIRTY_POLICY = "session.init.git_dirty_policy
 const SETTING_KEY_BATCH_COMMIT_MAX_PENDING = "worksession.batch_commit.max_pending_commits"
 const SETTING_ALIAS_HOME_PATH_ENV = "SIMULEOS_HOME_PATH"
 const SETTING_ALIAS_PROJECT_ROOT_ENV = "SIMULEOS_PROJECT_ROOT"
+const GIT_DEFAULT_USER_NAME = "Simuleos"
+const GIT_DEFAULT_USER_EMAIL = "simuleos@local"
 
 const SIMULEOS_SETTINGS_DEFAULTS = Dict{String, Any}(
     SETTING_KEY_SESSION_INIT_GIT_DIRTY_POLICY => "error",

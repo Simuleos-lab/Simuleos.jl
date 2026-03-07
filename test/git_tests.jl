@@ -44,9 +44,7 @@ import LibGit2
 
         @testset "describe" begin
             # describe requires tags, so we create one
-            repo = LibGit2.GitRepo(dir)
-            LibGit2.tag_create(repo, "v0.1.0", LibGit2.head_oid(repo))
-            close(repo)
+            Simuleos.Kernel.git_tag!(gh, "v0.1.0")
 
             d = Simuleos.Kernel.git_describe(gh)
             @test !isnothing(d)

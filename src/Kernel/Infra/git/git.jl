@@ -106,12 +106,28 @@ function git_describe(gh::GitHandler)::String
     end
 end
 
-function _git_signature_for_commit(repo::LibGit2.GitRepo)::LibGit2.Signature
+function _git_signature(repo::LibGit2.GitRepo)::LibGit2.Signature
     try
         return LibGit2.Signature(repo)
     catch err
         _git_nonfatal_error(err) || rethrow()
-        return LibGit2.Signature("Simuleos", "simuleos@local")
+        return LibGit2.Signature(GIT_DEFAULT_USER_NAME, GIT_DEFAULT_USER_EMAIL)
+    end
+end
+
+function git_tag!(gh::GitHandler, tag::AbstractString; commit = nothing, message::AbstractString = "")::String
+    _verify_repo(gh)
+    _git_repo_marker_exists(gh) || error("git_tag! requires a git repository at `$(gh.root_path)`.")
+
+    tag_name = strip(String(tag))
+    isempty(tag_name) && error("git_tag! tag name cannot be empty.")
+
+    return _with_repo(gh) do repo
+        target = isnothing(commit) ? LibGit2.head_oid(repo) : commit
+        sig = _git_signature(repo)
+        msg = isempty(strip(String(message))) ? tag_name : String(message)
+        LibGit2.tag_create(repo, tag_name, target; sig = sig, msg = msg)
+        return tag_name
     end
 end
 
@@ -130,7 +146,7 @@ function git_commit_all!(gh::GitHandler, message::AbstractString)::String
         # Nothing staged after normalization (for example, ignored-only workspace drift).
         LibGit2.isdirty(repo) || return git_hash(gh)
 
-        sig = _git_signature_for_commit(repo)
+        sig = _git_signature(repo)
         oid = LibGit2.commit(repo, msg; author = sig, committer = sig)
         return string(oid)
     end
