@@ -1,4 +1,10 @@
+
+[![CI](https://github.com/Simuleos-lab/Simuleos.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/Simuleos-lab/Simuleos.jl/actions/workflows/CI.yml)
+[![Coverage](https://codecov.io/gh/Simuleos-lab/Simuleos.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/Simuleos-lab/Simuleos.jl)
+
 # Simuleos.jl
+
+
 
 Simuleos is a Julia package for recording simulation and workflow state as traceable scopes, organizing them by session and commit lineage, and reading them back for analysis, recovery, and cross-script handoff.
 
