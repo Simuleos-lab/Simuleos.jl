@@ -1,27 +1,8 @@
-function _simos_capture(mod, src, args)
-    label_expr = isempty(args) ? "" : args[1]
-    src_file = string(src.file)
-    src_line = src.line
-    return quote
-        let
-            _locals = Base.@locals
-            _globals = Dict{Symbol, Any}()
-            for name in names($mod; all=false)
-                haskey(_locals, name) && continue
-                isdefined($mod, name) || continue
-                _globals[name] = getfield($mod, name)
-            end
-
-            $(_WS).scope_capture(
-                string($label_expr),
-                _locals,
-                _globals,
-                $src_file,
-                $src_line,
-            )
-        end
-    end
-end
+# ------------------------------------------------------------------
+# bind_core.jl — Shared bind codegen utilities
+#
+# Used by base.bind, shared.bind, and any future bind-like commands.
+# ------------------------------------------------------------------
 
 function _simos_parse_bind_spec(cmd::AbstractString, arg)
     if arg isa Symbol
@@ -58,8 +39,8 @@ function _simos_bind_from_scope(mod, scope_expr, project_expr, bind_args, cmd::A
         v = spec.name
         type_expr = spec.type_expr
         name = QuoteNode(v)
-        level_sym = gensym(:scope_expand_level)
-        value_sym = gensym(:scope_expand_value)
+        level_sym = gensym(:bind_level)
+        value_sym = gensym(:bind_value)
         bound_value_expr = _simos_bind_value_expr(value_sym, type_expr)
         local_assign_expr = _simos_bind_assign_expr(v, bound_value_expr, type_expr)
         push!(stmts, quote
@@ -76,13 +57,4 @@ function _simos_bind_from_scope(mod, scope_expr, project_expr, bind_args, cmd::A
     end
 
     return Expr(:block, stmts...)
-end
-
-function _simos_expand(mod, src, args)
-    _ = src
-    length(args) >= 3 || error("@simos scope.bind expects scope, project, and at least one variable name.")
-    scope_expr = args[1]
-    project_expr = args[2]
-    bind_args = args[3:end]
-    return _simos_bind_from_scope(mod, scope_expr, project_expr, bind_args, "@simos scope.bind")
 end

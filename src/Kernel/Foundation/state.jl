@@ -38,8 +38,9 @@ function SimuleosProject(;
         simuleos_dir::String = _simuleos_dir(root_path),
         blobstorage::BlobStorage = BlobStorage(blobs_dir(simuleos_dir)),
         git_handler::Union{Nothing, GitHandler} = nothing,
+        tape_registry::TapeRegistry = TapeRegistry(),
     )
-    SimuleosProject(id, root_path, simuleos_dir, blobstorage, git_handler)
+    SimuleosProject(id, root_path, simuleos_dir, blobstorage, git_handler, tape_registry)
 end
 
 # -- BlobStorage from project --

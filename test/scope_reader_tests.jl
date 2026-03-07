@@ -58,27 +58,61 @@ global _simuleos_expand_global = 0
         @test Simuleos.value(scopes_by_label[1].variables[:v], proj) === nothing
         @test Simuleos.value(scopes_by_label[1].variables[:b], proj) == Dict("a" => 1)
 
-        @testset "@simos scope.bind macro" begin
+        @testset "@simos base.bind macro" begin
             scope = scopes_by_label[1]
 
-            let x = -1
-                @simos scope.bind(scope, proj, x)
-                @test x == 42
-            end
+            # base.bind needs an active project — set up temporary SimOs
+            kernel = Simuleos.Kernel
+            sim = kernel.SimOs(; lifecycle = kernel._SIMOS_LIFECYCLE_READY, project = proj)
+            old_simos = kernel.SIMOS[]
+            kernel.SIMOS[] = sim
+            try
+                let x = -1
+                    @simos base.bind(scope, x)
+                    @test x == 42
+                end
 
-            let x = -1
-                @simos scope.bind(scope, proj, x::Int)
-                @test x == 42
-            end
+                let x = -1
+                    @simos base.bind(scope, x::Int)
+                    @test x == 42
+                end
 
-            let _simuleos_expand_global = -1
-                @simos scope.bind(scope, proj, _simuleos_expand_global)
-                @test _simuleos_expand_global == -1
-            end
-            @test _simuleos_expand_global == 7
+                let _simuleos_expand_global = -1
+                    @simos base.bind(scope, _simuleos_expand_global)
+                    @test _simuleos_expand_global == -1
+                end
+                @test _simuleos_expand_global == 7
 
-            @test_throws ErrorException begin
-                @simos scope.bind(scope, proj, does_not_exist_in_scope)
+                @test_throws ErrorException begin
+                    @simos base.bind(scope, does_not_exist_in_scope)
+                end
+            finally
+                kernel.SIMOS[] = old_simos
+            end
+        end
+
+        @testset "@simos base.hydrate" begin
+            scope = scopes_by_label[1]
+
+            kernel = Simuleos.Kernel
+            sim = kernel.SimOs(; lifecycle = kernel._SIMOS_LIFECYCLE_READY, project = proj)
+            old_simos = kernel.SIMOS[]
+            kernel.SIMOS[] = sim
+            try
+                result = @simos base.hydrate(scope, :x)
+                @test result == (x = 42,)
+
+                result2 = @simos base.hydrate(scope, :x, :b)
+                @test result2.x == 42
+                @test result2.b == Dict("a" => 1)
+
+                # Void variables hydrate to nothing
+                result3 = @simos base.hydrate(scope, :v)
+                @test result3.v === nothing
+
+                @test_throws ErrorException @simos base.hydrate(scope, :nonexistent)
+            finally
+                kernel.SIMOS[] = old_simos
             end
         end
 

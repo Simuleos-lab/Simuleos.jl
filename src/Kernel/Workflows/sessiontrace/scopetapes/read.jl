@@ -402,7 +402,7 @@ Set an existing global in `target_module`.
 function scope_expand_setglobal!(target_module::Module, name::Symbol, value)
     isdefined(target_module, name) || error(
         "Global `$(name)` is not defined in module `$(target_module)`. " *
-        "Define it before calling @simos scope.bind."
+        "Define it before calling @simos base.bind."
     )
     Core.setglobal!(target_module, name, value)
     return value

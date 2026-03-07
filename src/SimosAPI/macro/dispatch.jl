@@ -229,47 +229,52 @@ const _SIMOS_COMMAND_SPECS = (
         require_no_kwargs = true,
         require_no_do = true,
     ),
-    _simos_command_spec((:session, :commit), "Commit staged scopes", _simos_commit;
+    _simos_command_spec((:rec, :commit), "Commit staged scopes", _simos_rec_commit;
         invoke_mode = :mod_src_posargs,
         require_no_kwargs = true,
         require_no_do = true,
     ),
-    _simos_command_spec((:session, :queue), "Queue a batch commit", _simos_batch_commit;
+    _simos_command_spec((:rec, :queue), "Queue a batch commit", _simos_rec_queue;
         invoke_mode = :mod_src_posargs_kwargs,
         require_no_do = true,
     ),
-    _simos_command_spec((:session, :close), "Finalize and flush session", _simos_finalize;
+    _simos_command_spec((:session, :close), "Finalize and flush session", _simos_session_close;
         invoke_mode = :mod_src_posargs,
         require_no_kwargs = true,
         require_no_do = true,
     ),
-    _simos_command_spec((:stage, :blob), "Mark variables for blob storage", _simos_store;
+    _simos_command_spec((:rec, :blob), "Mark variables for blob storage", _simos_rec_blob;
         invoke_mode = :mod_src_posargs,
         require_no_kwargs = true,
         require_no_do = true,
     ),
-    _simos_command_spec((:stage, :hash), "Mark variables for hash-only storage", _simos_hash;
+    _simos_command_spec((:rec, :hash), "Mark variables for hash-only storage", _simos_rec_hash;
         invoke_mode = :mod_src_posargs,
         require_no_kwargs = true,
         require_no_do = true,
     ),
-    _simos_command_spec((:stage, :inline), "Mark variables for inline storage", _simos_inline;
+    _simos_command_spec((:rec, :inline), "Mark variables for inline storage", _simos_rec_inline;
         invoke_mode = :mod_src_posargs,
         require_no_kwargs = true,
         require_no_do = true,
     ),
-    _simos_command_spec((:stage, :meta), "Set stage metadata key-value pairs", _simos_meta;
+    _simos_command_spec((:rec, :meta), "Set rec metadata key-value pairs", _simos_rec_meta;
         invoke_mode = :kw_assigns,
         require_no_do = true,
         posargs_rule = :none,
-        posargs_error = "@simos stage.meta accepts only keyword arguments.",
+        posargs_error = "@simos rec.meta accepts only keyword arguments.",
     ),
-    _simos_command_spec((:scope, :capture), "Capture local/global variables", _simos_capture;
+    _simos_command_spec((:rec, :capture), "Capture local/global variables", _simos_rec_capture;
         invoke_mode = :mod_src_posargs,
         require_no_kwargs = true,
         require_no_do = true,
     ),
-    _simos_command_spec((:scope, :bind), "Bind scope variables into caller", _simos_expand;
+    _simos_command_spec((:base, :hydrate), "Hydrate variables from any container (resolve BlobRefs, return NamedTuple)", _simos_base_hydrate;
+        invoke_mode = :mod_src_posargs,
+        require_no_kwargs = true,
+        require_no_do = true,
+    ),
+    _simos_command_spec((:base, :bind), "Bind variables from any container into caller scope", _simos_base_bind;
         invoke_mode = :mod_src_posargs,
         require_no_kwargs = true,
         require_no_do = true,
@@ -316,6 +321,12 @@ const _SIMOS_COMMAND_SPECS = (
     _simos_command_spec((:cache, :remember), "Cache-or-compute with context hash", _simos_remember;
         invoke_mode = :cache_remember,
         validator = _simos_validate_cache_remember,
+    ),
+    _simos_command_spec((:tapes, :query), "Query records across all tapes by class, session, label, with optional JMESPath filter", _simos_query;
+        invoke_mode = :mod_src_kwargs,
+        require_no_do = true,
+        posargs_rule = :none,
+        posargs_error = "@simos tapes.query accepts only keyword arguments.",
     ),
     _simos_command_spec((:settings, :tracking, :on), "Enable settings access tracking for current session", _simos_settings_tracking_on;
         invoke_mode = :mod_src,

@@ -108,6 +108,17 @@ end
 function _ensure_tape_metadata!(tape::TapeIO, target::String)
     _tape_has_any_record(tape) && return nothing
     _append_json_line!(target, _tape_metadata_record(tape))
+    # Register tape in project registry on creation
+    _tape_registry_hook!(tape)
+    return nothing
+end
+
+function _tape_registry_hook!(tape::TapeIO)::Nothing
+    simos = SIMOS[]
+    isnothing(simos) && return nothing
+    proj = simos.project
+    isnothing(proj) && return nothing
+    tape_registry_register!(proj, tape.path; source = :unknown)
     return nothing
 end
 

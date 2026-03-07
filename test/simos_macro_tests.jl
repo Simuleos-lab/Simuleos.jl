@@ -81,17 +81,17 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
             ws = kernel._get_simos().worksession
             @test !isnothing(ws)
 
-            @simos stage.blob(a, b)
-            @simos stage.hash(c, d)
-            @simos stage.inline(e, f)
-            @simos stage.meta(step = 1, phase = "call-style")
+            @simos rec.blob(a, b)
+            @simos rec.hash(c, d)
+            @simos rec.inline(e, f)
+            @simos rec.meta(step = 1, phase = "call-style")
             @test :a in ws.capture_policy.blob_vars
             @test :d in ws.capture_policy.hash_vars
             @test :f in ws.capture_policy.inline_vars
             @test ws.capture_policy.meta_buffer[:phase] == "call-style"
 
             let local_x = 7
-                @simos scope.capture("call-style-scope")
+                @simos rec.capture("call-style-scope")
             end
             @test length(ws.stage.snapshots) == 1
 
@@ -368,43 +368,43 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
         end
     end
 
-    @testset "@simos stage.blob / stage.hash / stage.inline" begin
+    @testset "@simos rec.blob / rec.hash / rec.inline" begin
         with_test_context() do _
             @simos session.init("simos-storage-" * string(uuid4()))
             ws = kernel._get_simos().worksession
 
-            @simos stage.blob(a, b)
+            @simos rec.blob(a, b)
             @test :a in ws.capture_policy.blob_vars
             @test :b in ws.capture_policy.blob_vars
 
-            @simos stage.hash(c, d)
+            @simos rec.hash(c, d)
             @test :c in ws.capture_policy.hash_vars
             @test :d in ws.capture_policy.hash_vars
 
-            @simos stage.inline(e, f)
+            @simos rec.inline(e, f)
             @test :e in ws.capture_policy.inline_vars
             @test :f in ws.capture_policy.inline_vars
         end
     end
 
-    @testset "@simos stage.meta" begin
+    @testset "@simos rec.meta" begin
         with_test_context() do _
             @simos session.init("simos-meta-" * string(uuid4()))
             ws = kernel._get_simos().worksession
 
-            @simos stage.meta(step=1, phase="training")
+            @simos rec.meta(step=1, phase="training")
             @test ws.capture_policy.meta_buffer[:step] == 1
             @test ws.capture_policy.meta_buffer[:phase] == "training"
         end
     end
 
-    @testset "@simos scope.capture produces scope with source info" begin
+    @testset "@simos rec.capture produces scope with source info" begin
         with_test_context() do _
             @simos session.init("simos-capture-" * string(uuid4()))
             ws = kernel._get_simos().worksession
 
             let x = 42, y = "hello"
-                @simos scope.capture("test-scope")
+                @simos rec.capture("test-scope")
             end
 
             @test length(ws.stage.snapshots) == 1
@@ -469,7 +469,7 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
         end
     end
 
-    @testset "@simos session.commit" begin
+    @testset "@simos rec.commit" begin
         with_test_context() do _
             simos2 = kernel._get_simos()
             proj2 = kernel.sim_project(simos2)
@@ -478,9 +478,9 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
             ws = kernel._get_simos().worksession
 
             let x = 1
-                @simos scope.capture("s1")
+                @simos rec.capture("s1")
             end
-            @simos session.commit("c1")
+            @simos rec.commit("c1")
 
             tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
             commits = collect(kernel.iterate_commits(tape))
@@ -489,7 +489,7 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
         end
     end
 
-    @testset "@simos session.queue and session.close" begin
+    @testset "@simos rec.queue and session.close" begin
         with_test_context() do _
             simos2 = kernel._get_simos()
             proj2 = kernel.sim_project(simos2)
@@ -498,13 +498,13 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
             ws = kernel._get_simos().worksession
 
             let x = 1
-                @simos scope.capture("s1")
+                @simos rec.capture("s1")
             end
-            @simos session.queue("bc1")
+            @simos rec.queue("bc1")
             @test length(ws.pending_commits) == 1
 
             let x = 2
-                @simos scope.capture("s2")
+                @simos rec.capture("s2")
             end
             result = @simos session.close("tail")
             @test result.queued_tail_commit == true
@@ -516,7 +516,7 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
         end
     end
 
-    @testset "@simos session.queue supports cmt_every kwarg" begin
+    @testset "@simos rec.queue supports cmt_every kwarg" begin
         with_test_context() do _
             simos2 = kernel._get_simos()
             proj2 = kernel.sim_project(simos2)
@@ -525,24 +525,24 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
             ws = kernel._get_simos().worksession
 
             let x = 1
-                @simos scope.capture("g1")
+                @simos rec.capture("g1")
             end
-            r1 = @simos session.queue("bcg"; cmt_every = 2)
+            r1 = @simos rec.queue("bcg"; cmt_every = 2)
             @test isnothing(r1)
             @test isempty(ws.pending_commits)
             @test length(ws.stage.snapshots) == 1
 
             let x = 2
-                @simos scope.capture("g2")
+                @simos rec.capture("g2")
             end
-            r2 = @simos session.queue("bcg"; cmt_every = 2)
+            r2 = @simos rec.queue("bcg"; cmt_every = 2)
             @test !isnothing(r2)
             @test length(ws.pending_commits) == 1
             @test isempty(ws.stage.snapshots)
             @test length(ws.pending_commits[1].capture.snapshots) == 2
 
             let x = 3
-                @simos scope.capture("g3")
+                @simos rec.capture("g3")
             end
             result = @simos session.close("tail")
             @test result.queued_tail_commit == true
@@ -561,9 +561,9 @@ Base.close(::_CloseFailureHandle) = error("forced sqlite close failure")
             @simos session.init("simos-sqlite-" * string(uuid4()))
 
             let x = 1
-                @simos scope.capture("sample")
+                @simos rec.capture("sample")
             end
-            @simos session.commit("c1")
+            @simos rec.commit("c1")
 
             idx_path = @simos sqlite.path()
             @test endswith(idx_path, joinpath("index", "metadata-v1.sqlite"))

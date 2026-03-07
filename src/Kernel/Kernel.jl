@@ -25,6 +25,7 @@ include("Infra/settings/env.jl")
 include("Infra/tapeio/json.jl")
 include("Infra/tapeio/tape.jl")
 include("Infra/tapeio/record.jl")
+include("Infra/tapeio/registry.jl")
 include("Infra/blobstorage/blob.jl")
 include("Infra/cache/cache.jl")
 
@@ -57,6 +58,7 @@ include("Workflows/sessiontrace/scopetapes/base.jl")
 include("Workflows/sessiontrace/scopetapes/read.jl")
 include("Workflows/sessiontrace/scopetapes/write.jl")
 include("Workflows/sessiontrace/reader.jl")
+include("Workflows/sessiontrace/query.jl")
 
 # -- Infra: git --
 include("Infra/git/git.jl")

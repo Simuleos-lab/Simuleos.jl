@@ -41,7 +41,8 @@ function _simos_shared_bind(mod, src, args)
     key_expr = args[1]
     bind_args = args[2:end]
     scope_expr = :($(_WS).shared_get(string($key_expr)))
-    return _simos_bind_from_scope(mod, scope_expr, :(nothing), bind_args, "@simos shared.bind")
+    project_expr = :($(_Krn).sim_project())
+    return _simos_bind_from_scope(mod, scope_expr, project_expr, bind_args, "@simos shared.bind")
 end
 
 function _simos_shared_merge(mod, src, args)

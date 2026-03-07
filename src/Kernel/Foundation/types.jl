@@ -291,6 +291,29 @@ struct GitHandler
 end
 
 """
+    TapeRegistryEntry
+
+Metadata for a registered tape in the project's tape registry.
+"""
+struct TapeRegistryEntry
+    path::String         # absolute path to tape (file or directory)
+    source::Symbol       # :session, :blobstorage, :cache, :unknown, etc.
+    meta::Dict{String, Any}  # arbitrary metadata (session_id, shard_prefix, etc.)
+end
+
+"""
+    TapeRegistry
+
+In-memory registry of all known tapes for a project.
+Dict keyed by tape path for fast lookup and dedup.
+"""
+mutable struct TapeRegistry
+    entries::Dict{String, TapeRegistryEntry}
+end
+
+TapeRegistry() = TapeRegistry(Dict{String, TapeRegistryEntry}())
+
+"""
     SimuleosProject
 
 Represents a project with a `.simuleos/` directory.
@@ -301,6 +324,7 @@ mutable struct SimuleosProject
     simuleos_dir::String
     blobstorage::BlobStorage
     git_handler::Union{Nothing, GitHandler}
+    tape_registry::TapeRegistry
 end
 
 # --------------------------------------------------
@@ -359,7 +383,7 @@ mutable struct WorkSession
     simignore_rules::Vector{Dict{Symbol, Any}}
     capture_filter_defs::Dict{String, Vector{Dict{Symbol, Any}}}
     capture_filter_bindings::Dict{String, Vector{String}}
-    # Runtime-only counters for gated `session.queue(...; cmt_every=...)` calls.
+    # Runtime-only counters for gated `rec.queue(...; cmt_every=...)` calls.
     queue_counters::Dict{String, Int}
 
     # Context subsystem (runtime-only)

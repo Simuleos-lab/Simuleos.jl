@@ -513,7 +513,7 @@ import LibGit2
             @test isempty(collect(kernel.iterate_commits(tape)))
 
             let x = 1
-                @simos scope.capture("s1")
+                @simos rec.capture("s1")
             end
             c1 = wsmod.session_batch_commit("c1"; max_pending_commits=2)
             @test c1.label == "c1"
@@ -521,7 +521,7 @@ import LibGit2
             @test isempty(collect(kernel.iterate_commits(tape)))
 
             let x = 2
-                @simos scope.capture("s2")
+                @simos rec.capture("s2")
             end
             c2 = wsmod.session_batch_commit("c2"; max_pending_commits=2)
             @test c2.label == "c2"
@@ -531,13 +531,13 @@ import LibGit2
             @test [c.label for c in commits] == ["c1", "c2"]
 
             let x = 3
-                @simos scope.capture("s3")
+                @simos rec.capture("s3")
             end
-            @simos session.queue("c3")
+            @simos rec.queue("c3")
             @test length(ws.pending_commits) == 1
 
             let x = 4
-                @simos scope.capture("s4")
+                @simos rec.capture("s4")
             end
             result = @simos session.close("tail")
             @test result.queued_tail_commit == true
@@ -573,13 +573,13 @@ import LibGit2
             Simuleos.capture_filter_bind!(["label1", "label2"] => ["drop-debug", "keep-debug-main"])
 
             let __flt_debug = 1, __flt_debug_keep = 2, __flt_hidden = 3, __flt_result = 4
-                @simos scope.capture("label1")
+                @simos rec.capture("label1")
             end
             let __flt_debug = 10, __flt_debug_keep = 20, __flt_hidden = 30, __flt_result = 40
-                @simos scope.capture("label2")
+                @simos rec.capture("label2")
             end
             let __flt_debug = 100, __flt_debug_keep = 200, __flt_hidden = 300, __flt_result = 400
-                @simos scope.capture("other")
+                @simos rec.capture("other")
             end
 
             @test length(ws.stage.snapshots) == 3
@@ -631,17 +631,17 @@ import LibGit2
             @test isempty(collect(kernel.iterate_commits(tape)))
 
             let x = 1
-                @simos scope.capture("s1")
+                @simos rec.capture("s1")
             end
             wsmod.session_batch_commit("c1"; max_pending_commits=99)
 
             let x = 2
-                @simos scope.capture("s2")
+                @simos rec.capture("s2")
             end
             wsmod.session_batch_commit("c2"; max_pending_commits=99)
 
             let x = 3
-                @simos scope.capture("s3")
+                @simos rec.capture("s3")
             end
             wsmod.session_batch_commit("c3"; max_pending_commits=99)
 
@@ -700,14 +700,14 @@ import LibGit2
 
             data_a = [1, 2, 3]
             data_b = [4, 5, 6]
-            @simos stage.hash(data_a, data_b)
+            @simos rec.hash(data_a, data_b)
             @test :data_a in ws.capture_policy.hash_vars
             @test :data_b in ws.capture_policy.hash_vars
 
             let data_a = data_a, data_b = data_b
-                @simos scope.capture("hashed")
+                @simos rec.capture("hashed")
             end
-            @simos session.commit("hash-commit")
+            @simos rec.commit("hash-commit")
 
             tape = kernel.TapeIO(kernel.tape_path(proj2, ws.session_id))
             commits = collect(kernel.iterate_commits(tape))

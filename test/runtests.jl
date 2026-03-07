@@ -28,6 +28,7 @@ try
     include("sqlite_index_tests.jl")
     include("simos_macro_tests.jl")
     include("jmespath_tests.jl")
+    include("query_command_tests.jl")
 finally
     test_cleanup!()
 end
