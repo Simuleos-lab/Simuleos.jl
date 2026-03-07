@@ -43,9 +43,9 @@ let
     params = Dict("alpha" => 0.2, "beta" => 0.8)
     total = 42.0
 
-    @simos stage.inline(params, total)
-    @simos stage.meta(step = step, phase = "warmup")
-    @simos scope.capture("snapshot")
+    @simos rec.inline(params, total)
+    @simos rec.meta(step = step, phase = "warmup")
+    @simos rec.capture("snapshot")
     @simos session.close("final")
 end
 

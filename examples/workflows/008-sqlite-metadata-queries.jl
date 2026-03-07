@@ -21,20 +21,20 @@ import Simuleos: @simos
 let
     lr = 0.01
     epochs = 100
-    @simos stage.inline(lr, epochs)
-    @simos stage.meta(phase = "config")
-    @simos scope.capture("config")
-    @simos session.commit("setup")
+    @simos rec.inline(lr, epochs)
+    @simos rec.meta(phase = "config")
+    @simos rec.capture("config")
+    @simos rec.commit("setup")
 end
 
 for step in 1:3
     let step = step
         loss = round(1.0 / step; digits = 4)
         accuracy = round(1.0 - loss; digits = 4)
-        @simos stage.inline(step, loss, accuracy)
-        @simos stage.meta(phase = "train", step = step)
-        @simos scope.capture("train")
-        @simos session.queue("train-step")
+        @simos rec.inline(step, loss, accuracy)
+        @simos rec.meta(phase = "train", step = step)
+        @simos rec.capture("train")
+        @simos rec.queue("train-step")
     end
 end
 
@@ -46,20 +46,20 @@ let
     lr = 0.001
     epochs = 200
     big_model = [rand(10, 10) for _ in 1:5]
-    @simos stage.inline(lr, epochs)
-    @simos stage.blob(big_model)
-    @simos stage.meta(phase = "config")
-    @simos scope.capture("config")
-    @simos session.commit("setup")
+    @simos rec.inline(lr, epochs)
+    @simos rec.blob(big_model)
+    @simos rec.meta(phase = "config")
+    @simos rec.capture("config")
+    @simos rec.commit("setup")
 end
 
 for step in 1:2
     let step = step
         loss = round(0.5 / step; digits = 4)
-        @simos stage.inline(step, loss)
-        @simos stage.meta(phase = "train", step = step)
-        @simos scope.capture("train")
-        @simos session.queue("train-step")
+        @simos rec.inline(step, loss)
+        @simos rec.meta(phase = "train", step = step)
+        @simos rec.capture("train")
+        @simos rec.queue("train-step")
     end
 end
 

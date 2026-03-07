@@ -17,12 +17,12 @@ let
     table = [Dict("t" => t, "y" => round(sin(t); digits = 4)) for t in 0:3]
     raw_signal = [sin(0.1 * k) for k in 1:200]
 
-    @simos stage.inline(params)
-    @simos stage.blob(table)
-    @simos stage.hash(raw_signal)
-    @simos stage.meta(step = step, phase = "warmup")
-    @simos scope.capture("snapshot")
-    @simos session.commit("warmup")
+    @simos rec.inline(params)
+    @simos rec.blob(table)
+    @simos rec.hash(raw_signal)
+    @simos rec.meta(step = step, phase = "warmup")
+    @simos rec.capture("snapshot")
+    @simos rec.commit("warmup")
 end
 
 let
@@ -30,9 +30,9 @@ let
     squares = [k^2 for k in 1:6]
     total = sum(squares)
 
-    @simos stage.inline(squares, total)
-    @simos stage.meta(step = step, phase = "summary")
-    @simos scope.capture("summary")
+    @simos rec.inline(squares, total)
+    @simos rec.meta(step = step, phase = "summary")
+    @simos rec.capture("summary")
     result = @simos session.close("final")
     println("finalize.queued_tail_commit = ", result.queued_tail_commit)
 end

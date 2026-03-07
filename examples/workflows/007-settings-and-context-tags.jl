@@ -122,9 +122,9 @@ end
 
 artifact_name = basename(artifact_path)
 context_short = string(ctx_ref)
-@simos stage.inline(artifact_name, context_short, summary)
-@simos stage.meta(kind = "text_report", tag = tag, context_ref = context_short)
-@simos scope.capture("artifact")
+@simos rec.inline(artifact_name, context_short, summary)
+@simos rec.meta(kind = "text_report", tag = tag, context_ref = context_short)
+@simos rec.capture("artifact")
 result = @simos session.close("artifact-export")
 
 println("\ncontext ref = ", ctx_ref)

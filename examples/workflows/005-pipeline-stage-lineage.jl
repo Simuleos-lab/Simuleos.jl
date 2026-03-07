@@ -22,11 +22,11 @@ let
     raw_points = [1.0, 2.0, 4.0, 7.0]
     prepared_points = [round(log(1 + x); digits = 4) for x in raw_points]
 
-    @simos stage.inline(prepared_points)
-    @simos stage.meta(stage = "prepare")
-    @simos scope.capture("prepare")
+    @simos rec.inline(prepared_points)
+    @simos rec.meta(stage = "prepare")
+    @simos rec.capture("prepare")
 end
-@simos session.commit("prepare-output")
+@simos rec.commit("prepare-output")
 
 proj = @simos project.current()
 prepare_scope = latest_scope(
@@ -39,19 +39,19 @@ prepare_scope = latest_scope(
 # Stage 2: fit (reads stage-1 output from tape)
 let
     prepared_points = Float64[]
-    @simos scope.bind(prepare_scope, proj, prepared_points)
+    @simos base.bind(prepare_scope, prepared_points)
 
     slope = sum(prepared_points) / length(prepared_points)
     intercept = prepared_points[end] - slope
 
-    @simos stage.inline(prepared_points, slope, intercept)
-    @simos stage.meta(stage = "fit")
-    @simos scope.capture("fit")
+    @simos rec.inline(prepared_points, slope, intercept)
+    @simos rec.meta(stage = "fit")
+    @simos rec.capture("fit")
 
     println("stage-2 recovered prepared_points = ", prepared_points)
     println("stage-2 fit: slope=", slope, " intercept=", intercept)
 end
-@simos session.commit("fit-output")
+@simos rec.commit("fit-output")
 
 fit_scope = latest_scope(
     proj;
@@ -64,14 +64,14 @@ fit_scope = latest_scope(
 let
     slope = 0.0
     intercept = 0.0
-    @simos scope.bind(fit_scope, proj, slope, intercept)
+    @simos base.bind(fit_scope, slope, intercept)
 
     prediction_at_5 = slope * 5 + intercept
     status = prediction_at_5 > 0 ? "ok" : "check"
 
-    @simos stage.inline(prediction_at_5, status)
-    @simos stage.meta(stage = "summary")
-    @simos scope.capture("summary")
+    @simos rec.inline(prediction_at_5, status)
+    @simos rec.meta(stage = "summary")
+    @simos rec.capture("summary")
 
     println("stage-3 recovered fit params: slope=", slope, " intercept=", intercept)
     println("stage-3 summary: prediction_at_5=", prediction_at_5, " status=", status)

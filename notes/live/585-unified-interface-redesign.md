@@ -145,14 +145,33 @@ Implemented 2026-03-06. All 73 tests pass, full suite green.
 
 **Supported subset:** field access, array index, `*`, `[*]`, `[]`, `[?predicate]`, `== != < <= > >=`, `&& || !`, backtick literals, raw strings, quoted identifiers, projection chaining.
 
-### Phase 2: `@simos query` command
-- [ ] Define `(:query,)` command spec in dispatch table
-- [ ] Handler: accept built-in kwargs (`class`, `session`, `latest`, `limit`)
-- [ ] Handler: accept `where` kwarg, parse as JMESPath, apply as post-filter
-- [ ] Wire to tape reader: scan session tapes, decode records, filter
-- [ ] Wire to SQLite index: use built-in kwargs as SQL pre-filter when index available
-- [ ] Return type: vector of decoded SimuleosDataClass objects
-- [ ] Tests: query by class, session, label, latest, where expression
+### Phase 2: `@simos query` command + TapeRegistry ✅ DONE
+
+Implemented 2026-03-06/07. All 21 tests pass, full suite green.
+
+**Files:**
+- `Kernel/Foundation/types.jl` — `TapeRegistryEntry`, `TapeRegistry` types; `tape_registry` field on `SimuleosProject`
+- `Kernel/Foundation/state.jl` — `SimuleosProject` constructor updated with `tape_registry` kwarg
+- `Kernel/Infra/tapeio/registry.jl` — registration, query, rebuild-from-disk, lazy ensure
+- `Kernel/Infra/tapeio/tape.jl` — `_tape_registry_hook!` in `_ensure_tape_metadata!` (fires once on tape creation)
+- `Kernel/Workflows/sessiontrace/query.jl` — runtime: TapeRegistry-based tape resolution, built-in + JMESPath filtering
+- `SimosAPI/macro/handlers/query.jl` — macro handler: validates kwargs, emits runtime call
+- `test/query_command_tests.jl` — 21 tests across 11 test sets
+
+**Command:** `@simos query(; class, session, commit_label, scope_label, src_file, latest, limit, where)`
+
+**Built-in kwargs:** `class` (rec.capture_commit | snap.scope | nothing=all), `session`, `commit_label`, `scope_label`, `src_file`, `latest`, `limit`
+**JMESPath `where`:** predicate expression evaluated per-record on raw dict (e.g. `"commit_label == 'main.summary'"`)
+
+**Design decisions:**
+- `class = nothing` (default) → no class filtering, returns all record types
+- Query targets ALL registered tapes in the system, not just session tapes
+- TapeRegistry: per-project in-memory Dict keyed by absolute path, tagged with source + metadata
+- Registration hook: fires once per tape on first write (inside `_ensure_tape_metadata!`)
+- Rebuild-from-disk: `tape_registry_rebuild!(proj)` scans `sessions/*/tapes/` and `blobs/tapes/*.jsonl`
+- Lazy ensure: `tape_registry_ensure!(proj)` rebuilds on first query if registry is empty
+
+**Note:** SQLite pre-filter path deferred — currently all filtering is via tape scan. SQLite acceleration can be added later without API change.
 
 ### Phase 3: `@simos hydrate` command
 - [ ] Define `(:hydrate,)` command spec in dispatch table

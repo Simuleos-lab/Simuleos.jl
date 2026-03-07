@@ -8,17 +8,17 @@ const SANDBOX_DIR = joinpath(@__DIR__, "_sandbox", basename(@__FILE__))
 
 function record_run!(session_label::String, biomass_values::Vector{Float64})
     for (step, biomass) in enumerate(biomass_values[1:end-1])
-        @simos stage.inline(biomass)
-        @simos stage.meta(step = step, session = session_label)
-        @simos scope.capture("obs")
-        @simos session.queue("iter")
+        @simos rec.inline(biomass)
+        @simos rec.meta(step = step, session = session_label)
+        @simos rec.capture("obs")
+        @simos rec.queue("iter")
     end
 
     step = length(biomass_values)
     biomass = biomass_values[end]
-    @simos stage.inline(biomass)
-    @simos stage.meta(step = step, session = session_label)
-    @simos scope.capture("obs")
+    @simos rec.inline(biomass)
+    @simos rec.meta(step = step, session = session_label)
+    @simos rec.capture("obs")
     result = @simos session.close("tail")
     println("recorded ", session_label, " finalize.queued_tail_commit=", result.queued_tail_commit)
     return nothing
